@@ -10,7 +10,7 @@
 - Acceptance criteria: 120
 
 ## Next
-- Phase 3 decision checkpoint: waiting on the engineer
+- Phase 5: UX flows and design system
 
 ## Done
 - none

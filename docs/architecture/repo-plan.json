@@ -1,0 +1,17 @@
+{
+  "project": "CollectionsAgent",
+  "group": "CollectionsAgent",
+  "repos": [
+    {
+      "name": "CollectionsAgentPlatform",
+      "git_path": "CollectionsAgent/Server/CollectionsAgentPlatform",
+      "stack": "python-api",
+      "tech": "One repository (codedbygo/receivables-agent): Python 3.12, FastAPI, SQLAlchemy 2, Alembic, mcp 2.x, uv (backend/); React 19, Vite, TanStack Query, Tailwind (web/); Docker Compose",
+      "responsibility": "The whole collections system: ledger, services, tool registry and MCP server, orchestrator, gateway, worker, web console, evals and compose",
+      "apps": [
+        {"path": "backend", "name": "Backend", "for": "api, mcp and worker entrypoints over one service layer and one database"},
+        {"path": "web", "name": "Console", "for": "collectors, admins and viewers working the daily queue in a browser"}
+      ]
+    }
+  ]
+}

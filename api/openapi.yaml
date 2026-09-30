@@ -1,0 +1,3448 @@
+openapi: 3.1.0
+info:
+  title: Collections Agent API
+  version: 1.0.0
+  description: REST API for the AI Receivables Collections Agent console, the bank webhook and admin controls. Serves the
+    stories named in each operation's x-story-ids. Money fields are integer paise named *_paise (INR only); every amount shown
+    to a user is formatted from these at the edge.
+  contact:
+    name: HACK-001 team
+x-api-style: 'REST over HTTP with JSON bodies; one service; deviations from docs/api style: money fields are *_paise with
+  no currency field (INR only, ADR-0003 and tenet 2); error codes are UPPER_SNAKE to match the MCP tool envelope (eng review
+  Q2); authentication is a session cookie (ADR-0009).'
+x-versioning: Major in the path (/api/v1); X-API-Version reserved for dated changes.
+x-authentication: 'Session cookie on every operation except those marked security: [] (health, sign-in, payment link) and
+  the bank webhook (HMAC). Scripts may send Authorization: Bearer ADMIN_TOKEN. A record the caller cannot see is 404.'
+servers:
+- url: http://localhost:8000/api/v1
+  description: local Docker Compose
+security:
+- sessionCookie: []
+- adminToken: []
+tags:
+- name: health
+  description: health
+- name: auth
+  description: auth
+- name: dashboard
+  description: dashboard
+- name: customers
+  description: customers
+- name: runs
+  description: runs
+- name: messages
+  description: messages
+- name: replies
+  description: replies
+- name: promises
+  description: promises
+- name: disputes
+  description: disputes
+- name: escalations
+  description: escalations
+- name: payments
+  description: payments
+- name: webhooks
+  description: webhooks
+- name: admin
+  description: admin
+- name: evals
+  description: evals
+- name: pay
+  description: pay
+paths:
+  /healthz:
+    get:
+      operationId: getHealthz
+      summary: Liveness
+      tags:
+      - health
+      x-story-ids:
+      - US-01-014
+      x-roles: public
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      security: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /readyz:
+    get:
+      operationId: getReadyz
+      summary: Readiness with per-dependency checks
+      tags:
+      - health
+      x-story-ids:
+      - US-01-014
+      x-roles: public
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      security: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /auth/sessions:
+    post:
+      operationId: createSession
+      summary: Sign in
+      tags:
+      - auth
+      x-story-ids:
+      - US-01-007
+      x-roles: public
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignIn'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/sessions/current:
+    delete:
+      operationId: deleteSession
+      summary: Sign out
+      tags:
+      - auth
+      x-story-ids:
+      - US-01-007
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/me:
+    get:
+      operationId: getMe
+      summary: Current user
+      tags:
+      - auth
+      x-story-ids:
+      - US-01-007
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /dashboard:
+    get:
+      operationId: getDashboard
+      summary: Totals, ageing and the attention list
+      tags:
+      - dashboard
+      x-story-ids:
+      - US-00-003
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /priorities:
+    get:
+      operationId: listPriorities
+      summary: Top customers by priority with reasons (top 15 by default)
+      tags:
+      - customers
+      x-story-ids:
+      - US-00-002
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Priority'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: CRM list
+      tags:
+      - customers
+      x-story-ids:
+      - US-00-026
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: filter[band]
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - HIGH
+          - MEDIUM
+          - LOW
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      summary: Customer detail header
+      tags:
+      - customers
+      x-story-ids:
+      - US-00-004
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/invoices:
+    get:
+      operationId: listCustomerInvoices
+      summary: Invoices with derived balances
+      tags:
+      - customers
+      x-story-ids:
+      - US-00-001
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: filter[status]
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - unpaid
+          - partially_paid
+          - paid
+          - disputed
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invoice'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/priority:
+    get:
+      operationId: getCustomerPriority
+      summary: Score, band and reasons
+      tags:
+      - customers
+      x-story-ids:
+      - US-00-002
+      - US-00-004
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Priority'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/timeline:
+    get:
+      operationId: listCustomerTimeline
+      summary: Timeline in time order
+      tags:
+      - customers
+      x-story-ids:
+      - US-00-022
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TimelineEvent'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/runs:
+    get:
+      operationId: listCustomerRuns
+      summary: Agent runs for the customer
+      tags:
+      - runs
+      x-story-ids:
+      - US-00-008
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AgentRun'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/call-prep:
+    get:
+      operationId: getCallPrep
+      summary: Prepare Call sheet (FEATURE_VOICE)
+      tags:
+      - customers
+      x-story-ids:
+      - US-00-025
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallPrep'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /runs:
+    post:
+      operationId: startDailyRun
+      summary: 'Run now: enqueue today''s daily run'
+      tags:
+      - runs
+      x-story-ids:
+      - US-01-001
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunStart'
+      responses:
+        '202':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunBatch'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: listRuns
+      summary: Recent runs
+      tags:
+      - runs
+      x-story-ids:
+      - US-01-006
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AgentRun'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /runs/{id}:
+    get:
+      operationId: getRun
+      summary: One run with its steps
+      tags:
+      - runs
+      x-story-ids:
+      - US-00-008
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRun'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /messages:
+    get:
+      operationId: listMessages
+      summary: Approval queue and message lists
+      tags:
+      - messages
+      x-story-ids:
+      - US-00-009
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: filter[status]
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - draft
+          - pending_approval
+          - approved
+          - rejected
+          - sent
+          - failed
+      - name: filter[customer_id]
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /messages/{id}:
+    get:
+      operationId: getMessage
+      summary: One message with its guardrail report
+      tags:
+      - messages
+      x-story-ids:
+      - US-00-009
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: editMessage
+      summary: Edit text; re-runs guardrails; If-Match carries the version
+      tags:
+      - messages
+      x-story-ids:
+      - US-00-010
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageEdit'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /messages/{id}/approve:
+    post:
+      operationId: approveMessage
+      summary: Approve (idempotent; refuses unverified or stale versions)
+      tags:
+      - messages
+      x-story-ids:
+      - US-00-009
+      - US-00-010
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /messages/{id}/reject:
+    post:
+      operationId: rejectMessage
+      summary: Reject with a reason
+      tags:
+      - messages
+      x-story-ids:
+      - US-00-009
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Reject'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /messages/{id}/resend:
+    post:
+      operationId: resendMessage
+      summary: Manual resend of a failed or unconfirmed message
+      tags:
+      - messages
+      x-story-ids:
+      - US-00-011
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /messages/approve-batch:
+    post:
+      operationId: approveMessagesBatch
+      summary: 'Assisted mode: approve passed drafts in one action'
+      tags:
+      - messages
+      x-story-ids:
+      - US-01-016
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchApprove'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /replies:
+    post:
+      operationId: createReply
+      summary: Simulate a customer reply to a sent message; classification runs
+      tags:
+      - replies
+      x-story-ids:
+      - US-03-001
+      - US-00-012
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplyCreate'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reply'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /replies/{id}:
+    get:
+      operationId: getReply
+      summary: One reply with classification
+      tags:
+      - replies
+      x-story-ids:
+      - US-00-012
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reply'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /promises:
+    get:
+      operationId: listPromises
+      summary: 'Promises (today''s: filter[promised_date]=today)'
+      tags:
+      - promises
+      x-story-ids:
+      - US-00-021
+      - US-00-020
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: filter[status]
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - pending
+          - fulfilled
+          - partially_fulfilled
+          - missed
+      - name: filter[promised_date]
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Promise'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /promises/{id}/check-payment:
+    post:
+      operationId: checkPromisePayment
+      summary: Check payment for one promise
+      tags:
+      - promises
+      x-story-ids:
+      - US-00-021
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromiseCheck'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /disputes:
+    get:
+      operationId: listDisputes
+      summary: Disputes
+      tags:
+      - disputes
+      x-story-ids:
+      - US-00-016
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: filter[status]
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - open
+          - resolved
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Dispute'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /disputes/{id}/resolve:
+    post:
+      operationId: resolveDispute
+      summary: Resolve a dispute; reminders resume
+      tags:
+      - disputes
+      x-story-ids:
+      - US-00-016
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resolve'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispute'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /escalations:
+    get:
+      operationId: listEscalations
+      summary: Escalations
+      tags:
+      - escalations
+      x-story-ids:
+      - US-00-016
+      - US-00-012
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: filter[status]
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - open
+          - resolved
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Escalation'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /escalations/{id}/resolve:
+    post:
+      operationId: resolveEscalation
+      summary: Close an escalation
+      tags:
+      - escalations
+      x-story-ids:
+      - US-00-016
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resolve'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Escalation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /payments:
+    get:
+      operationId: listPayments
+      summary: Payments
+      tags:
+      - payments
+      x-story-ids:
+      - US-00-017
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: filter[match_status]
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - matched
+          - needs_verification
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Payment'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /payments/{id}/match:
+    post:
+      operationId: matchPayment
+      summary: Collector matches a payment that needs verification
+      tags:
+      - payments
+      x-story-ids:
+      - US-00-017
+      - US-00-018
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentMatch'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /webhooks/bank:
+    post:
+      operationId: receiveBankCredit
+      summary: Signed bank credit (HMAC-SHA256 over timestamp.body)
+      tags:
+      - webhooks
+      x-story-ids:
+      - US-00-017
+      x-roles: bank feed
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/BankTimestamp'
+      security:
+      - bankSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BankCredit'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/settings:
+    get:
+      operationId: getSettings
+      summary: Runtime settings
+      tags:
+      - admin
+      x-story-ids:
+      - US-01-006
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: updateSettings
+      summary: Kill switch, autonomy mode, budget, feature flags
+      tags:
+      - admin
+      x-story-ids:
+      - US-01-002
+      - US-01-006
+      - US-01-016
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsPatch'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/clock/advance:
+    post:
+      operationId: advanceClock
+      summary: Advance the demo clock; runs the promise check
+      tags:
+      - admin
+      x-story-ids:
+      - US-01-004
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClockAdvance'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/reset:
+    post:
+      operationId: resetDemo
+      summary: Reset demo data to the start of the ABC story
+      tags:
+      - admin
+      x-story-ids:
+      - US-01-005
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/simulate/bank-credit:
+    post:
+      operationId: simulateBankCredit
+      summary: Build and sign a bank credit server-side and pass it through the webhook handler
+      tags:
+      - admin
+      x-story-ids:
+      - US-00-017
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulatedCredit'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/guardrail-events:
+    get:
+      operationId: listGuardrailEvents
+      summary: Recent guardrail refusals
+      tags:
+      - admin
+      x-story-ids:
+      - US-01-006
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GuardrailEvent'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /evals/latest:
+    get:
+      operationId: getLatestEval
+      summary: Latest evaluation report
+      tags:
+      - evals
+      x-story-ids:
+      - US-01-010
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvalReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /pay/{token}:
+    get:
+      operationId: getPayLink
+      summary: Simulated payment link page data (FEATURE_PAYMENT_LINK)
+      tags:
+      - pay
+      x-story-ids:
+      - US-03-004
+      x-roles: public (signed token)
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      security: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayLink'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: payLink
+      summary: Simulated payment through the link
+      tags:
+      - pay
+      x-story-ids:
+      - US-03-004
+      x-roles: public (signed token)
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      security: []
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: ca_session
+    adminToken:
+      type: http
+      scheme: bearer
+    bankSignature:
+      type: apiKey
+      in: header
+      name: X-Bank-Signature
+      description: hex HMAC-SHA256 of '<X-Bank-Timestamp>.<raw body>' with BANK_WEBHOOK_SECRET
+  parameters:
+    ApiVersion:
+      name: X-API-Version
+      in: header
+      required: false
+      schema:
+        type: string
+        example: '2026-09-30'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: The message version the client saw; a different version returns 409 STALE_DRAFT
+      schema:
+        type: string
+    BankTimestamp:
+      name: X-Bank-Timestamp
+      in: header
+      required: true
+      description: Unix seconds; rejected outside 300 s of server time
+      schema:
+        type: string
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+  headers:
+    XRequestId:
+      schema:
+        type: string
+      description: Matches error.request_id and the server log line
+  responses:
+    BadRequest:
+      description: Malformed request
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: BAD_REQUEST
+              message: Malformed request
+              request_id: req_01J9Z6
+    Unauthorized:
+      description: Not signed in
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Not signed in
+              request_id: req_01J9Z6
+    Forbidden:
+      description: Signed in but not allowed
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: FORBIDDEN
+              message: Signed in but not allowed
+              request_id: req_01J9Z6
+    NotFound:
+      description: Not found
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: NOT_FOUND
+              message: Not found
+              request_id: req_01J9Z6
+    Conflict:
+      description: State or idempotency conflict
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: STALE_DRAFT
+              message: State or idempotency conflict
+              request_id: req_01J9Z6
+    UnprocessableEntity:
+      description: Valid shape, invalid content
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: AMOUNT_MISMATCH
+              message: Valid shape, invalid content
+              request_id: req_01J9Z6
+    TooManyRequests:
+      description: Rate limited
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: RATE_LIMITED
+              message: Rate limited
+              request_id: req_01J9Z6
+    InternalError:
+      description: Unexpected error
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: INTERNAL
+              message: Unexpected error
+              request_id: req_01J9Z6
+    Unavailable:
+      description: A dependency is not ready
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: UNAVAILABLE
+              message: A dependency is not ready
+              request_id: req_01J9Z6
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Stable UPPER_SNAKE code, e.g. AMOUNT_MISMATCH, NOT_APPROVED, STALE_DRAFT
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  reason:
+                    type: string
+                required:
+                - field
+                - reason
+            request_id:
+              type: string
+          required:
+          - code
+          - message
+          - request_id
+      required:
+      - error
+      example:
+        error:
+          code: AMOUNT_MISMATCH
+          message: ₹4,50,000 is not the ledger amount for INV-1021
+          details:
+          - field: body
+            reason: INV-1021 is 40000000 paise
+          request_id: req_01J9Z6
+    Page:
+      type: object
+      properties:
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+        has_more:
+          type: boolean
+      required:
+      - next_cursor
+      - has_more
+      example:
+        next_cursor: eyJpZCI6IjAxOTIifQ
+        has_more: false
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        display_name:
+          type: string
+        role:
+          type: string
+          enum:
+          - admin
+          - collector
+          - viewer
+      required:
+      - id
+      - email
+      - display_name
+      - role
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        email: collector@example.in
+        display_name: Priya (Collector)
+        role: collector
+    SignIn:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+          format: password
+      required:
+      - email
+      - password
+      example:
+        email: collector@example.in
+        password: demo-password
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        segment:
+          type: string
+          enum:
+          - enterprise
+          - mid_market
+          - sme
+        credit_terms_days:
+          type: integer
+        outstanding_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total outstanding (integer paise, INR)
+        overdue_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total overdue (integer paise, INR)
+        band:
+          anyOf:
+          - type: string
+            enum:
+            - HIGH
+            - MEDIUM
+            - LOW
+          - type: 'null'
+        last_contact_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        next_action:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - id
+      - name
+      - email
+      - phone
+      - segment
+      - credit_terms_days
+      - outstanding_paise
+      - overdue_paise
+      - band
+      - last_contact_at
+      - next_action
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        name: ABC Distributors
+        email: accounts@abc-distributors.example.in
+        phone: +91-9800000001
+        segment: mid_market
+        credit_terms_days: 30
+        outstanding_paise: 75000000
+        overdue_paise: 75000000
+        band: HIGH
+        last_contact_at: null
+        next_action: Send follow-up on missed promise
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+          pattern: ^INV-[0-9]+$
+        invoice_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        amount_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Invoice amount (integer paise, INR)
+        paid_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Sum of allocations (integer paise, INR)
+        remaining_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Amount minus paid (integer paise, INR)
+        status:
+          type: string
+          enum:
+          - unpaid
+          - partially_paid
+          - paid
+          - disputed
+        days_overdue:
+          type: integer
+          description: From the demo clock; 0 when not due
+      required:
+      - id
+      - number
+      - invoice_date
+      - due_date
+      - amount_paise
+      - paid_paise
+      - remaining_paise
+      - status
+      - days_overdue
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        number: INV-1021
+        invoice_date: '2026-08-12'
+        due_date: '2026-09-11'
+        amount_paise: 40000000
+        paid_paise: 0
+        remaining_paise: 40000000
+        status: unpaid
+        days_overdue: 19
+    Priority:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          format: uuid
+        customer_name:
+          type: string
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        band:
+          type: string
+          enum:
+          - HIGH
+          - MEDIUM
+          - LOW
+        reasons:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              text:
+                type: string
+            required:
+            - code
+            - text
+      required:
+      - customer_id
+      - customer_name
+      - score
+      - band
+      - reasons
+      example:
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        customer_name: ABC Distributors
+        score: 86
+        band: HIGH
+        reasons:
+        - code: HIGH_OUTSTANDING
+          text: High outstanding (₹7,50,000)
+        - code: OLDEST_OVERDUE
+          text: Oldest invoice 19 days overdue
+        - code: MISSED_PROMISES
+          text: 1 missed promise
+    GuardrailCheck:
+      type: object
+      properties:
+        check:
+          type: string
+        token:
+          type: string
+        expected:
+          anyOf:
+          - type: string
+          - type: 'null'
+        ok:
+          type: boolean
+        code:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - check
+      - token
+      - expected
+      - ok
+      - code
+      example:
+        check: amount
+        token: ₹4,00,000
+        expected: INV-1021 40000000
+        ok: true
+        code: null
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        agent_run_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        kind:
+          type: string
+          enum:
+          - reminder
+          - followup
+          - statement
+          - dispute_ack
+        channel:
+          type: string
+          enum:
+          - email
+          - whatsapp
+          - voice
+        tone:
+          type: string
+          enum:
+          - gentle
+          - firm
+          - final
+        status:
+          type: string
+          enum:
+          - draft
+          - pending_approval
+          - approved
+          - rejected
+          - sent
+          - failed
+        subject:
+          type: string
+        body:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        verified:
+          type: boolean
+          description: True when the current version passed guardrails
+        guardrail_report:
+          type: array
+          items:
+            $ref: '#/components/schemas/GuardrailCheck'
+        invoice_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        rejected_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+        sent_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        last_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - customer_id
+      - agent_run_id
+      - kind
+      - channel
+      - tone
+      - status
+      - subject
+      - body
+      - version
+      - verified
+      - guardrail_report
+      - invoice_ids
+      - rejected_reason
+      - sent_at
+      - last_error
+      - created_at
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        agent_run_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        kind: reminder
+        channel: email
+        tone: firm
+        status: pending_approval
+        subject: Overdue invoices for ABC Distributors
+        body: Dear ABC Distributors, ... INV-1021 | ₹4,00,000 | due 11 Sep 2026 ... Total ₹7,50,000
+        version: 1
+        verified: true
+        guardrail_report: []
+        invoice_ids:
+        - 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        rejected_reason: null
+        sent_at: null
+        last_error: null
+        created_at: '2026-09-30T03:31:00Z'
+    MessageEdit:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+        subject:
+          type: string
+          minLength: 1
+      required:
+      - body
+      - subject
+      example:
+        subject: Overdue invoices for ABC Distributors
+        body: Dear ABC Distributors, ...
+    Reject:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+      required:
+      - reason
+      example:
+        reason: Tone too firm for a first reminder
+    BatchApprove:
+      type: object
+      properties:
+        message_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - message_ids
+      example:
+        message_ids:
+        - 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+    ReplyCreate:
+      type: object
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+      required:
+      - message_id
+      - body
+      example:
+        message_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        body: We can pay ₹3 lakh on October 5 and the remaining amount later.
+    Reply:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        message_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        body:
+          type: string
+        classification:
+          anyOf:
+          - type: string
+            enum:
+            - PROMISE
+            - PART_PAYMENT
+            - DISPUTE
+            - STATEMENT_REQUEST
+            - PAYMENT_CONFIRMATION
+            - NO_INTENT_UNCLEAR
+            - OTHER_NOISE
+          - type: 'null'
+        amount_paise:
+          anyOf:
+          - type: integer
+            format: int64
+            minimum: 0
+            description: Parsed in code (integer paise, INR)
+          - type: 'null'
+        stated_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        invoice_refs:
+          type: array
+          items:
+            type: string
+        confidence:
+          anyOf:
+          - type: number
+            minimum: 0
+            maximum: 1
+          - type: 'null'
+        recommended_action:
+          anyOf:
+          - type: string
+          - type: 'null'
+        needs_review:
+          type: boolean
+        agent_run_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      required:
+      - id
+      - customer_id
+      - message_id
+      - body
+      - classification
+      - amount_paise
+      - stated_date
+      - invoice_refs
+      - confidence
+      - recommended_action
+      - needs_review
+      - agent_run_id
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        message_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        body: We can pay ₹3 lakh on October 5 and the remaining amount later.
+        classification: PROMISE
+        amount_paise: 30000000
+        stated_date: '2026-10-05'
+        invoice_refs: []
+        confidence: 0.93
+        recommended_action: log_promise
+        needs_review: false
+        agent_run_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+    Promise:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        customer_name:
+          type: string
+        amount_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Promised (integer paise, INR)
+        promised_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+          - pending
+          - fulfilled
+          - partially_fulfilled
+          - missed
+        invoice_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - id
+      - customer_id
+      - customer_name
+      - amount_paise
+      - promised_date
+      - status
+      - invoice_ids
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        customer_name: ABC Distributors
+        amount_paise: 30000000
+        promised_date: '2026-10-05'
+        status: pending
+        invoice_ids:
+        - 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+    PromiseCheck:
+      type: object
+      properties:
+        promise:
+          $ref: '#/components/schemas/Promise'
+        matched_payment_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        message:
+          type: string
+      required:
+      - promise
+      - matched_payment_ids
+      - message
+      example:
+        promise:
+          id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+          customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+          customer_name: ABC Distributors
+          amount_paise: 30000000
+          promised_date: '2026-10-05'
+          status: fulfilled
+          invoice_ids:
+          - 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        matched_payment_ids:
+        - 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        message: Payment of ₹3,00,000 matched
+    Dispute:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        invoice_number:
+          type: string
+        reason:
+          type: string
+        status:
+          type: string
+          enum:
+          - open
+          - resolved
+        resolution_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - id
+      - customer_id
+      - invoice_id
+      - invoice_number
+      - reason
+      - status
+      - resolution_note
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        invoice_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        invoice_number: INV-1047
+        reason: quantity mismatch
+        status: open
+        resolution_note: null
+    Resolve:
+      type: object
+      properties:
+        note:
+          type: string
+          minLength: 1
+      required:
+      - note
+      example:
+        note: Credit note issued for 10 units
+    Escalation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - dispute
+          - low_confidence
+          - injection_suspected
+          - claim_not_found
+          - payment_needs_verification
+        reason:
+          type: string
+        status:
+          type: string
+          enum:
+          - open
+          - resolved
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - customer_id
+      - kind
+      - reason
+      - status
+      - created_at
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        kind: dispute
+        reason: 'INV-1047 disputed: quantity mismatch'
+        status: open
+        created_at: '2026-10-05T06:10:00Z'
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        amount_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Received (integer paise, INR)
+        received_on:
+          type: string
+          format: date
+        reference:
+          anyOf:
+          - type: string
+          - type: 'null'
+        source:
+          type: string
+          enum:
+          - bank_feed
+          - payment_link
+          - manual
+        match_status:
+          type: string
+          enum:
+          - matched
+          - needs_verification
+        allocations:
+          type: array
+          items:
+            type: object
+            properties:
+              invoice_id:
+                type: string
+                format: uuid
+              invoice_number:
+                type: string
+              amount_paise:
+                type: integer
+                format: int64
+                minimum: 0
+                description: Applied (integer paise, INR)
+            required:
+            - invoice_id
+            - invoice_number
+            - amount_paise
+      required:
+      - id
+      - customer_id
+      - amount_paise
+      - received_on
+      - reference
+      - source
+      - match_status
+      - allocations
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        amount_paise: 30000000
+        received_on: '2026-10-05'
+        reference: UTR 4411
+        source: bank_feed
+        match_status: matched
+        allocations:
+        - invoice_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+          invoice_number: INV-1021
+          amount_paise: 30000000
+    PaymentMatch:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          format: uuid
+        invoice_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - customer_id
+      example:
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        invoice_ids:
+        - 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+    BankCredit:
+      type: object
+      properties:
+        event_id:
+          type: string
+          minLength: 1
+        amount_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Credited (integer paise, INR)
+        reference:
+          type: string
+        payer_name:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+      required:
+      - event_id
+      - amount_paise
+      - reference
+      - payer_name
+      - occurred_at
+      example:
+        event_id: evt_20261005_0001
+        amount_paise: 30000000
+        reference: ABC DISTRIBUTORS UTR 4411
+        payer_name: ABC Distributors
+        occurred_at: '2026-10-05T05:00:00Z'
+    SimulatedCredit:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          format: uuid
+        amount_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Credited (integer paise, INR)
+        reference:
+          type: string
+      required:
+      - customer_id
+      - amount_paise
+      - reference
+      example:
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        amount_paise: 30000000
+        reference: UTR 4411
+    TimelineEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        occurred_at:
+          type: string
+          format: date-time
+        business_date:
+          type: string
+          format: date
+        kind:
+          type: string
+        actor:
+          type: string
+          enum:
+          - ai
+          - human
+          - system
+          - customer
+        actor_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount_paise:
+          anyOf:
+          - type: integer
+            format: int64
+            minimum: 0
+            description: Amount on the event (integer paise, INR)
+          - type: 'null'
+        summary:
+          type: string
+        ref_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+        ref_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      required:
+      - id
+      - occurred_at
+      - business_date
+      - kind
+      - actor
+      - actor_name
+      - amount_paise
+      - summary
+      - ref_type
+      - ref_id
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        occurred_at: '2026-10-05T05:00:02Z'
+        business_date: '2026-10-05'
+        kind: promise_fulfilled
+        actor: system
+        actor_name: null
+        amount_paise: 30000000
+        summary: Promise of ₹3,00,000 for 05 Oct 2026 fulfilled
+        ref_type: promise
+        ref_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+    AgentStep:
+      type: object
+      properties:
+        seq:
+          type: integer
+          minimum: 1
+          maximum: 4
+        role:
+          type: string
+          enum:
+          - collections
+          - reply_understanding
+          - payment_verification
+          - escalation
+        tool_name:
+          type: string
+        arguments_redacted:
+          type: object
+        result_summary:
+          type: string
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - seq
+      - role
+      - tool_name
+      - arguments_redacted
+      - result_summary
+      - error_code
+      example:
+        seq: 1
+        role: collections
+        tool_name: get_customer_history
+        arguments_redacted:
+          customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        result_summary: 3 overdue invoices, 1 missed promise
+        error_code: null
+    AgentRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        run_date:
+          type: string
+          format: date
+        trigger:
+          type: string
+          enum:
+          - scheduled
+          - manual
+          - reply
+          - payment
+        status:
+          type: string
+          enum:
+          - running
+          - finished
+        outcome:
+          anyOf:
+          - type: string
+            enum:
+            - WAIT_FOR_APPROVAL
+            - ESCALATED
+            - STOPPED_LIMIT
+            - NO_ACTION
+            - FAILED
+          - type: 'null'
+        tool_call_count:
+          type: integer
+          minimum: 0
+          maximum: 4
+        action:
+          anyOf:
+          - type: string
+          - type: 'null'
+        channel:
+          anyOf:
+          - type: string
+          - type: 'null'
+        tone:
+          anyOf:
+          - type: string
+          - type: 'null'
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentStep'
+      required:
+      - id
+      - customer_id
+      - run_date
+      - trigger
+      - status
+      - outcome
+      - tool_call_count
+      - action
+      - channel
+      - tone
+      - reason
+      - started_at
+      - finished_at
+      - steps
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        run_date: '2026-09-30'
+        trigger: manual
+        status: finished
+        outcome: WAIT_FOR_APPROVAL
+        tool_call_count: 2
+        action: send_reminder
+        channel: email
+        tone: firm
+        reason: 3 overdue invoices, 1 missed promise
+        started_at: '2026-09-30T03:30:00Z'
+        finished_at: '2026-09-30T03:30:07Z'
+        steps: []
+    RunStart:
+      type: object
+      properties:
+        customer_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required: []
+      example:
+        customer_ids: []
+    RunBatch:
+      type: object
+      properties:
+        run_date:
+          type: string
+          format: date
+        job_id:
+          type: integer
+        queued:
+          type: boolean
+      required:
+      - run_date
+      - job_id
+      - queued
+      example:
+        run_date: '2026-09-30'
+        job_id: 12
+        queued: true
+    Dashboard:
+      type: object
+      properties:
+        today:
+          type: string
+          format: date
+        total_outstanding_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: All open invoices (integer paise, INR)
+        total_overdue_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Past due (integer paise, INR)
+        customers_overdue:
+          type: integer
+        todays_promises:
+          type: integer
+        missed_promises:
+          type: integer
+        open_disputes:
+          type: integer
+        pending_approvals:
+          type: integer
+        high_risk_customers:
+          type: integer
+        ageing:
+          type: object
+          properties:
+            d0_30_paise:
+              type: integer
+              format: int64
+              minimum: 0
+              description: 0 to 30 days (integer paise, INR)
+            d31_60_paise:
+              type: integer
+              format: int64
+              minimum: 0
+              description: 31 to 60 (integer paise, INR)
+            d61_90_paise:
+              type: integer
+              format: int64
+              minimum: 0
+              description: 61 to 90 (integer paise, INR)
+            d90_plus_paise:
+              type: integer
+              format: int64
+              minimum: 0
+              description: over 90 (integer paise, INR)
+          required:
+          - d0_30_paise
+          - d31_60_paise
+          - d61_90_paise
+          - d90_plus_paise
+        attention:
+          type: object
+          properties:
+            high_priority:
+              type: array
+              items:
+                $ref: '#/components/schemas/Priority'
+            missed_promises:
+              type: array
+              items:
+                $ref: '#/components/schemas/Promise'
+            disputes:
+              type: array
+              items:
+                $ref: '#/components/schemas/Dispute'
+            approved_ready:
+              type: array
+              items:
+                $ref: '#/components/schemas/Message'
+            needs_verification:
+              type: array
+              items:
+                $ref: '#/components/schemas/Payment'
+          required:
+          - high_priority
+          - missed_promises
+          - disputes
+          - approved_ready
+          - needs_verification
+      required:
+      - today
+      - total_outstanding_paise
+      - total_overdue_paise
+      - customers_overdue
+      - todays_promises
+      - missed_promises
+      - open_disputes
+      - pending_approvals
+      - high_risk_customers
+      - ageing
+      - attention
+      example:
+        today: '2026-09-30'
+        total_outstanding_paise: 1250000000
+        total_overdue_paise: 900000000
+        customers_overdue: 31
+        todays_promises: 0
+        missed_promises: 4
+        open_disputes: 2
+        pending_approvals: 0
+        high_risk_customers: 7
+        ageing:
+          d0_30_paise: 300000000
+          d31_60_paise: 250000000
+          d61_90_paise: 150000000
+          d90_plus_paise: 200000000
+        attention:
+          high_priority: []
+          missed_promises: []
+          disputes: []
+          approved_ready: []
+          needs_verification: []
+    Settings:
+      type: object
+      properties:
+        demo_today:
+          type: string
+          format: date
+        sending_enabled:
+          type: boolean
+        autonomy_mode:
+          type: string
+          enum:
+          - manual
+          - assisted
+          - trusted
+        llm_budget_micro_usd:
+          type: integer
+          format: int64
+          minimum: 0
+        llm_spent_micro_usd:
+          type: integer
+          format: int64
+          minimum: 0
+        llm_mode:
+          type: string
+          enum:
+          - live
+          - replay
+          - record
+        feature_whatsapp:
+          type: boolean
+        feature_voice:
+          type: boolean
+        feature_payment_link:
+          type: boolean
+        feature_trusted_mode:
+          type: boolean
+      required:
+      - demo_today
+      - sending_enabled
+      - autonomy_mode
+      - llm_budget_micro_usd
+      - llm_spent_micro_usd
+      - llm_mode
+      - feature_whatsapp
+      - feature_voice
+      - feature_payment_link
+      - feature_trusted_mode
+      example:
+        demo_today: '2026-09-30'
+        sending_enabled: true
+        autonomy_mode: manual
+        llm_budget_micro_usd: 2000000
+        llm_spent_micro_usd: 0
+        llm_mode: replay
+        feature_whatsapp: false
+        feature_voice: false
+        feature_payment_link: false
+        feature_trusted_mode: false
+    SettingsPatch:
+      type: object
+      properties:
+        sending_enabled:
+          type: boolean
+        autonomy_mode:
+          type: string
+          enum:
+          - manual
+          - assisted
+          - trusted
+        llm_budget_micro_usd:
+          type: integer
+          format: int64
+          minimum: 0
+        feature_whatsapp:
+          type: boolean
+        feature_voice:
+          type: boolean
+        feature_payment_link:
+          type: boolean
+        feature_trusted_mode:
+          type: boolean
+      required: []
+      example:
+        sending_enabled: false
+    ClockAdvance:
+      type: object
+      properties:
+        days:
+          type: integer
+          minimum: 1
+          maximum: 60
+      required:
+      - days
+      example:
+        days: 5
+    GuardrailEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        check_name:
+          type: string
+        code:
+          type: string
+        customer_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        message_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        detail:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - check_name
+      - code
+      - customer_id
+      - message_id
+      - detail
+      - created_at
+      example:
+        id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        check_name: amount
+        code: AMOUNT_MISMATCH
+        customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        message_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+        detail:
+          token: ₹4,50,000
+          expected: ₹4,00,000
+        created_at: '2026-09-30T03:40:00Z'
+    EvalReport:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        mode:
+          type: string
+          enum:
+          - replay
+          - live
+        command:
+          type: string
+        replies:
+          type: object
+          properties:
+            total:
+              type: integer
+            class_correct:
+              type: integer
+            action_correct:
+              type: integer
+            amount_correct:
+              type: integer
+            date_correct:
+              type: integer
+          required:
+          - total
+          - class_correct
+          - action_correct
+          - amount_correct
+          - date_correct
+        scenarios:
+          type: object
+          properties:
+            total:
+              type: integer
+            passed:
+              type: integer
+          required:
+          - total
+          - passed
+        red_team:
+          type: object
+          properties:
+            total:
+              type: integer
+            rejected:
+              type: integer
+          required:
+          - total
+          - rejected
+        golden:
+          type: object
+          properties:
+            total:
+              type: integer
+            passed:
+              type: integer
+          required:
+          - total
+          - passed
+      required:
+      - generated_at
+      - mode
+      - command
+      - replies
+      - scenarios
+      - red_team
+      - golden
+      example:
+        generated_at: '2026-09-30T04:00:00Z'
+        mode: replay
+        command: make eval
+        replies:
+          total: 40
+          class_correct: 38
+          action_correct: 37
+          amount_correct: 39
+          date_correct: 38
+        scenarios:
+          total: 10
+          passed: 10
+        red_team:
+          total: 15
+          rejected: 15
+        golden:
+          total: 5
+          passed: 5
+    CallPrep:
+      type: object
+      properties:
+        customer:
+          $ref: '#/components/schemas/Customer'
+        summary:
+          type: string
+        invoices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invoice'
+        promises:
+          type: array
+          items:
+            $ref: '#/components/schemas/Promise'
+        talking_points:
+          type: array
+          items:
+            type: string
+      required:
+      - customer
+      - summary
+      - invoices
+      - promises
+      - talking_points
+      example:
+        customer:
+          id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+          name: ABC Distributors
+          email: accounts@abc-distributors.example.in
+          phone: +91-9800000001
+          segment: mid_market
+          credit_terms_days: 30
+          outstanding_paise: 75000000
+          overdue_paise: 75000000
+          band: HIGH
+          last_contact_at: null
+          next_action: null
+        summary: 3 overdue invoices totalling ₹7,50,000; 1 missed promise in August.
+        invoices: []
+        promises: []
+        talking_points:
+        - Confirm a date for INV-1021 (₹4,00,000)
+    PayLink:
+      type: object
+      properties:
+        invoice_number:
+          type: string
+        customer_name:
+          type: string
+        amount_paise:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Due (integer paise, INR)
+        simulated:
+          type: boolean
+          const: true
+      required:
+      - invoice_number
+      - customer_name
+      - amount_paise
+      - simulated
+      example:
+        invoice_number: INV-1034
+        customer_name: ABC Distributors
+        amount_paise: 20000000
+        simulated: true
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+          - unavailable
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - status
+      - checks
+      example:
+        status: ok
+        checks:
+          database: ok

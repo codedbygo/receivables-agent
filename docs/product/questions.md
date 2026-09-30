@@ -12,7 +12,7 @@ Basis, for every entry:
 ## Needs your confirmation
 
 - Q-001 What confidence counts as low for a reply classification? Assumed: below 0.75 goes to human review. (US-00-012)
-- Q-002 What weights and band cut-offs does the priority score use? Assumed: weights fixed in the LLD; score 0 to 100; HIGH at 70 and above, MEDIUM 40 to 69, LOW below 40. (US-00-002)
+- Q-002 What weights and band cut-offs does the priority score use? Assumed: weights fixed in the LLD (docs/design/collections-lld.md section 3.2); score 0 to 100; HIGH at 60 and above, MEDIUM 35 to 59, LOW below 35 (changed 2026-09-30 from 70/40 because 70 put ABC Distributors, the brief's HIGH example, in MEDIUM). (US-00-002)
 - Q-003 What counts as a payment match? Assumed: exact amount, or reference naming an invoice, within 7 days of the claimed or promised date; exactly one candidate auto-matches. (US-00-017, US-00-018)
 - Q-004 When is a promise fulfilled, partially fulfilled or missed? Assumed: payments matched to the customer between the promise's creation and the end of its date cover the amount: fulfilled; cover some: partially_fulfilled; none by the day after: missed. No grace days. (US-00-020)
 - Q-005 What does "never argue with the customer" allow? Assumed: on a dispute the system sends nothing automatically; it may draft one fixed acknowledgement ("we have noted your concern and a team member will contact you"), which still needs approval. (US-00-016)
@@ -33,7 +33,7 @@ Basis, for every entry:
 | Q | Status | Kind | Where | Basis | Question | Readings | Decision | Why | Affects |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Q-001 | open | gap | REQ-067 | assumption | What confidence counts as low? | (a) fixed 0.75; (b) per class; (c) configurable, default 0.75 | (c) configurable `CLASSIFY_MIN_CONFIDENCE`, default 0.75 | brief says "low" only | US-00-012 |
-| Q-002 | open | gap | REQ-026, REQ-028 | assumption | Priority weights and band cut-offs? | (a) fixed weights in code; (b) admin-tunable | (a) fixed in LLD, unit-tested; bands 70 / 40 | brief lists factors, not weights | US-00-002 |
+| Q-002 | open | gap | REQ-026, REQ-028 | assumption | Priority weights and band cut-offs? | (a) fixed weights in code; (b) admin-tunable | (a) fixed in LLD, unit-tested; bands 60 / 35 (revised from 70 / 40 on 2026-09-30, LLD 3.2) | brief lists factors, not weights | US-00-002 |
 | Q-003 | open | gap | REQ-076, REQ-077 | assumption | Match rule for payments? | (a) exact amount only; (b) amount or reference within a window; (c) fuzzy | (b), window 7 days, unique candidate | brief names amount, reference and date window | US-00-017, US-00-018 |
 | Q-004 | open | gap | REQ-080 | assumption | Promise fulfilment rule? | (a) by promise date; (b) with grace days | (a), no grace | 4.24 shows fulfilment on the payment day | US-00-020 |
 | Q-005 | open | open-question | REQ-075 | assumption | What does "never argue" allow? | (a) no message at all; (b) fixed acknowledgement, approval-gated | (b) | lets the operator reassure without the model arguing | US-00-016 |

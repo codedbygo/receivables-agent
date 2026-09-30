@@ -36,7 +36,7 @@ Drivers behind the L stories: new boundary plus schema (US-01-013, US-03-002), t
 
 REQ-110 (Must, in US-01-005) walks the story through "advance demo clock", "bank payment auto-matched", "outstanding ₹4,50,000" and "promise fulfilled". Those beats are delivered by US-01-004, US-00-017, US-00-019 and US-00-020, which the brief's build order puts in P1. So P0 alone demos the story only up to the promise and the dispute. Gate 2 asks for a P0 that is completable on its own.
 
-Proposed (for Phase 3, not applied): either (a) move US-01-004, US-00-017, US-00-019 and US-00-020 (11 points) into P0, making Must 103 points; or (b) keep the brief's order and state that P0's demo ends at the promise and dispute, with AC-US-01-005-3 split so the payment beats move to P1. Recommendation: (a), because "must be flawless" is written on the whole story, and the brief's own P1 list is ordered by build, not by demo need.
+Decided in ADR-0011 (2026-09-30): option (a), Must build is 103 points. Original proposal: either (a) move US-01-004, US-00-017, US-00-019 and US-00-020 (11 points) into P0, making Must 103 points; or (b) keep the brief's order and state that P0's demo ends at the promise and dispute, with AC-US-01-005-3 split so the payment beats move to P1. Recommendation: (a), because "must be flawless" is written on the whole story, and the brief's own P1 list is ordered by build, not by demo need.
 
 ## Assumptions that would change sizes
 

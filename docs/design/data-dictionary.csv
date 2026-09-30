@@ -1,0 +1,187 @@
+Table,Column,Type,Nullable,Key,Default,References,On Delete,Personal Data,Description,Why
+users,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,US-01-007 AC1: the session carries the user; approvals name the approver (AC-US-00-009-2).
+users,email,text,No,UK,,,,Yes,Sign-in name.,US-01-007 AC1: each seeded user signs in.
+users,display_name,text,No,,,,,Yes,Name shown as the actor on timeline events.,AC-US-00-022-3: actor label for human actions.
+users,role,text,No,,,,,No,"admin, collector or viewer.",US-01-007 AC2: role matrix.
+users,password_hash,text,No,,,,,No,Password hash (argon2 or bcrypt).,US-01-007 AC1: sign in with a password (Q-014).
+users,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+sessions,id,text,No,PK,,,,No,SHA-256 of the session cookie value.,US-01-007 AC1: server-side session (ADR-0009); only a hash is stored.
+sessions,user_id,uuid,No,FK,,users.id,CASCADE,No,Who is signed in.,US-01-007 AC1: the session carries the user's role.
+sessions,expires_at,timestamptz,No,,,,,No,When the session stops working.,US-01-007 AC3: an expired session is treated as no session (401).
+sessions,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+settings,id,smallint,No,PK,1,,,No,Always 1; the table is a singleton.,Eng review A4: one row every process reads.
+settings,demo_today,date,No,,,,,No,The business date every computation uses.,"REQ-022, US-01-004 AC1 and AC3: clock read by all processes; seeded from DEMO_TODAY."
+settings,sending_enabled,boolean,No,,true,,,No,Kill switch: false blocks every send path.,US-01-002 AC1: kill switch persisted (AC-US-01-006-1).
+settings,autonomy_mode,text,No,,'manual',,,No,"manual, assisted or trusted.",US-01-016 AC1: Manual by default.
+settings,llm_budget_micro_usd,bigint,No,,2000000,,,No,LLM budget in micro-dollars.,US-01-009 AC3: calls refused past budget; $2.00 default (Q-016).
+settings,feature_whatsapp,boolean,No,,false,,,No,WhatsApp channel on; seeded from FEATURE_WHATSAPP.,"REQ-092, AC-US-00-024-2: admin can switch it off at runtime."
+settings,feature_voice,boolean,No,,false,,,No,Prepare Call on; seeded from FEATURE_VOICE.,REQ-092.
+settings,feature_payment_link,boolean,No,,false,,,No,Payment link page on; seeded from FEATURE_PAYMENT_LINK.,REQ-092.
+settings,feature_trusted_mode,boolean,No,,false,,,No,Trusted autonomy allowed.,"REQ-092, AC-US-01-016-4."
+settings,updated_at,timestamptz,No,,now(),,,No,Last change to the row.,Rule: audit columns; approval queue shows freshness.
+customers,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,"US-00-001 AC1: invoices, messages and replies reference the customer."
+customers,name,text,No,,,,,Yes,"Business name, e.g. ABC Distributors.",REQ-005; AC-US-00-006-3 checks the name in drafts.
+customers,email,text,No,,,,,Yes,Address reminders are sent to (example.in in seed).,"REQ-005, AC-US-01-003-4, AC-US-00-013-2: drafts only go here."
+customers,phone,text,No,,,,,Yes,Phone for WhatsApp and calls.,"REQ-005; US-00-024, US-00-025."
+customers,segment,text,No,,,,,No,"enterprise, mid_market or sme.",REQ-026: segment is a priority factor.
+customers,credit_terms_days,integer,No,,30,,,No,Agreed days to pay.,REQ-005: credit terms; shown on the customer page.
+customers,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+invoices,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-001-1: invoices are listed and cited by id internally.
+invoices,customer_id,uuid,No,FK,,customers.id,RESTRICT,No,Who owes it.,REQ-007; AC-US-00-006-4 rejects another customer's invoice.
+invoices,number,text,No,UK,,,,No,"Invoice number, e.g. INV-1021.",REQ-007; AC-US-00-006-3 looks drafts' numbers up here.
+invoices,invoice_date,date,No,,,,,No,Date issued.,REQ-007.
+invoices,due_date,date,No,,,,,No,Date payment is due.,REQ-010: days overdue = clock minus due date; AC-US-00-006-5 checks cited dates.
+invoices,amount_paise,bigint,No,,,,,No,Invoice amount in paise.,"REQ-002, REQ-007; AC-US-00-005-1: money is BIGINT paise."
+invoices,status,text,No,,'unpaid',,,No,"unpaid, partially_paid, paid or disputed; written only by allocation and dispute services.","REQ-009, AC-US-00-001-5; eng review A6."
+invoices,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+invoices,updated_at,timestamptz,No,,now(),,,No,Last change to the row.,Rule: audit columns; approval queue shows freshness.
+payments,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-017-1: one payment row per credit.
+payments,customer_id,uuid,Yes,FK,,customers.id,RESTRICT,No,Matched customer; null while it needs human verification.,AC-US-00-017-2: ambiguous credits stay unmatched.
+payments,amount_paise,bigint,No,,,,,No,Amount received in paise.,REQ-011; AC-US-00-019-1.
+payments,received_on,date,No,,,,,No,"Business date the money arrived: clock.today() at ingest, never the webhook timestamp.",Q-003: match window against claimed or promised date; promise check (AC-US-00-020-1).
+payments,reference,text,Yes,,,,,No,Bank or UTR reference text.,REQ-076: match by reference; allocation to a referenced invoice (AC-US-00-019-2).
+payments,source,text,No,,,,,No,"bank_feed, payment_link or manual.","US-00-017, US-03-004: same ledger service for every source."
+payments,bank_event_id,text,Yes,UK,,,,No,Bank feed event id for idempotency.,AC-US-00-017-4: a duplicate event creates no second payment.
+payments,match_status,text,No,,,,,No,matched or needs_verification.,"AC-US-00-017-2: ""Needs human verification""."
+payments,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+payment_allocations,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-001-4: amount paid is the sum of allocations.
+payment_allocations,payment_id,uuid,No,FK,,payments.id,CASCADE,No,The payment being applied.,AC-US-00-019-1.
+payment_allocations,invoice_id,uuid,No,FK,,invoices.id,RESTRICT,No,The invoice it pays.,"AC-US-00-019-1, AC-US-00-001-4."
+payment_allocations,amount_paise,bigint,No,,,,,No,Amount applied in paise.,"AC-US-00-019-1: 30,000,000 paise to INV-1021."
+payment_allocations,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+agent_runs,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-008-1: run id.
+agent_runs,customer_id,uuid,No,FK,,customers.id,RESTRICT,No,The customer the run is about.,AC-US-00-008-1.
+agent_runs,run_date,date,No,,,,,No,Demo-clock date the run belongs to.,AC-US-01-001-7: one scheduled run per date; eng review failure mode (clock read once).
+agent_runs,trigger,text,No,,,,,No,"scheduled, manual, reply or payment.",AC-US-01-001-7; flows A to C.
+agent_runs,status,text,No,,'running',,,No,running or finished.,AC-US-01-001-5: re-entry refused while running.
+agent_runs,outcome,text,Yes,,,,,No,"WAIT_FOR_APPROVAL, ESCALATED, STOPPED_LIMIT, NO_ACTION or FAILED.","REQ-035, AC-US-00-008-1."
+agent_runs,tool_call_count,smallint,No,,0,,,No,Tool calls made.,"REQ-032, AC-US-01-001-4."
+agent_runs,action,text,Yes,,,,,No,"Action selected, e.g. send_reminder.","REQ-030, AC-US-01-001-2."
+agent_runs,channel,text,Yes,,,,,No,Channel selected.,REQ-030.
+agent_runs,tone,text,Yes,,,,,No,Tone selected by code.,"REQ-031, AC-US-01-001-3."
+agent_runs,reason,text,Yes,,,,,No,Why the action or stop.,REQ-035; AC-US-01-001-4 records the limit reason.
+agent_runs,started_at,timestamptz,No,,now(),,,No,Start time.,REQ-035 timestamps.
+agent_runs,finished_at,timestamptz,Yes,,,,,No,End time.,REQ-035 timestamps.
+agent_steps,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-008-1: one step per tool call.
+agent_steps,agent_run_id,uuid,No,FK,,agent_runs.id,CASCADE,No,The run.,AC-US-00-008-1.
+agent_steps,seq,smallint,No,,,,,No,"Order within the run, 1 to 4.",AC-US-00-008-3: steps render in order.
+agent_steps,role,text,No,,,,,No,"collections, reply_understanding, payment_verification or escalation.","REQ-034, AC-US-01-001-6."
+agent_steps,tool_name,text,No,,,,,No,Tool called.,AC-US-00-008-1; AC-US-01-011-1 compares tool sequences.
+agent_steps,arguments_redacted,jsonb,No,,'{}'::jsonb,,,No,Arguments with PII replaced by [redacted:*].,"REQ-036, AC-US-00-008-2."
+agent_steps,result_summary,text,No,,,,,No,One-line result.,REQ-035.
+agent_steps,error_code,text,Yes,,,,,No,Typed error code when the tool failed.,REQ-041.
+agent_steps,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+messages,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-009-1: queue item id; send idempotency key (AC-US-00-011-2).
+messages,customer_id,uuid,No,FK,,customers.id,RESTRICT,No,Recipient customer.,AC-US-00-013-2: only this customer's address is used.
+messages,agent_run_id,uuid,Yes,FK,,agent_runs.id,SET NULL,No,Run that drafted it; null for statement drafts from the UI.,AC-US-00-009-1: link to trajectory.
+messages,kind,text,No,,,,,No,"reminder, followup, statement or dispute_ack.","US-00-015, US-00-016 AC4, US-00-020 AC4."
+messages,channel,text,No,,,,,No,"email, whatsapp or voice.",REQ-014.
+messages,tone,text,No,,,,,No,"gentle, firm or final.","REQ-014, REQ-031."
+messages,status,text,No,,'draft',,,No,"draft, pending_approval, approved, rejected, sent or failed.","REQ-014, AC-US-00-011-4."
+messages,subject,text,No,,,,,Yes,Email subject (names the customer).,AC-US-00-011-1.
+messages,body,text,No,,,,,Yes,Final text after placeholders were filled.,AC-US-00-005-2; guardrails run on it.
+messages,version,integer,No,,1,,,No,Incremented on every edit.,CEO review D2: stale edit gets 409; AC-US-00-010-3.
+messages,verified_version,integer,Yes,,,,,No,Version that last passed guardrails.,AC-US-00-010-3: approve refused unless verified_version = version.
+messages,guardrail_report,jsonb,Yes,,,,,No,Per-token verification result shown in the queue.,AC-US-00-009-5.
+messages,approved_by,uuid,Yes,FK,,users.id,RESTRICT,No,Who approved.,AC-US-00-009-2.
+messages,approved_at,timestamptz,Yes,,,,,No,When approved.,AC-US-00-009-2.
+messages,rejected_reason,text,Yes,,,,,No,Why rejected.,AC-US-00-009-3.
+messages,sent_at,timestamptz,Yes,,,,,No,When delivered to the channel.,AC-US-00-011-1.
+messages,send_attempts,smallint,No,,0,,,No,Delivery attempts.,AC-US-00-011-3: failed after retry limit.
+messages,last_error,text,Yes,,,,,No,"Last delivery error code; IN_FLIGHT while a send is claimed, UNCONFIRMED if the worker died mid-send.","AC-US-00-011-2 and AC-US-00-011-3: a claimed send is never auto-retried (at most once, critic MAJOR 2)."
+messages,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+messages,updated_at,timestamptz,No,,now(),,,No,Last change to the row.,Rule: audit columns; approval queue shows freshness.
+message_invoices,message_id,uuid,No,"PK, FK",,messages.id,CASCADE,No,The message.,AC-US-00-005-2: the draft cites these invoices.
+message_invoices,invoice_id,uuid,No,"PK, FK",,invoices.id,RESTRICT,No,A cited invoice.,AC-US-00-016-2: a disputed invoice is excluded from new drafts.
+replies,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-03-001-1: stored reply.
+replies,customer_id,uuid,No,FK,,customers.id,RESTRICT,No,Who replied.,AC-US-03-001-1.
+replies,message_id,uuid,Yes,FK,,messages.id,SET NULL,No,Message it answers; null for seeded history.,AC-US-03-001-1 and AC-US-03-001-2 (mismatch refused).
+replies,body,text,No,,,,,Yes,"Reply text, untrusted.",REQ-068; eval input.
+replies,received_at,timestamptz,No,,now(),,,No,When it arrived.,Timeline order (AC-US-00-022-3).
+replies,classification,text,Yes,,,,,No,"One of the seven classes, null until classified.","REQ-064, AC-US-00-012-1."
+replies,amount_paise,bigint,Yes,,,,,No,Amount parsed in code from the text.,"REQ-065, AC-US-00-012-3."
+replies,stated_date,date,Yes,,,,,No,Date resolved against the demo clock.,AC-US-00-012-2 and AC-US-00-012-4.
+replies,invoice_refs,text[],No,,'{}',,,No,Invoice numbers mentioned.,REQ-065.
+replies,confidence,"numeric(3,2)",Yes,,,,,No,Classifier confidence 0.00 to 1.00.,"REQ-067, AC-US-00-012-5."
+replies,recommended_action,text,Yes,,,,,No,Next action chosen by code.,REQ-065.
+replies,needs_review,boolean,No,,false,,,No,True when routed to a human.,"AC-US-00-012-5, AC-US-00-013-1."
+replies,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+promises,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-014-1.
+promises,customer_id,uuid,No,FK,,customers.id,RESTRICT,No,Who promised.,REQ-069.
+promises,reply_id,uuid,Yes,FK,,replies.id,SET NULL,No,Reply it came from; null for seeded history.,AC-US-00-014-1.
+promises,amount_paise,bigint,No,,,,,No,Promised amount in paise.,REQ-069; AC-US-00-020-1 compares payments to it.
+promises,promised_date,date,No,,,,,No,Date promised.,REQ-069; AC-US-00-021-1 lists today's promises.
+promises,status,text,No,,'pending',,,No,"pending, fulfilled, partially_fulfilled or missed.","REQ-012, AC-US-00-014-3."
+promises,resolved_at,timestamptz,Yes,,,,,No,When the promise check settled it.,AC-US-00-020-1 to AC-US-00-020-3.
+promises,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+promise_invoices,promise_id,uuid,No,"PK, FK",,promises.id,CASCADE,No,The promise.,REQ-069: invoices on the promise.
+promise_invoices,invoice_id,uuid,No,"PK, FK",,invoices.id,RESTRICT,No,A covered invoice.,AC-US-00-014-2: oldest first when none named.
+disputes,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-016-1.
+disputes,customer_id,uuid,No,FK,,customers.id,RESTRICT,No,Who disputes.,REQ-072.
+disputes,invoice_id,uuid,No,FK,,invoices.id,RESTRICT,No,The invoice disputed.,"REQ-072, AC-US-00-016-1."
+disputes,reply_id,uuid,Yes,FK,,replies.id,SET NULL,No,Reply that raised it.,AC-US-00-016-1.
+disputes,reason,text,No,,,,,No,"Reason in a short phrase, e.g. quantity mismatch.",REQ-072.
+disputes,status,text,No,,'open',,,No,open or resolved.,"REQ-013, AC-US-00-016-5."
+disputes,resolution_note,text,Yes,,,,,No,How it was resolved.,AC-US-00-016-5.
+disputes,resolved_at,timestamptz,Yes,,,,,No,When resolved.,AC-US-00-016-5.
+disputes,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+escalations,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-016-3.
+escalations,customer_id,uuid,No,FK,,customers.id,RESTRICT,No,Customer concerned.,AC-US-03-001-3.
+escalations,kind,text,No,,,,,No,"dispute, low_confidence, injection_suspected, claim_not_found or payment_needs_verification.","AC-US-00-016-3, AC-US-00-012-5, AC-US-00-013-1, AC-US-00-018-2, AC-US-00-017-2."
+escalations,reason,text,No,,,,,No,Human-readable reason.,AC-US-03-001-3.
+escalations,dispute_id,uuid,Yes,FK,,disputes.id,SET NULL,No,Source dispute.,AC-US-00-016-3.
+escalations,reply_id,uuid,Yes,FK,,replies.id,SET NULL,No,Source reply.,AC-US-00-012-5.
+escalations,payment_id,uuid,Yes,FK,,payments.id,SET NULL,No,Source payment.,AC-US-00-017-2.
+escalations,status,text,No,,'open',,,No,open or resolved.,AC-US-03-001-3.
+escalations,resolved_by,uuid,Yes,FK,,users.id,RESTRICT,No,Who closed it.,Timeline actor for human actions.
+escalations,resolved_at,timestamptz,Yes,,,,,No,When closed.,Dashboard open counts.
+escalations,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+guardrail_events,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-006-6: one row per rejection.
+guardrail_events,check_name,text,No,,,,,No,"Which check refused, e.g. amount.",AC-US-00-006-6.
+guardrail_events,code,text,No,,,,,No,"Typed error code, e.g. AMOUNT_MISMATCH.","REQ-049, REQ-053."
+guardrail_events,customer_id,uuid,Yes,FK,,customers.id,SET NULL,No,"Customer concerned, if any.",Admin list and timeline.
+guardrail_events,message_id,uuid,Yes,FK,,messages.id,SET NULL,No,"Message concerned, if any.",AC-US-00-006-6.
+guardrail_events,agent_run_id,uuid,Yes,FK,,agent_runs.id,SET NULL,No,"Run concerned, if any.",AC-US-01-001-4.
+guardrail_events,detail,jsonb,No,,'{}'::jsonb,,,No,"Offending token and expected value, no PII bodies.",AC-US-00-006-6: the offending token.
+guardrail_events,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+llm_calls,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-01-009-1.
+llm_calls,agent_run_id,uuid,Yes,FK,,agent_runs.id,SET NULL,No,Run that made the call; null for evals.,Admin cost per run.
+llm_calls,prompt_name,text,No,,,,,No,Prompt registry name.,Eng review Q3: replay key.
+llm_calls,prompt_version,integer,No,,,,,No,Prompt version.,Eng review Q3; AC-US-01-008-4.
+llm_calls,model,text,No,,,,,No,Model id used.,AC-US-01-008-1.
+llm_calls,mode,text,No,,,,,No,"live, replay or record.",REQ-098; AC-US-01-009-4.
+llm_calls,replay_key,text,No,,,,,No,name@vN:sha256 of normalised input.,AC-US-01-008-4.
+llm_calls,input_tokens,integer,No,,0,,,No,Prompt tokens.,AC-US-01-009-1.
+llm_calls,output_tokens,integer,No,,0,,,No,Completion tokens.,AC-US-01-009-1.
+llm_calls,cost_micro_usd,bigint,No,,0,,,No,Cost in micro-dollars (integer).,"AC-US-01-009-1: 4,500 for the reference call."
+llm_calls,latency_ms,integer,Yes,,,,,No,Wall time.,HLD section 8: measure latency.
+llm_calls,error_code,text,Yes,,,,,No,"LLM_UPSTREAM, LLM_TIMEOUT, BUDGET_EXHAUSTED or REPLAY_MISS.","AC-US-01-008-3, AC-US-01-008-5."
+llm_calls,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+timeline_events,id,uuid,No,PK,gen_random_uuid(),,,No,Surrogate key.,AC-US-00-022-1.
+timeline_events,customer_id,uuid,No,FK,,customers.id,CASCADE,No,Whose timeline.,AC-US-00-022-3.
+timeline_events,occurred_at,timestamptz,No,,now(),,,No,Wall time of the change.,AC-US-00-022-3: time order.
+timeline_events,business_date,date,No,,,,,No,Demo-clock date of the change.,REQ-022: the story spans 30 Sep to 05 Oct on the demo clock.
+timeline_events,kind,text,No,,,,,No,Event kind from the REQ-081 list.,AC-US-00-022-1.
+timeline_events,actor,text,No,,,,,No,"ai, human, system or customer.",AC-US-00-022-3.
+timeline_events,actor_user_id,uuid,Yes,FK,,users.id,SET NULL,No,Human actor.,AC-US-00-009-2.
+timeline_events,amount_paise,bigint,Yes,,,,,No,Amount shown on the event.,AC-US-00-022-3.
+timeline_events,ref_type,text,Yes,,,,,No,Kind of the related record.,Link from the event to its record.
+timeline_events,ref_id,uuid,Yes,,,,,No,Id of the related record.,Link from the event to its record.
+timeline_events,summary,text,No,,,,,No,"One-line text, no reply bodies.",AC-US-00-022-3; REQ-113 keeps bodies out.
+jobs,id,bigint,No,PK,generated always as identity,,,No,Job id.,ADR-0006.
+jobs,kind,text,No,,,,,No,"daily_run, promise_check or send_message.",ADR-0006; AC-US-01-001-7.
+jobs,dedupe_key,text,No,,,,,No,run date or message id.,AC-US-01-001-7 and AC-US-00-011-2: no duplicate run or send.
+jobs,payload,jsonb,No,,'{}'::jsonb,,,No,Job arguments (ids only).,ADR-0006.
+jobs,status,text,No,,'queued',,,No,"queued, running, done or dead.",ADR-0006: retries and dead letters.
+jobs,attempts,smallint,No,,0,,,No,Attempts so far.,AC-US-00-011-3: retry limit.
+jobs,max_attempts,smallint,No,,5,,,No,Attempts allowed: 5 means the first try plus 4 retries.,AC-US-00-011-3.
+jobs,run_at,timestamptz,No,,now(),,,No,Earliest time to run (backoff).,ADR-0006.
+jobs,locked_at,timestamptz,Yes,,,,,No,When a worker took it.,ADR-0006: stale-lock recovery.
+jobs,last_error,text,Yes,,,,,No,Last error code.,Admin job view.
+jobs,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).
+idempotency_keys,key,text,No,PK,,,,No,Client-supplied Idempotency-Key.,api/openapi.yaml: Idempotency-Key required on creating POSTs; a repeat returns the first response.
+idempotency_keys,route,text,No,PK,,,,No,Method and path template the key was used on.,The same key on two routes means two different requests.
+idempotency_keys,request_sha256,text,No,,,,,No,Hash of the request body.,"A repeat key with a different body is 409, not a replay."
+idempotency_keys,status_code,smallint,No,,,,,No,First response status.,Replay returns the same status.
+idempotency_keys,response_body,jsonb,No,,,,,No,"First response body (ids and codes, no PII bodies).",Replay returns the same body.
+idempotency_keys,created_at,timestamptz,No,,now(),,,No,When the row was written.,Rule: audit columns (postgres reference).

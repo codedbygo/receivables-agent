@@ -1,0 +1,434 @@
+{
+ "project": "CollectionsAgent",
+ "version": 1,
+ "system_diagram": {
+  "tiers": [
+   {
+    "name": "Clients",
+    "groups": [
+     {
+      "name": "Browser",
+      "kind": "client",
+      "nodes": [
+       {
+        "id": "web",
+        "name": "Collections console",
+        "kind": "app",
+        "tech": "React 19, Vite, TanStack Query",
+        "modules": [
+         "Today",
+         "Approvals",
+         "Customers",
+         "Evaluation",
+         "Admin"
+        ],
+        "owns_store": false
+       }
+      ]
+     },
+     {
+      "name": "Agent hosts",
+      "kind": "client",
+      "nodes": [
+       {
+        "id": "claude",
+        "name": "Claude Code",
+        "kind": "external",
+        "tech": "MCP client over stdio",
+        "modules": [],
+        "owns_store": false
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Backend (one Python image)",
+    "groups": [
+     {
+      "name": "Entry points",
+      "kind": "gateway",
+      "nodes": [
+       {
+        "id": "api",
+        "name": "api",
+        "kind": "service",
+        "tech": "FastAPI",
+        "modules": [
+         "REST v1",
+         "Bank webhook",
+         "Sessions",
+         "Admin"
+        ],
+        "owns_store": false
+       },
+       {
+        "id": "mcp",
+        "name": "mcp",
+        "kind": "service",
+        "tech": "mcp 2.x MCPServer",
+        "modules": [
+         "stdio",
+         "streamable HTTP"
+        ],
+        "owns_store": false
+       },
+       {
+        "id": "worker",
+        "name": "worker",
+        "kind": "job",
+        "tech": "Postgres jobs, SKIP LOCKED",
+        "modules": [
+         "Daily run",
+         "Promise check",
+         "Send queue"
+        ],
+        "owns_store": false
+       }
+      ]
+     },
+     {
+      "name": "Core",
+      "kind": "services",
+      "nodes": [
+       {
+        "id": "orch",
+        "name": "Orchestrator",
+        "kind": "service",
+        "tech": "plain Python, 4-call bound",
+        "modules": [
+         "Collections",
+         "Reply Understanding",
+         "Payment Verification",
+         "Escalation"
+        ],
+        "owns_store": false
+       },
+       {
+        "id": "services",
+        "name": "Services and tool registry",
+        "kind": "service",
+        "tech": "SQLAlchemy 2, Pydantic v2",
+        "modules": [
+         "Ledger",
+         "Drafting",
+         "Guardrails",
+         "Approval and send gate",
+         "Payments",
+         "Timeline"
+        ],
+        "owns_store": true
+       },
+       {
+        "id": "gateway",
+        "name": "LLM gateway",
+        "kind": "service",
+        "tech": "httpx, live/replay/record",
+        "modules": [
+         "Budget",
+         "Retries",
+         "Replay fixtures"
+        ],
+        "owns_store": false
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Data and external",
+    "groups": [
+     {
+      "name": "Data",
+      "kind": "data",
+      "nodes": [
+       {
+        "id": "db",
+        "name": "PostgreSQL 17",
+        "kind": "store",
+        "tech": "ledger, audit, jobs",
+        "modules": [],
+        "owns_store": true
+       }
+      ]
+     },
+     {
+      "name": "External and simulated",
+      "kind": "external",
+      "nodes": [
+       {
+        "id": "openrouter",
+        "name": "OpenRouter",
+        "kind": "external",
+        "tech": "Claude Haiku 4.5",
+        "modules": [],
+        "owns_store": false
+       },
+       {
+        "id": "mailpit",
+        "name": "Mailpit (mailhog)",
+        "kind": "external",
+        "tech": "SMTP 1025, UI 8025",
+        "modules": [],
+        "owns_store": false
+       },
+       {
+        "id": "bank",
+        "name": "Bank feed (simulated)",
+        "kind": "external",
+        "tech": "signed webhook",
+        "modules": [],
+        "owns_store": false
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "links": [
+   {
+    "from": "web",
+    "to": "api",
+    "label": "REST, session cookie",
+    "kind": "sync"
+   },
+   {
+    "from": "claude",
+    "to": "mcp",
+    "label": "MCP over stdio",
+    "kind": "sync"
+   },
+   {
+    "from": "bank",
+    "to": "api",
+    "label": "HMAC-signed credit",
+    "kind": "async"
+   },
+   {
+    "from": "api",
+    "to": "services",
+    "label": "service calls",
+    "kind": "sync"
+   },
+   {
+    "from": "api",
+    "to": "orch",
+    "label": "reply and payment runs",
+    "kind": "sync"
+   },
+   {
+    "from": "mcp",
+    "to": "services",
+    "label": "tool registry",
+    "kind": "sync"
+   },
+   {
+    "from": "worker",
+    "to": "orch",
+    "label": "daily run, reply runs",
+    "kind": "async"
+   },
+   {
+    "from": "orch",
+    "to": "services",
+    "label": "registry in-process",
+    "kind": "sync"
+   },
+   {
+    "from": "orch",
+    "to": "gateway",
+    "label": "prompts, tool calls",
+    "kind": "sync"
+   },
+   {
+    "from": "gateway",
+    "to": "openrouter",
+    "label": "HTTPS chat completions",
+    "kind": "sync"
+   },
+   {
+    "from": "services",
+    "to": "db",
+    "label": "SQL in transactions",
+    "kind": "sync"
+   },
+   {
+    "from": "worker",
+    "to": "mailpit",
+    "label": "SMTP send once",
+    "kind": "async"
+   }
+  ]
+ },
+ "deployment_diagram": {
+  "tiers": [
+   {
+    "name": "Engineer laptop",
+    "groups": [
+     {
+      "name": "Browser and terminal",
+      "kind": "client",
+      "nodes": [
+       {
+        "id": "d_browser",
+        "name": "Browser",
+        "kind": "app",
+        "tech": "localhost:8080, :8025",
+        "modules": [],
+        "owns_store": false
+       },
+       {
+        "id": "d_claude",
+        "name": "Claude Code",
+        "kind": "app",
+        "tech": "stdio to mcp container",
+        "modules": [],
+        "owns_store": false
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Docker Compose network",
+    "groups": [
+     {
+      "name": "App containers",
+      "kind": "services",
+      "nodes": [
+       {
+        "id": "d_web",
+        "name": "web",
+        "kind": "app",
+        "tech": "nginx:stable-alpine + dist/",
+        "modules": [],
+        "owns_store": false
+       },
+       {
+        "id": "d_api",
+        "name": "api",
+        "kind": "service",
+        "tech": "backend image, :8000",
+        "modules": [],
+        "owns_store": false
+       },
+       {
+        "id": "d_mcp",
+        "name": "mcp",
+        "kind": "service",
+        "tech": "backend image, :8001",
+        "modules": [],
+        "owns_store": false
+       },
+       {
+        "id": "d_worker",
+        "name": "worker",
+        "kind": "job",
+        "tech": "backend image",
+        "modules": [],
+        "owns_store": false
+       }
+      ]
+     },
+     {
+      "name": "Stock containers",
+      "kind": "data",
+      "nodes": [
+       {
+        "id": "d_pg",
+        "name": "postgres",
+        "kind": "store",
+        "tech": "postgres:17-alpine, volume",
+        "modules": [],
+        "owns_store": true
+       },
+       {
+        "id": "d_mail",
+        "name": "mailhog",
+        "kind": "service",
+        "tech": "axllent/mailpit",
+        "modules": [],
+        "owns_store": false
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Internet",
+    "groups": [
+     {
+      "name": "Provider",
+      "kind": "external",
+      "nodes": [
+       {
+        "id": "d_or",
+        "name": "OpenRouter",
+        "kind": "external",
+        "tech": "only when LLM_MODE=live or record",
+        "modules": [],
+        "owns_store": false
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "links": [
+   {
+    "from": "d_browser",
+    "to": "d_web",
+    "label": "HTTP 8080",
+    "kind": "sync"
+   },
+   {
+    "from": "d_web",
+    "to": "d_api",
+    "label": "proxy /api",
+    "kind": "sync"
+   },
+   {
+    "from": "d_claude",
+    "to": "d_mcp",
+    "label": "docker compose exec, stdio",
+    "kind": "sync"
+   },
+   {
+    "from": "d_api",
+    "to": "d_pg",
+    "label": "5432",
+    "kind": "sync"
+   },
+   {
+    "from": "d_mcp",
+    "to": "d_pg",
+    "label": "5432",
+    "kind": "sync"
+   },
+   {
+    "from": "d_worker",
+    "to": "d_pg",
+    "label": "5432",
+    "kind": "sync"
+   },
+   {
+    "from": "d_worker",
+    "to": "d_mail",
+    "label": "SMTP 1025",
+    "kind": "async"
+   },
+   {
+    "from": "d_worker",
+    "to": "d_or",
+    "label": "HTTPS",
+    "kind": "sync"
+   },
+   {
+    "from": "d_api",
+    "to": "d_or",
+    "label": "HTTPS (reply classification)",
+    "kind": "sync"
+   }
+  ]
+ }
+}

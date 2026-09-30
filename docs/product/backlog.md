@@ -130,7 +130,7 @@ Covers: REQ-026, REQ-027, REQ-028   Judgement: merged from REQ-026, REQ-027, REQ
 - AC-US-00-002-1. Given fixture customers that differ in one factor each, when scored, then each factor moves the score in the documented direction and the function makes no network or LLM call. Covers: REQ-026
 - AC-US-00-002-2. Given the seeded 50 customers on 2026-09-30, when the ranking runs twice, then the same 15 customers are returned in the same order. Covers: REQ-027
 - AC-US-00-002-3. Given ABC Distributors, when its priority is shown, then it carries band HIGH and reasons including "High outstanding (₹7,50,000)", "Oldest invoice 19 days overdue" and "1 missed promise". Covers: REQ-028
-- AC-US-00-002-4. Given a score of 70, 69 or 39, when banded, then the bands are HIGH, MEDIUM and LOW. Covers: REQ-028
+- AC-US-00-002-4. Given a score of 60, 59 or 34, when banded, then the bands are HIGH, MEDIUM and LOW. Covers: REQ-028
 
 **Not in this story.**
 - Running the agent on the selected customers (US-01-001).
@@ -140,7 +140,7 @@ Covers: REQ-026, REQ-027, REQ-028   Judgement: merged from REQ-026, REQ-027, REQ
 - US-00-001: derived amounts and days overdue.
 
 **Assumptions.**
-- Band cut-offs 70 and 40 (Q-002).
+- Band cut-offs 60 and 35 (Q-002).
 
 **Tasks.** Not written in this pass.
 
@@ -1084,7 +1084,7 @@ Covers: REQ-024, REQ-025, REQ-110   Judgement: merged from REQ-024, REQ-025, REQ
 
 **Acceptance criteria.**
 
-- AC-US-01-005-1. Given any data state, when the admin presses Reset demo data (or `make reset-demo`), then the database equals a fresh seed and the clock is 30 Sep 2026. Covers: REQ-024
+- AC-US-01-005-1. Given any data state, when the admin presses Reset demo data (or `make reset-demo`), then every table except `users`, `sessions` and `llm_calls` equals a fresh seed and the clock is 30 Sep 2026; LLM spend keeps counting. Covers: REQ-024
 - AC-US-01-005-2. Given `make demo`, when it finishes, then ABC has outstanding ₹7,50,000 over three overdue invoices and one missed promise, MailHog is empty, and no ABC message exists. Covers: REQ-025
 - AC-US-01-005-3. Given `make demo` then the scripted story (an e2e test in replay mode), when it runs, then each beat of REQ-110 is asserted in order and ends with ABC outstanding ₹4,50,000, the promise fulfilled, INV-1047 disputed and one open escalation. Covers: REQ-110
 - AC-US-01-005-4. Given the e2e story test, when run with `LLM_MODE=replay` and no network, then it passes. Covers: REQ-110
