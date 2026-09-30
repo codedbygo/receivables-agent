@@ -61,6 +61,22 @@ Ownership: one team; `services/` owns every table (data model section 2 names th
   - value: `Decimal(num without commas + "." + dec) × unit` with lakh = 10^5, crore = 10^7, k/thousand = 10^3; paise = value × 100, which must be an integer (else the span is flagged `AMOUNT_UNPARSEABLE`).
   - vectors (tests/vectors/inr.json): `₹4,00,000`, `Rs 4 lakh`, `4L`, `Rs. 4,00,000/-`, `4.0 lakhs`, `INR 400000` all give 40,000,000; `₹3 cr` gives 3,000,000,000; `400000` alone gives nothing.
 
+### 3.1b Dates from replies (REQ-065, REQ-066)
+
+The classifier returns `date_text` exactly as written; `clock.resolve_date(text, today, direction)` decides the date, where direction is `future` for PROMISE and `past` for PART_PAYMENT and PAYMENT_CONFIRMATION. Rules, pinned by `evals/replies.jsonl` with today = Wed 30 Sep 2026:
+
+| Text | Rule | Result |
+| --- | --- | --- |
+| `October 5`, `5 Oct`, `15 October 2026`, `12 October` | explicit day and month; year = the next (future) or last (past) occurrence | 2026-10-05, 2026-10-15, 2026-10-12 |
+| `7/10/2026`, `25/09/2026` | day first | 2026-10-07, 2026-09-25 |
+| `5th`, `3rd Oct`, `on 20th` | day only: next such day (future) or most recent (past) | 2026-10-05; past `20th` = 2026-09-20 |
+| `tomorrow`, `today`, `yesterday`, `yday` | offset from today | 2026-10-01, 2026-09-30, 2026-09-29 |
+| `next Friday`, `Monday` | the first such weekday after today | 2026-10-02, 2026-10-05 |
+| `10 days` (in "give 10 days") | today + N days | 2026-10-10 |
+| `last week`, `end of Oct`, `soon`, `next month` | not a single date | null (no date; a promise without a date needs review) |
+
+Impossible dates (`31 Sep`) raise DATE_INVALID. Amounts come from `amount_text` through `money.parse_amounts` (3.1); a reply amount must be inside the text the customer wrote, or it is dropped (AC-US-00-012-3). Prompt loader rule: only declared front-matter variables are substituted; other `{{...}}` text (the drafting placeholders) passes through unchanged.
+
 ### 3.2 Priority formula (REQ-026 to REQ-028)
 
 Inputs per customer from the ledger on `clock.today()`, excluding invoices with an open dispute from the overdue figures: `overdue_paise`, `oldest_days` (max days overdue), `overdue_count`, `missed_promises` (status missed, any time), `open_disputes`, `segment`.

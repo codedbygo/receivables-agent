@@ -1,0 +1,13 @@
+id: s03-abc-dispute
+title: ABC disputes INV-1047
+input:
+  trigger: reply
+  customer: ABC Distributors
+  reply_id: r-0016
+expected:
+  class: DISPUTE
+  tools:
+  - log_dispute
+  - escalate
+  - draft_message
+  outcome: ESCALATED

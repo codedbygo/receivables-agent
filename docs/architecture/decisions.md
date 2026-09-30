@@ -16,6 +16,7 @@ One row per decision, and every contradiction settled once so it is not settled 
 | ADR-0008 | Use Mailpit as the SMTP test inbox | mail | Accepted | cheap: one image line |
 | ADR-0009 | Use seeded users with session cookies and three roles | auth | Accepted | cheap |
 | ADR-0010 | Deploy with local Docker Compose only | hosting | Accepted | cheap |
+| ADR-0012 | Use the LLM only for prose around placeholders and for reply classification | genai | Accepted | cheap: prompts and the drafting service change; the verifier stays |
 | ADR-0011 | Move the payment and clock stories into P0 | scope | Accepted | cheap: a priority change |
 
 ## Conflicts that were settled

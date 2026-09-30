@@ -1,0 +1,25 @@
+{
+ "round": 1,
+ "date": "2026-09-30",
+ "recommended": 1,
+ "chosen": 1,
+ "chosen_by": "score",
+ "scores": {
+  "1": {
+   "total": 84,
+   "why": "best fit for the brief's dense but calm console: keyboard queue, report beside the draft, strongest scanability; weak on first impression for a new viewer"
+  },
+  "2": {
+   "total": 72,
+   "why": "most trustworthy reading of a single draft (ruled figures, double-underlined total), but the full-width ledger slows queue work and the serif display is less legible at small sizes"
+  },
+  "3": {
+   "total": 76,
+   "why": "best for the stage (projector-size figures) but less dense; its header band is worth borrowing"
+  }
+ },
+ "ratings": {},
+ "comments": {},
+ "remix": "Instrument panel as the base; borrow the Swiss grid's four-figure header band for the customer page (S-07) and the Today totals; borrow the Ledger's double-underlined total line inside the draft's invoice table.",
+ "notes": "Chosen unattended by score under the master prompt's pause policy (time-box: pick one and move on); the engineer can overrule at review. Scored with the ten design-critique categories, totals out of 100."
+}

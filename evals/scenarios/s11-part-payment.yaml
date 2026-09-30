@@ -1,0 +1,12 @@
+id: s11-part-payment
+title: Part payment reply triggers verification and a follow-up
+input:
+  trigger: reply
+  customer: Vijaya Steel Corporation
+  reply_id: r-0011
+expected:
+  class: PART_PAYMENT
+  tools:
+  - check_promise_status
+  - create_followup
+  outcome: WAIT_FOR_APPROVAL

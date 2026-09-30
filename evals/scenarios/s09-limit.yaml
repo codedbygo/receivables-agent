@@ -1,0 +1,14 @@
+id: s09-limit
+title: Model asks for a fifth tool call; the run stops
+input:
+  trigger: manual
+  customer: Kumar Electricals
+  replay: fixture requests 5 tool calls
+expected:
+  class: null
+  tools:
+  - get_customer_history
+  - get_invoice
+  - get_invoice
+  - check_promise_status
+  outcome: STOPPED_LIMIT

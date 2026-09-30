@@ -1,0 +1,144 @@
+note: Every draft must pass all checks (REQ-103 counterpart).
+cases:
+- id: g01
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+- id: g02
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    We had noted your plan to clear part of this in August. Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+- id: g03
+  customer: Metro Wholesale
+  invoices:
+  - INV-1301
+  text: 'Dear Metro Wholesale,
+
+
+    A gentle reminder that this invoice is now past due:
+
+
+    INV-1301 | ₹96,500 | due 24 Sep 2026
+
+
+    Total outstanding: ₹96,500
+
+
+    Please let us know when we can expect payment.
+
+
+    Regards,
+
+    Accounts team'
+- id: g04
+  customer: Sri Lakshmi Industries
+  invoices:
+  - INV-1205
+  - INV-1219
+  text: 'Dear Sri Lakshmi Industries,
+
+
+    Two invoices remain open on your account:
+
+
+    INV-1205 | ₹2,35,000 | due 20 Aug 2026
+
+    INV-1219 | ₹1,50,000 | due 17 Sep 2026
+
+
+    Total outstanding: ₹3,85,000
+
+
+    Could you share a payment date this week? If you need a statement, reply and we will send one.
+
+
+    Regards,
+
+    Accounts team'
+- id: g05
+  customer: Kumar Electricals
+  invoices:
+  - INV-1102
+  - INV-1118
+  text: 'Dear Kumar Electricals,
+
+
+    Your account needs to be settled. These invoices are well past due:
+
+
+    INV-1102 | ₹6,20,000 | due 26 Jun 2026
+
+    INV-1118 | ₹6,20,000 | due 10 Jul 2026
+
+
+    Total outstanding: ₹12,40,000
+
+
+    Two earlier payment dates were missed. Please call us this week so we can agree a plan.
+
+
+    Regards,
+
+    Accounts team'
+- id: g06
+  customer: ABC Distributors
+  invoices:
+  - INV-1047
+  kind: dispute_ack
+  text: 'Dear ABC Distributors,
+
+
+    We have noted your concern about INV-1047. A member of our team will contact you shortly.
+
+
+    Regards,
+
+    Accounts team'

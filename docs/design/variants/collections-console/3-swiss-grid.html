@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Collections console: Swiss grid</title>
+<!--
+  Variant 3 of 3: Swiss grid
+  Direction: Swiss grid
+  Brief: for the admin presenting the demo on a projector; big figures, strict grid, readable from the back of the room. Weak spot: less dense for daily queue work.
+  Faces: display Archivo (semi-condensed widths, 700), body Archivo 400, data Archivo tabular
+  Palette: neutral white and warm grey (projector-safe); saffron accent (one job: the current position and the primary action); red and amber for bands with words
+  Rhythm: strict 12-column grid, hairlines, top navigation, big numerals in a 4-column header band
+  Signature: a four-figure header band (outstanding, overdue days, priority, tone) above the draft
+  Motion moment: the header figures count up once on load, 600 ms
+  Generic-default revisions: no rounded cards; hairlines instead of shadows; one family at two weights
+  Screens: S-03 Approvals (hero), S-02 attention strip, S-03 states
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700&display=swap">
+<style>
+:root{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;--dur:320ms;--ease:cubic-bezier(.2,.8,.2,1);--font-display:'Archivo',sans-serif;--font-body:'Archivo',sans-serif;--font-data:'Archivo',sans-serif;--step-0:1rem;--step-1:1.333rem;--step-2:1.777rem;--step-3:3.157rem;--r:0px;--surface:#ffffff;--surface-2:#f5f4f1;--ink:#111111;--ink-muted:#57534e;--line:#e2e0db;--edge:#78716c;--accent:#b45309;--accent-ink:#ffffff;--danger:#b91c1c;--focus:#1d4ed8;--ok:#166534;--high:#b91c1c;--medium:#92400e;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--surface:#141414;--surface-2:#1e1e1e;--ink:#f2f2f0;--ink-muted:#b4b0aa;--line:#2e2e2e;--edge:#78716c;--accent:#f59e0b;--accent-ink:#1a1003;--danger:#f87171;--focus:#93b4ff;--ok:#86efac;--high:#f87171;--medium:#fbbf24;}}
+:root[data-theme="dark"]{--surface:#141414;--surface-2:#1e1e1e;--ink:#f2f2f0;--ink-muted:#b4b0aa;--line:#2e2e2e;--edge:#78716c;--accent:#f59e0b;--accent-ink:#1a1003;--danger:#f87171;--focus:#93b4ff;--ok:#86efac;--high:#f87171;--medium:#fbbf24;}
+*{box-sizing:border-box}html{color-scheme:light dark}body{margin:0;background:var(--surface);color:var(--ink);font:400 var(--step-0)/1.5 var(--font-body);overflow-x:clip}
+h1,h2,h3{font-family:var(--font-display);line-height:1.15;text-wrap:balance;margin:0 0 var(--s4)}h1{font-size:var(--step-3)}h2{font-size:var(--step-2)}h3{font-size:var(--step-1)}
+.num{font-family:var(--font-data);font-variant-numeric:tabular-nums}.r{text-align:right}.muted{color:var(--ink-muted)}.danger{color:var(--danger)}
+button,.btn,.btn-quiet,a.q{min-height:36px}:focus-visible{outline:2px solid var(--focus);outline-offset:2px}button{cursor:pointer;font:inherit}
+.btn{display:inline-flex;align-items:center;padding:0 var(--s5);background:var(--accent);color:var(--accent-ink);border:0;border-radius:var(--r);font-weight:600}
+.btn-quiet{display:inline-flex;align-items:center;padding:0 var(--s4);background:transparent;color:var(--ink);border:1px solid var(--edge);border-radius:var(--r);text-decoration:none}
+.badge{justify-self:start;align-self:center;font-size:.75rem;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+.b-high{color:var(--high)}.b-medium{color:var(--medium)}.b-low{color:var(--ink-muted)}
+ul{list-style:none;margin:0;padding:0}table{border-collapse:collapse;width:100%}td,th{padding:var(--s2) var(--s3);text-align:left}
+.theme{position:fixed;right:var(--s4);bottom:var(--s4);min-height:36px;padding:0 var(--s4);background:var(--surface-2);color:var(--ink);border:1px solid var(--edge);border-radius:var(--r)}
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s4);margin-top:var(--s7)}.state{border:1px dashed var(--edge);padding:var(--s4);border-radius:var(--r)}
+.checks li{display:grid;grid-template-columns:20px 1fr auto;gap:0 var(--s3);padding:var(--s2) 0;border-bottom:1px solid var(--line)}.checks .muted,.checks .ok{grid-column:2/-1;font-size:.8125rem}.checks .ok{color:var(--ok)}.tick{color:var(--ok);font-weight:700}
+pre.draft{white-space:pre-wrap;font:inherit;margin:0}
+@media (prefers-reduced-motion:no-preference){.reveal{animation:rv var(--dur) var(--ease) both}.reveal:nth-child(2){animation-delay:60ms}.reveal:nth-child(3){animation-delay:120ms}.reveal:nth-child(4){animation-delay:180ms}.reveal:nth-child(5){animation-delay:240ms}@keyframes rv{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
+
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0 var(--s5);max-width:1360px;margin:0 auto;padding:0 var(--s6)}
+.top{grid-column:1/-1;display:flex;gap:var(--s6);align-items:center;border-bottom:1px solid var(--ink);min-height:64px}.top b{font-size:1.125rem;margin-right:auto}.top a{color:var(--ink-muted);text-decoration:none;min-height:44px;display:inline-flex;align-items:center}.top a[aria-current=page]{color:var(--ink);box-shadow:inset 0 -3px var(--accent)}
+.band{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line);margin-bottom:var(--s6)}.band div{padding:var(--s5) 0;border-right:1px solid var(--line)}.band div:last-child{border-right:0}.band .big{font-size:var(--step-3);font-weight:700;line-height:1}.band .lab{font-size:.8125rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted)}
+.qcol{grid-column:1/4}.dcol{grid-column:4/10}.rcol{grid-column:10/-1}
+a.q{display:grid;grid-template-columns:1fr auto;gap:0 var(--s2);padding:var(--s3) 0;border-bottom:1px solid var(--line);color:inherit;text-decoration:none}a.q.is-current{box-shadow:inset 3px 0 var(--accent);padding-left:var(--s3)}.q .tone{font-size:.8125rem;color:var(--ink-muted)}
+.label{font-size:.8125rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);border-bottom:1px solid var(--ink);padding-bottom:var(--s2);margin:0 0 var(--s3);font-weight:700;font-family:var(--font-body)}
+.actions{display:flex;gap:var(--s3);margin-top:var(--s5)}.btn{border-radius:0}.btn-quiet{border-radius:0}
+.why li{padding:var(--s2) 0;border-bottom:1px solid var(--line)}
+.states{grid-column:1/-1}
+@media (max-width:1000px){.qcol,.dcol,.rcol{grid-column:1/-1}.band{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="grid">
+<nav class="top" aria-label="Main"><b>Collections</b><a href="#">Today</a><a href="#" aria-current="page">Approvals</a><a href="#">Customers</a><a href="#">Evaluation</a><a href="#">Admin</a></nav>
+<section class="band" aria-label="ABC Distributors at a glance"><div><div class="lab">Outstanding</div><div class="big num">₹7,50,000</div></div><div><div class="lab">Oldest overdue</div><div class="big num">19 days</div></div><div><div class="lab">Priority</div><div class="big num">66 <span class="badge b-high" style="font-size:1rem;vertical-align:middle">HIGH</span></div></div><div><div class="lab">Tone</div><div class="big">Firm</div></div></section>
+<aside class="qcol" aria-label="Drafts waiting"><h2 class="label">Queue · 4</h2><ul><li><a class="q is-current" href="#d" aria-current="true"><span class="qn">ABC Distributors</span><span class="num">₹7,50,000</span><span class="badge b-high">HIGH</span><span class="tone">firm</span></a></li>
+<li><a class="q" href="#d" aria-current="false"><span class="qn">Kumar Electricals</span><span class="num">₹12,40,000</span><span class="badge b-high">HIGH</span><span class="tone">final</span></a></li>
+<li><a class="q" href="#d" aria-current="false"><span class="qn">Sri Lakshmi Industries</span><span class="num">₹3,85,000</span><span class="badge b-medium">MEDIUM</span><span class="tone">firm</span></a></li>
+<li><a class="q" href="#d" aria-current="false"><span class="qn">Metro Wholesale</span><span class="num">₹96,500</span><span class="badge b-low">LOW</span><span class="tone">gentle</span></a></li></ul><h2 class="label" style="margin-top:var(--s6)">Today</h2><ul class="why"><li><b>High priority</b><br><span class="muted">ABC Distributors, Kumar Electricals, +5</span></li><li><b>Missed promises</b><br><span class="muted">4 customers</span></li><li><b>Disputes</b><br><span class="muted">2 open</span></li><li><b>Approved, ready to send</b><br><span class="muted">0</span></li></ul></aside>
+<article class="dcol" id="d" aria-label="Draft"><h2 class="label">Draft · email · 30 Sep 2026</h2><pre class="draft">Dear ABC Distributors,
+
+Our records show three invoices past their due date:
+
+INV-1021 | ₹4,00,000 | due 11 Sep 2026
+INV-1034 | ₹2,00,000 | due 18 Sep 2026
+INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+Total outstanding: ₹7,50,000
+
+We had noted your plan to clear part of this in August. Could you confirm a date for payment this week? If any invoice needs a correction, reply and we will look at it straight away.
+
+Regards,
+Accounts team</pre><div class="actions"><button class="btn">Approve</button><button class="btn-quiet">Edit</button><button class="btn-quiet">Reject</button><a href="#" class="btn-quiet">View agent run</a></div></article>
+<aside class="rcol" aria-label="Guardrail report"><h2 class="label">Checked against the ledger</h2><ul class="checks"><li><span class="tick" aria-hidden="true">✓</span><span>INV-1021</span><span class="num">₹4,00,000</span><span class="muted">due 11 Sep 2026</span><span class="ok">matches ledger</span></li>
+<li><span class="tick" aria-hidden="true">✓</span><span>INV-1034</span><span class="num">₹2,00,000</span><span class="muted">due 18 Sep 2026</span><span class="ok">matches ledger</span></li>
+<li><span class="tick" aria-hidden="true">✓</span><span>INV-1047</span><span class="num">₹1,50,000</span><span class="muted">due 25 Sep 2026</span><span class="ok">matches ledger</span></li>
+<li><span class="tick" aria-hidden="true">✓</span><span>Total</span><span class="num">₹7,50,000</span><span class="muted"></span><span class="ok">matches ledger</span></li>
+<li><span class="tick" aria-hidden="true">✓</span><span>Customer</span><span class="num">ABC Distributors</span><span class="muted"></span><span class="ok">matches ledger</span></li></ul><h2 class="label" style="margin-top:var(--s6)">Why today</h2><ul class="why"><li>High outstanding (₹7,50,000)</li><li>Oldest invoice 19 days overdue</li><li>1 missed promise</li><li>3 overdue invoices</li></ul></aside>
+<section class="states" aria-labelledby="st"><h3 id="st">Approvals: other states</h3>
+<div class="state"><b>Empty</b><p>No drafts waiting. The next daily run prepares new ones.</p><a class="btn-quiet" href="#">Go to Today</a></div>
+<div class="state"><b>Error</b><p class="danger">Error: Approve failed: this draft changed in another tab. Reload the draft.</p><button class="btn-quiet">Reload draft</button></div>
+<div class="state"><b>Edit refused</b><p class="danger">Error: ₹4,50,000 does not match the ledger amount for INV-1021 (₹4,00,000). Fix the amount or cancel.</p></div>
+<div class="state"><b>Success</b><p>Approved. Sending shortly.</p></div></section>
+</div>
+<button class="theme" type="button" aria-label="Switch theme" onclick="var r=document.documentElement;r.dataset.theme=(r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches))?'light':'dark'">Theme</button>
+</body>
+</html>

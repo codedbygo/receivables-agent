@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Collections console: Instrument panel</title>
+<!--
+  Variant 1 of 3: Instrument panel
+  Direction: Instrument panel
+  Brief: for the collector at a desk working the queue fast; dense rows, tabular figures, a status rail. Weak spot: can feel cold to a first-time admin.
+  Faces: display IBM Plex Sans Condensed, body IBM Plex Sans, data IBM Plex Mono
+  Palette: graphite surfaces (cool, calm for long sessions); signal teal accent (one job: the primary action); amber for missed promises; red only with a word for errors
+  Rhythm: three fixed columns (rail, queue, detail), 36 px rows, hairline separators
+  Signature: the guardrail report as a vertical status rail of ticks beside the draft
+  Motion moment: report ticks reveal in sequence once, 320 ms, transform and opacity only
+  Generic-default revisions: no stat-card hero; no gradient; Inter replaced by Plex
+  Screens: S-03 Approvals (hero), S-02 attention strip, S-03 states
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+:root{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;--dur:320ms;--ease:cubic-bezier(.2,.8,.2,1);--font-display:'IBM Plex Sans Condensed',sans-serif;--font-body:'IBM Plex Sans',sans-serif;--font-data:'IBM Plex Mono',monospace;--step-0:0.9375rem;--step-1:1.125rem;--step-2:1.406rem;--step-3:1.758rem;--r:6px;--surface:#f4f6f8;--surface-2:#ffffff;--ink:#16202a;--ink-muted:#4e5b67;--line:#dde3e8;--edge:#8795a1;--accent:#0f6e6e;--accent-ink:#ffffff;--danger:#b42318;--focus:#0b5cad;--ok:#1d6b3a;--high:#b42318;--medium:#8a5a00;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--surface:#11171d;--surface-2:#1a222a;--ink:#e6ebef;--ink-muted:#a3b0bb;--line:#26313b;--edge:#5d6b77;--accent:#3fb6b0;--accent-ink:#06201f;--danger:#ff8a80;--focus:#7cb7ff;--ok:#7fd49b;--high:#ff8a80;--medium:#f2c14e;}}
+:root[data-theme="dark"]{--surface:#11171d;--surface-2:#1a222a;--ink:#e6ebef;--ink-muted:#a3b0bb;--line:#26313b;--edge:#5d6b77;--accent:#3fb6b0;--accent-ink:#06201f;--danger:#ff8a80;--focus:#7cb7ff;--ok:#7fd49b;--high:#ff8a80;--medium:#f2c14e;}
+*{box-sizing:border-box}html{color-scheme:light dark}body{margin:0;background:var(--surface);color:var(--ink);font:400 var(--step-0)/1.5 var(--font-body);overflow-x:clip}
+h1,h2,h3{font-family:var(--font-display);line-height:1.15;text-wrap:balance;margin:0 0 var(--s4)}h1{font-size:var(--step-3)}h2{font-size:var(--step-2)}h3{font-size:var(--step-1)}
+.num{font-family:var(--font-data);font-variant-numeric:tabular-nums}.r{text-align:right}.muted{color:var(--ink-muted)}.danger{color:var(--danger)}
+button,.btn,.btn-quiet,a.q{min-height:36px}:focus-visible{outline:2px solid var(--focus);outline-offset:2px}button{cursor:pointer;font:inherit}
+.btn{display:inline-flex;align-items:center;padding:0 var(--s5);background:var(--accent);color:var(--accent-ink);border:0;border-radius:var(--r);font-weight:600}
+.btn-quiet{display:inline-flex;align-items:center;padding:0 var(--s4);background:transparent;color:var(--ink);border:1px solid var(--edge);border-radius:var(--r);text-decoration:none}
+.badge{justify-self:start;align-self:center;font-size:.75rem;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+.b-high{color:var(--high)}.b-medium{color:var(--medium)}.b-low{color:var(--ink-muted)}
+ul{list-style:none;margin:0;padding:0}table{border-collapse:collapse;width:100%}td,th{padding:var(--s2) var(--s3);text-align:left}
+.theme{position:fixed;right:var(--s4);bottom:var(--s4);min-height:36px;padding:0 var(--s4);background:var(--surface-2);color:var(--ink);border:1px solid var(--edge);border-radius:var(--r)}
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s4);margin-top:var(--s7)}.state{border:1px dashed var(--edge);padding:var(--s4);border-radius:var(--r)}
+.checks li{display:grid;grid-template-columns:20px 1fr auto;gap:0 var(--s3);padding:var(--s2) 0;border-bottom:1px solid var(--line)}.checks .muted,.checks .ok{grid-column:2/-1;font-size:.8125rem}.checks .ok{color:var(--ok)}.tick{color:var(--ok);font-weight:700}
+pre.draft{white-space:pre-wrap;font:inherit;margin:0}
+@media (prefers-reduced-motion:no-preference){.reveal{animation:rv var(--dur) var(--ease) both}.reveal:nth-child(2){animation-delay:60ms}.reveal:nth-child(3){animation-delay:120ms}.reveal:nth-child(4){animation-delay:180ms}.reveal:nth-child(5){animation-delay:240ms}@keyframes rv{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
+
+.app{display:grid;grid-template-columns:64px 320px minmax(0,1fr);min-height:100vh}
+.rail{background:var(--surface-2);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:var(--s2);padding:var(--s3) var(--s2)}.rail a{display:grid;place-items:center;min-height:44px;color:var(--ink-muted);text-decoration:none;font-size:.6875rem;border-radius:var(--r)}.rail a[aria-current=page]{color:var(--accent);background:var(--surface)}
+.queue{border-right:1px solid var(--line);padding:var(--s4)}.queue h2{font-size:var(--step-1);display:flex;justify-content:space-between}
+a.q{display:grid;grid-template-columns:1fr auto;gap:2px var(--s3);padding:var(--s2) var(--s3);border-radius:var(--r);color:inherit;text-decoration:none;border:1px solid transparent}a.q.is-current{border-color:var(--accent);background:var(--surface-2)}.q .tone{font-size:.8125rem;color:var(--ink-muted)}
+.detail{padding:var(--s5) var(--s6);display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:var(--s6);align-content:start}
+.head{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s4)}.head .num{font-size:var(--step-2)}
+.reasons{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:var(--s2)}.reasons li{background:var(--surface-2);border:1px solid var(--line);padding:2px var(--s3);border-radius:var(--r);font-size:.875rem}
+.doc{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);padding:var(--s5)}
+.actions{display:flex;gap:var(--s3);margin-top:var(--s4)}kbd{font-family:var(--font-data);font-size:.75rem;border:1px solid var(--edge);border-radius:4px;padding:0 4px;margin-left:6px}
+.attn{display:flex;gap:var(--s2);padding:var(--s2) var(--s6);border-bottom:1px solid var(--line);background:var(--surface-2);overflow-x:auto}.attn li{white-space:nowrap;font-size:.8125rem;padding:2px var(--s3);border-left:3px solid var(--edge)}.attn .a-high{border-color:var(--high)}.attn .a-warn{border-color:var(--medium)}.attn .a-dispute{border-color:var(--accent)}.attn .a-ok{border-color:var(--ok)}
+table.inv td{border-bottom:1px solid var(--line);font-size:.875rem}
+.detail-col{grid-column:2;grid-row:3 / span 3}
+@media (max-width:1100px){.app{grid-template-columns:56px minmax(0,1fr)}.queue{display:none}.detail{grid-template-columns:1fr}.detail-col{grid-column:1;grid-row:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+<nav class="rail" aria-label="Main"><a href="#">Today</a><a href="#" aria-current="page">Approvals</a><a href="#">Customers</a><a href="#">Evals</a><a href="#">Admin</a></nav>
+<aside class="queue" aria-label="Drafts waiting"><h2>Approvals <span class="num">4</span></h2><ul><li><a class="q is-current" href="#d" aria-current="true"><span class="qn">ABC Distributors</span><span class="num">₹7,50,000</span><span class="badge b-high">HIGH</span><span class="tone">firm</span></a></li>
+<li><a class="q" href="#d" aria-current="false"><span class="qn">Kumar Electricals</span><span class="num">₹12,40,000</span><span class="badge b-high">HIGH</span><span class="tone">final</span></a></li>
+<li><a class="q" href="#d" aria-current="false"><span class="qn">Sri Lakshmi Industries</span><span class="num">₹3,85,000</span><span class="badge b-medium">MEDIUM</span><span class="tone">firm</span></a></li>
+<li><a class="q" href="#d" aria-current="false"><span class="qn">Metro Wholesale</span><span class="num">₹96,500</span><span class="badge b-low">LOW</span><span class="tone">gentle</span></a></li></ul></aside>
+<main>
+<ul class="attn" aria-label="What needs my attention today"><li class="a-high"><b>High priority</b> ABC Distributors, Kumar Electricals, +5</li><li class="a-warn"><b>Missed promises</b> 4 customers</li><li class="a-dispute"><b>Disputes</b> 2 open</li><li class="a-ok"><b>Approved, ready to send</b> 0</li></ul>
+<div class="detail" id="d">
+<div class="head"><h1>ABC Distributors</h1><span class="num">₹7,50,000</span><span class="badge b-high">HIGH 66</span><span class="muted">firm · email · 30 Sep 2026</span></div>
+<ul class="reasons" aria-label="Why selected"><li>High outstanding (₹7,50,000)</li><li>Oldest invoice 19 days overdue</li><li>1 missed promise</li><li>3 overdue invoices</li></ul>
+<article class="doc" aria-label="Draft"><pre class="draft">Dear ABC Distributors,
+
+Our records show three invoices past their due date:
+
+INV-1021 | ₹4,00,000 | due 11 Sep 2026
+INV-1034 | ₹2,00,000 | due 18 Sep 2026
+INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+Total outstanding: ₹7,50,000
+
+We had noted your plan to clear part of this in August. Could you confirm a date for payment this week? If any invoice needs a correction, reply and we will look at it straight away.
+
+Regards,
+Accounts team</pre>
+<div class="actions"><button class="btn">Approve<kbd>A</kbd></button><button class="btn-quiet">Edit<kbd>E</kbd></button><button class="btn-quiet">Reject<kbd>R</kbd></button><a class="btn-quiet" href="#">View agent run</a></div></article>
+<aside class="detail-col" aria-label="Guardrail report"><h3>Checked against the ledger</h3><ul class="checks"><li class="reveal"><li><span class="tick" aria-hidden="true">✓</span><span>INV-1021</span><span class="num">₹4,00,000</span><span class="muted">due 11 Sep 2026</span><span class="ok">matches ledger</span></li></li><li class="reveal"><li><span class="tick" aria-hidden="true">✓</span><span>INV-1034</span><span class="num">₹2,00,000</span><span class="muted">due 18 Sep 2026</span><span class="ok">matches ledger</span></li></li><li class="reveal"><li><span class="tick" aria-hidden="true">✓</span><span>INV-1047</span><span class="num">₹1,50,000</span><span class="muted">due 25 Sep 2026</span><span class="ok">matches ledger</span></li></li><li class="reveal"><li><span class="tick" aria-hidden="true">✓</span><span>Total</span><span class="num">₹7,50,000</span><span class="muted"></span><span class="ok">matches ledger</span></li></li><li class="reveal"><li><span class="tick" aria-hidden="true">✓</span><span>Customer</span><span class="num">ABC Distributors</span><span class="muted"></span><span class="ok">matches ledger</span></li></li></ul>
+<h3 style="margin-top:var(--s5)">Invoices</h3><table class="inv"><tbody><tr><td>INV-1021</td><td class='num r'>₹4,00,000</td><td>11 Sep 2026</td><td class='num r'>19 days</td></tr>
+<tr><td>INV-1034</td><td class='num r'>₹2,00,000</td><td>18 Sep 2026</td><td class='num r'>12 days</td></tr>
+<tr><td>INV-1047</td><td class='num r'>₹1,50,000</td><td>25 Sep 2026</td><td class='num r'>5 days</td></tr></tbody></table></aside>
+<section class="states" aria-labelledby="st"><h3 id="st">Approvals: other states</h3>
+<div class="state"><b>Empty</b><p>No drafts waiting. The next daily run prepares new ones.</p><a class="btn-quiet" href="#">Go to Today</a></div>
+<div class="state"><b>Error</b><p class="danger">Error: Approve failed: this draft changed in another tab. Reload the draft.</p><button class="btn-quiet">Reload draft</button></div>
+<div class="state"><b>Edit refused</b><p class="danger">Error: ₹4,50,000 does not match the ledger amount for INV-1021 (₹4,00,000). Fix the amount or cancel.</p></div>
+<div class="state"><b>Success</b><p>Approved. Sending shortly.</p></div></section>
+</div></main></div>
+<button class="theme" type="button" aria-label="Switch theme" onclick="var r=document.documentElement;r.dataset.theme=(r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches))?'light':'dark'">Theme</button>
+</body>
+</html>

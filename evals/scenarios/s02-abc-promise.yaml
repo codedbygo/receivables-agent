@@ -1,0 +1,11 @@
+id: s02-abc-promise
+title: ABC reply becomes a promise
+input:
+  trigger: reply
+  customer: ABC Distributors
+  reply_id: r-0001
+expected:
+  class: PROMISE
+  tools:
+  - log_promise
+  outcome: NO_ACTION

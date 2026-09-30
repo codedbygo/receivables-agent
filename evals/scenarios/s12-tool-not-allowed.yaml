@@ -1,0 +1,13 @@
+id: s12-tool-not-allowed
+title: Model requests a tool outside its role; refused and counted
+input:
+  trigger: manual
+  customer: Metro Wholesale
+  replay: fixture requests send_message
+expected:
+  class: null
+  tools:
+  - get_customer_history
+  - send_message
+  - draft_message
+  outcome: WAIT_FOR_APPROVAL

@@ -1,0 +1,11 @@
+id: s06-claim-matched
+title: Payment claim matched in the ledger
+input:
+  trigger: reply
+  customer: Metro Wholesale
+  reply_id: r-0028
+  ledger: payment 96,500 on 2026-09-28
+expected:
+  class: PAYMENT_CONFIRMATION
+  tools: []
+  outcome: NO_ACTION

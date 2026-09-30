@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Collections console: Ledger</title>
+<!--
+  Variant 2 of 3: Ledger
+  Direction: Ledger
+  Brief: for the owner or finance head who trusts paper books; the draft reads like a letter, the figures like a ledger. Weak spot: slower to scan a long queue.
+  Faces: display Spectral, body Work Sans, data Work Sans tabular
+  Palette: warm cream-grey paper (familiar account-book feel); ink blue-black; one red (the primary action and the overdue figure, never both on one row); green only on verified ticks with a word
+  Rhythm: single centred column of ruled rows at 72ch, queue as a top ledger table, report as margin notes on the right of each figure
+  Signature: ruled invoice table whose total line is double-underlined
+  Motion moment: the total's double underline draws in once, 400 ms
+  Generic-default revisions: no left sidebar; no cards; serif display instead of a grotesque
+  Screens: S-03 Approvals (hero), S-02 attention strip, S-03 states
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;700&family=Work+Sans:wght@400;600&display=swap">
+<style>
+:root{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;--dur:320ms;--ease:cubic-bezier(.2,.8,.2,1);--font-display:'Spectral',serif;--font-body:'Work Sans',sans-serif;--font-data:'Work Sans',sans-serif;--step-0:1rem;--step-1:1.25rem;--step-2:1.563rem;--step-3:2.441rem;--r:2px;--surface:#f3efe6;--surface-2:#fbf8f1;--ink:#1d2433;--ink-muted:#555b66;--line:#d6cfbf;--edge:#8a826f;--accent:#a3211b;--accent-ink:#ffffff;--danger:#a3211b;--focus:#1f4fa3;--ok:#2d6a3e;--high:#a3211b;--medium:#7a5500;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--surface:#1c1a16;--surface-2:#25221d;--ink:#eee8dc;--ink-muted:#b8b0a1;--line:#3a352c;--edge:#7d7564;--accent:#e2756b;--accent-ink:#1c0b09;--danger:#f08a80;--focus:#9bbcf5;--ok:#8fcf9e;--high:#f08a80;--medium:#e0b45a;}}
+:root[data-theme="dark"]{--surface:#1c1a16;--surface-2:#25221d;--ink:#eee8dc;--ink-muted:#b8b0a1;--line:#3a352c;--edge:#7d7564;--accent:#e2756b;--accent-ink:#1c0b09;--danger:#f08a80;--focus:#9bbcf5;--ok:#8fcf9e;--high:#f08a80;--medium:#e0b45a;}
+*{box-sizing:border-box}html{color-scheme:light dark}body{margin:0;background:var(--surface);color:var(--ink);font:400 var(--step-0)/1.5 var(--font-body);overflow-x:clip}
+h1,h2,h3{font-family:var(--font-display);line-height:1.15;text-wrap:balance;margin:0 0 var(--s4)}h1{font-size:var(--step-3)}h2{font-size:var(--step-2)}h3{font-size:var(--step-1)}
+.num{font-family:var(--font-data);font-variant-numeric:tabular-nums}.r{text-align:right}.muted{color:var(--ink-muted)}.danger{color:var(--danger)}
+button,.btn,.btn-quiet,a.q{min-height:36px}:focus-visible{outline:2px solid var(--focus);outline-offset:2px}button{cursor:pointer;font:inherit}
+.btn{display:inline-flex;align-items:center;padding:0 var(--s5);background:var(--accent);color:var(--accent-ink);border:0;border-radius:var(--r);font-weight:600}
+.btn-quiet{display:inline-flex;align-items:center;padding:0 var(--s4);background:transparent;color:var(--ink);border:1px solid var(--edge);border-radius:var(--r);text-decoration:none}
+.badge{justify-self:start;align-self:center;font-size:.75rem;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+.b-high{color:var(--high)}.b-medium{color:var(--medium)}.b-low{color:var(--ink-muted)}
+ul{list-style:none;margin:0;padding:0}table{border-collapse:collapse;width:100%}td,th{padding:var(--s2) var(--s3);text-align:left}
+.theme{position:fixed;right:var(--s4);bottom:var(--s4);min-height:36px;padding:0 var(--s4);background:var(--surface-2);color:var(--ink);border:1px solid var(--edge);border-radius:var(--r)}
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s4);margin-top:var(--s7)}.state{border:1px dashed var(--edge);padding:var(--s4);border-radius:var(--r)}
+.checks li{display:grid;grid-template-columns:20px 1fr auto;gap:0 var(--s3);padding:var(--s2) 0;border-bottom:1px solid var(--line)}.checks .muted,.checks .ok{grid-column:2/-1;font-size:.8125rem}.checks .ok{color:var(--ok)}.tick{color:var(--ok);font-weight:700}
+pre.draft{white-space:pre-wrap;font:inherit;margin:0}
+@media (prefers-reduced-motion:no-preference){.reveal{animation:rv var(--dur) var(--ease) both}.reveal:nth-child(2){animation-delay:60ms}.reveal:nth-child(3){animation-delay:120ms}.reveal:nth-child(4){animation-delay:180ms}.reveal:nth-child(5){animation-delay:240ms}@keyframes rv{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
+
+.wrap{max-width:1040px;margin:0 auto;padding:var(--s7) var(--s5)}
+header.top{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:var(--s3);margin-bottom:var(--s6)}header nav{display:flex;gap:var(--s5)}header nav a{color:var(--ink-muted);text-decoration:none;min-height:36px;display:inline-flex;align-items:center}header nav a[aria-current=page]{color:var(--ink);border-bottom:2px solid var(--accent)}
+table.ledger td,table.ledger th{border-bottom:1px solid var(--line)}table.ledger th{font-weight:600;font-size:.8125rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted)}
+.ledger tr.is-current td{background:var(--surface-2)}.ledger tr.is-current td:first-child{box-shadow:inset 3px 0 var(--accent)}
+.letter{display:grid;grid-template-columns:minmax(0,72ch) minmax(200px,1fr);gap:var(--s6);margin-top:var(--s7)}
+.paper{background:var(--surface-2);padding:var(--s6);border:1px solid var(--line)}
+.inv{margin:var(--s4) 0}.inv td{border-bottom:1px solid var(--line)}.inv tr.total td{border-bottom:3px double var(--ink);font-weight:700}
+.margin h3{font-size:1rem;font-family:var(--font-body);font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted)}
+.why{margin:var(--s3) 0 0;padding-left:var(--s4);border-left:2px solid var(--line)}.why li{font-size:.9375rem;padding:2px 0}
+.actions{display:flex;gap:var(--s3);margin-top:var(--s5)}
+@media (prefers-reduced-motion:no-preference){.inv tr.total td{animation:ul 400ms var(--ease) both}@keyframes ul{from{border-bottom-color:transparent}to{border-bottom-color:var(--ink)}}}
+@media (max-width:900px){.letter{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><h1 style="margin:0">Approvals</h1><nav aria-label="Main"><a href="#">Today</a><a href="#" aria-current="page">Approvals</a><a href="#">Customers</a><a href="#">Evaluation</a><a href="#">Admin</a></nav></header>
+<p class="muted">High priority: ABC Distributors, Kumar Electricals, +5 · Missed promises: 4 customers · Disputes: 2 open · Approved, ready to send: 0</p>
+<table class="ledger" aria-label="Drafts waiting"><thead><tr><th>Customer</th><th class="r">Outstanding</th><th>Priority</th><th>Tone</th></tr></thead><tbody><tr class="is-current"><td><a href="#d" style="color:inherit">ABC Distributors</a></td><td class="num r">₹7,50,000</td><td><span class="badge b-high">HIGH</span></td><td>firm</td></tr><tr class=""><td><a href="#d" style="color:inherit">Kumar Electricals</a></td><td class="num r">₹12,40,000</td><td><span class="badge b-high">HIGH</span></td><td>final</td></tr><tr class=""><td><a href="#d" style="color:inherit">Sri Lakshmi Industries</a></td><td class="num r">₹3,85,000</td><td><span class="badge b-medium">MEDIUM</span></td><td>firm</td></tr><tr class=""><td><a href="#d" style="color:inherit">Metro Wholesale</a></td><td class="num r">₹96,500</td><td><span class="badge b-low">LOW</span></td><td>gentle</td></tr></tbody></table>
+<div class="letter" id="d">
+<article class="paper" aria-label="Draft to ABC Distributors"><h2>ABC Distributors</h2><p class="muted">firm reminder by email · 30 Sep 2026</p>
+<p>Dear ABC Distributors,</p><p>Our records show three invoices past their due date:</p>
+<table class="inv"><tbody><tr><td>INV-1021</td><td>11 Sep 2026</td><td class='num r'>₹4,00,000</td></tr><tr><td>INV-1034</td><td>18 Sep 2026</td><td class='num r'>₹2,00,000</td></tr><tr><td>INV-1047</td><td>25 Sep 2026</td><td class='num r'>₹1,50,000</td></tr><tr class='total'><td colspan='2'>Total outstanding</td><td class='num r'>₹7,50,000</td></tr></tbody></table>
+<p>We had noted your plan to clear part of this in August. Could you confirm a date for payment this week? If any invoice needs a correction, reply and we will look at it straight away.</p><p>Regards,<br>Accounts team</p>
+<div class="actions"><button class="btn">Approve</button><button class="btn-quiet">Edit</button><button class="btn-quiet">Reject</button></div></article>
+<aside class="margin" aria-label="Notes"><h3>Why today</h3><ul class="why"><li>High outstanding (₹7,50,000)</li><li>Oldest invoice 19 days overdue</li><li>1 missed promise</li><li>3 overdue invoices</li></ul>
+<h3 style="margin-top:var(--s6)">Checked against the ledger</h3><ul class="checks"><li><span class="tick" aria-hidden="true">✓</span><span>INV-1021</span><span class="num">₹4,00,000</span><span class="muted">due 11 Sep 2026</span><span class="ok">matches ledger</span></li>
+<li><span class="tick" aria-hidden="true">✓</span><span>INV-1034</span><span class="num">₹2,00,000</span><span class="muted">due 18 Sep 2026</span><span class="ok">matches ledger</span></li>
+<li><span class="tick" aria-hidden="true">✓</span><span>INV-1047</span><span class="num">₹1,50,000</span><span class="muted">due 25 Sep 2026</span><span class="ok">matches ledger</span></li>
+<li><span class="tick" aria-hidden="true">✓</span><span>Total</span><span class="num">₹7,50,000</span><span class="muted"></span><span class="ok">matches ledger</span></li>
+<li><span class="tick" aria-hidden="true">✓</span><span>Customer</span><span class="num">ABC Distributors</span><span class="muted"></span><span class="ok">matches ledger</span></li></ul><p><a href="#" class="btn-quiet">View agent run</a></p></aside>
+</div>
+<section class="states" aria-labelledby="st"><h3 id="st">Approvals: other states</h3>
+<div class="state"><b>Empty</b><p>No drafts waiting. The next daily run prepares new ones.</p><a class="btn-quiet" href="#">Go to Today</a></div>
+<div class="state"><b>Error</b><p class="danger">Error: Approve failed: this draft changed in another tab. Reload the draft.</p><button class="btn-quiet">Reload draft</button></div>
+<div class="state"><b>Edit refused</b><p class="danger">Error: ₹4,50,000 does not match the ledger amount for INV-1021 (₹4,00,000). Fix the amount or cancel.</p></div>
+<div class="state"><b>Success</b><p>Approved. Sending shortly.</p></div></section>
+</div>
+<button class="theme" type="button" aria-label="Switch theme" onclick="var r=document.documentElement;r.dataset.theme=(r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches))?'light':'dark'">Theme</button>
+</body>
+</html>

@@ -1,0 +1,11 @@
+id: s05-statement
+title: Statement request produces a statement draft
+input:
+  trigger: reply
+  customer: Ganesh Traders
+  reply_id: r-0023
+expected:
+  class: STATEMENT_REQUEST
+  tools:
+  - draft_message
+  outcome: WAIT_FOR_APPROVAL

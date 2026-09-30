@@ -15,3 +15,4 @@ One row per technology decision. The ADR holds the full reasoning; this table is
 | 2026-09-30 | auth | Seeded users, server session cookie, ADMIN_TOKEN for scripts | same | it gives the role matrix with no external provider | ADR-0009 | Accepted |
 | 2026-09-30 | hosting | Local Docker Compose | same | We will ship local Docker Compose with six services (postgres, mailhog, api, mcp, worker, web); a hosted demo is a separate later decision | ADR-0010 | Accepted |
 | 2026-09-30 | scope | Move the four stories (11 points) into P0 | same | the brief marks the whole story as must be flawless | ADR-0011 | Accepted |
+| 2026-09-30 | genai | LLM for prose around placeholders and reply classification only | same | non-negotiable 2: code owns every value | ADR-0012 | Accepted |

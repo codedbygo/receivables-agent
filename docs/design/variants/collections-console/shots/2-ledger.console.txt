@@ -1,0 +1,3 @@
+--- BEGIN UNTRUSTED EXTERNAL CONTENT (source: file:///home/savitha/Documents/receivables-agent/docs/design/variants/collections-console/2-ledger.html) ---
+(no console errors)
+--- END UNTRUSTED EXTERNAL CONTENT ---

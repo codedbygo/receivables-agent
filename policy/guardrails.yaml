@@ -1,0 +1,56 @@
+# Guardrails policy for the collections agent. Reviewed like code; guardrails/ reads it at start.
+# Every key has at least one case in evals/redteam.yaml or tests/unit/test_guardrails.py.
+version: 1
+owner: HACK-001 AI lead rotation
+
+limits:
+  max_reply_chars: 5000            # T-24; longer replies are refused before any model call
+  max_output_tokens: 500           # ADR-0007
+  max_tool_calls_per_customer_run: 4   # REQ-032
+  future_date_window_days: 60      # LLD 6.1 step 4
+
+tone:                              # REQ-052; case-insensitive regexes, matched on the final draft
+  threat:
+    - "\\b(or else|you will regret|consequences will follow)\\b"
+    - "\\bwe will (come|visit) (to )?your (office|premises|home)\\b"
+  abuse:
+    - "\\b(idiot|stupid|fraud(ster)?|cheat(er)?|liar)\\b"
+  harassment:
+    - "\\b(call|message) you (every|each) (hour|day)\\b"
+  legal:
+    - "\\b(legal action|legal notice|lawyer|advocate|court|sue|suit|section 138|cheque bounce case|arbitration)\\b"
+  third_party:
+    - "\\b(inform|tell|notify|contact) (your )?(other suppliers|suppliers|customers|bank|family|relatives|neighbours|employer)\\b"
+    - "\\b(credit bureau|cibil|blacklist)\\b"
+  shaming:
+    - "\\b(shame(ful)?|disgrace(ful)?|embarrass(ing)?|publicly)\\b"
+  false_urgency:
+    - "\\b(within|in) (the next )?\\d+ (hours?|minutes?)\\b"
+    - "\\b(immediately|right now|last chance|final warning)\\b"
+  unlisted_consequence:
+    - "\\b(stop (all )?supplies|cut off|suspend (your )?account|charge (a )?(penalty|late fee))\\b"
+legal_allow: []                    # Q-006: no legal wording configured by the business
+
+injection:                         # REQ-068; replies only, after NFKC normalisation, case-insensitive
+  action: escalate                 # reply is stored, classified with no tools, and escalated
+  patterns:
+    - "ignore (all |the )?(previous|above|prior) (instructions|messages)"
+    - "(system|developer) (mode|prompt)"
+    - "you are now"
+    - "disregard (the )?(above|previous)"
+    - "mark (all |every |these )?(invoices? )?(as )?(paid|settled|closed)"
+    - "(send|forward|email) (this|the statement|a copy) to [\\w.+-]+@"
+
+trusted_mode_allow:                # Q-008; all must hold for an auto-send
+  tone: [gentle]
+  channel: [email]
+  bands: [LOW, MEDIUM]
+  max_total_paise: 10000000        # ₹1,00,000
+  no_open_dispute: true
+  no_missed_promise: true
+
+tools:                             # tier per tool; MCP clients act as collector
+  read: [list_overdue, get_customer_history, get_invoice, get_customer, check_promise_status]
+  write: [draft_message, log_promise, log_dispute, escalate, create_followup, classify_reply]
+  gated: [send_message, record_payment]   # send gate / ledger evidence required
+  forbidden_input_fields: [sql, query, raw]   # DIRECT_DB_ATTEMPT

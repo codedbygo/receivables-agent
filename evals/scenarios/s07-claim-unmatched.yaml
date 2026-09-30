@@ -1,0 +1,11 @@
+id: s07-claim-unmatched
+title: Payment claim not in the ledger is escalated
+input:
+  trigger: reply
+  customer: Shree Ram Textiles
+  reply_id: r-0030
+expected:
+  class: PAYMENT_CONFIRMATION
+  tools:
+  - escalate
+  outcome: ESCALATED

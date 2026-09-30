@@ -1,0 +1,11 @@
+id: s01-abc-reminder
+title: 'ABC Distributors: firm reminder drafted and waiting'
+input:
+  trigger: scheduled
+  customer: ABC Distributors
+expected:
+  class: null
+  tools:
+  - get_customer_history
+  - draft_message
+  outcome: WAIT_FOR_APPROVAL

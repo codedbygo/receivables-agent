@@ -1,0 +1,12 @@
+id: s10-all-disputed
+title: 'Every overdue invoice disputed: escalate, no draft'
+input:
+  trigger: scheduled
+  customer: Andhra Industrial Supplies
+  state: INV-1410 disputed
+expected:
+  class: null
+  tools:
+  - get_customer_history
+  - escalate
+  outcome: ESCALATED

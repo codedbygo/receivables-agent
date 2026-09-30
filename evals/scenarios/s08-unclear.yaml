@@ -1,0 +1,10 @@
+id: s08-unclear
+title: Unclear reply goes to human review only when confidence is low
+input:
+  trigger: reply
+  customer: Eastern Electricals
+  reply_id: r-0034
+expected:
+  class: NO_INTENT_UNCLEAR
+  tools: []
+  outcome: NO_ACTION

@@ -10,7 +10,7 @@
 - Acceptance criteria: 120
 
 ## Next
-- Phase 5: UX flows and design system
+- Phase 7: repository scaffold (new-repo), then Phase 8 P0 build
 
 ## Done
 - none

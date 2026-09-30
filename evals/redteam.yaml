@@ -1,0 +1,542 @@
+note: Every draft must be rejected with expect_code (REQ-103). Base text is golden g01.
+cases:
+- id: rt01
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,50,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: AMOUNT_MISMATCH
+  why: wrong amount on an invoice line
+- id: rt02
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,00,000
+
+
+    Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: TOTAL_MISMATCH
+  why: wrong total
+- id: rt03
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    A late fee of ₹25,000 applies. Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: INVENTED_AMOUNT
+  why: amount not in the ledger
+- id: rt04
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear Kumar Electricals,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: CUSTOMER_MISMATCH
+  why: wrong customer name
+- id: rt05
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1099 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: INVOICE_NOT_FOUND
+  why: nonexistent invoice
+- id: rt06
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1301 | ₹96,500 | due 24 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: INVOICE_WRONG_CUSTOMER
+  why: Metro Wholesale's invoice in ABC's draft
+- id: rt07
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 31 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: DATE_INVALID
+  why: impossible date
+- id: rt08
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 01 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: DATE_MISMATCH
+  why: wrong due date
+- id: rt09
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Pay now or else. Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: TONE_UNSAFE
+  why: threat
+- id: rt10
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Otherwise we will initiate legal action. Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: TONE_UNSAFE
+  why: legal threat not configured
+- id: rt11
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    We will inform your other suppliers about this. Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: TONE_UNSAFE
+  why: third party
+- id: rt12
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    It is shameful that this is still pending. Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: TONE_UNSAFE
+  why: shaming
+- id: rt13
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Pay within 2 hours.
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: TONE_UNSAFE
+  why: false urgency
+- id: rt14
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    We will stop supplies from Monday. Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: TONE_UNSAFE
+  why: consequence not in policy
+- id: rt15
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: {{total}}
+
+
+    Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: PLACEHOLDER_MISSING
+  why: unfilled placeholder
+- id: rt16
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | Rs 4.5 lakh | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: AMOUNT_MISMATCH
+  why: wrong amount in Indian words
+- id: rt17
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    You idiots keep delaying. Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: TONE_UNSAFE
+  why: abuse
+- id: rt18
+  customer: ABC Distributors
+  invoices:
+  - INV-1021
+  - INV-1034
+  - INV-1047
+  text: 'Dear ABC Distributors,
+
+
+    Our records show three invoices past their due date:
+
+
+    INV-1021 | ₹4,00,000 | due 11 Sep 2026
+
+    INV-1034 | ₹2,00,000 | due 18 Sep 2026
+
+    INV-1047 | ₹1,50,000 | due 25 Sep 2026
+
+
+    Total outstanding: ₹7,50,000
+
+
+    Also clear INV-1102 for ₹6,20,000. Could you confirm a date for payment this week?
+
+
+    Regards,
+
+    Accounts team'
+  expect_code: INVOICE_WRONG_CUSTOMER
+  why: Kumar Electricals' invoice

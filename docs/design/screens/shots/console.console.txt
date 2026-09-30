@@ -1,0 +1,3 @@
+--- BEGIN UNTRUSTED EXTERNAL CONTENT (source: file:///home/savitha/Documents/receivables-agent/docs/design/screens/console.html) ---
+(no console errors)
+--- END UNTRUSTED EXTERNAL CONTENT ---
