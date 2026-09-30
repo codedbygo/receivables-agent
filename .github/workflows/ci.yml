@@ -1,0 +1,63 @@
+# CI: every gate is a make target, so the Makefile stays the single source of
+# what a gate does. GitHub sets CI=true, so a missing tool fails instead of
+# printing SKIPPED. No network to OpenRouter is needed: LLM_MODE=replay.
+#
+# Deliberately left out from the Bearing template (engineer's convention,
+# 2026-09-30: direct pushes to develop and main): the branch-name and
+# commit-subject jobs, and image publishing. Add them back with the
+# convention if the team moves to pull requests.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.12.21"
+  LLM_MODE: replay
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: make setup
+      - run: make check
+
+  integration:
+    needs: check
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_DB: collections, POSTGRES_USER: collections, POSTGRES_PASSWORD: collections }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U collections" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://collections:collections@localhost:5432/collections
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: make setup
+      - run: make test-integration

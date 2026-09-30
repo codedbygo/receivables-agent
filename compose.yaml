@@ -1,0 +1,45 @@
+# Local stack (ADR-0010). Services arrive as they are built: mcp, worker and web
+# are added with P0 steps 6, 8 and 13. Ports bind to 127.0.0.1 only.
+name: collections-agent
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: collections
+      POSTGRES_PASSWORD: collections
+      POSTGRES_DB: collections
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U collections -d collections"]
+      interval: 3s
+      retries: 20
+
+  mailhog: # Mailpit, MailHog-compatible ports (ADR-0008)
+    image: axllent/mailpit:v1.31
+    ports: ["127.0.0.1:8025:8025"]
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://collections:collections@postgres:5432/collections
+      SMTP_HOST: mailhog
+    command: ["uvicorn", "app.api.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      mailhog: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=2).status == 200 else 1)"]
+      interval: 5s
+      retries: 20
+
+volumes:
+  pgdata:
