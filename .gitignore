@@ -14,7 +14,8 @@ deliverables/
 /.gitconfig
 
 # Project
-.env
+.env*
+!.env.example
 backend/.venv/
 **/__pycache__/
 .ruff_cache/
@@ -22,3 +23,5 @@ backend/.venv/
 .pytest_cache/
 web/node_modules/
 web/dist/
+web/test-results/
+web/playwright-report/

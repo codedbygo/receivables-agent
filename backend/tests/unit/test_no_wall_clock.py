@@ -8,6 +8,7 @@ FORBIDDEN = re.compile(r"\b(date\.today\(|datetime\.now\(|datetime\.today\(|date
 ALLOWED = {APP / "core" / "clock.py"}
 
 
+# TC-0231 (AC-US-01-004-2)
 def test_no_wall_clock_for_business_dates() -> None:
     offenders = [
         f"{p.relative_to(APP)}:{n}"

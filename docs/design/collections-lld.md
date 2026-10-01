@@ -138,8 +138,8 @@ loop:
     if ctx.calls == 4: record STOPPED_LIMIT (GuardrailEvent TOOL_LIMIT); break   # 5th not executed
     out = registry.invoke(r.tool, r.args, ctx)   # ctx.calls += 1; step row written
     msgs += [assistant(r), tool_result(out)]
-finish_run(outcome = WAIT_FOR_APPROVAL if a pending draft exists
-                     else ESCALATED if an escalation was created else NO_ACTION)
+finish_run(outcome = ESCALATED if an escalation was created
+                     else WAIT_FOR_APPROVAL if a pending draft exists else NO_ACTION)
 ```
 
 A model turn that returns a tool outside the allow-list is answered with a tool error `TOOL_NOT_ALLOWED` and counts as a call.
@@ -219,9 +219,9 @@ Other guardrails: send without approval or with a stale verification (send gate,
 | `TZ` | `Asia/Kolkata` | all | business day boundaries |
 | `SENDING_ENABLED` | `true` | seeds settings | kill switch at runtime |
 | `AUTONOMY_MODE` | `manual` | seeds settings | |
-| `ADMIN_TOKEN` | empty | api | secret; scripts |
+| `ADMIN_TOKEN` | empty | api | reserved; not read yet (scripts send the demo role header) |
 | `FEATURE_WHATSAPP` / `FEATURE_VOICE` / `FEATURE_PAYMENT_LINK` / `FEATURE_TRUSTED_MODE` | `false` | seed settings | |
-| `BANK_WEBHOOK_SECRET` | empty (required) | api | secret |
+| `BANK_WEBHOOK_SECRET` | empty | api | secret; empty means a random secret per api process, so only the admin simulator can post credits |
 | `MCP_TOKEN` | empty (required for HTTP) | mcp | secret |
 | `SESSION_SECRET` | empty (required) | api | secret; also signs payment-link tokens |
 | `CLASSIFY_MIN_CONFIDENCE` | `0.75` | reply role | Q-001 |
@@ -248,13 +248,13 @@ class MessageChannel(Protocol):
 
 ### 8.1 Auth (lightweight `auth`)
 
-Sessions: sign-in checks argon2 hash, creates a 32-byte random cookie `ca_session` (HttpOnly, SameSite=Lax, 12 h), stores its SHA-256 in `sessions`. `ADMIN_TOKEN` bearer acts as admin for scripts. CSRF: unsafe methods require `Origin` equal to the web origin (T-02). Sign-in rate limit: 5 failures per email per minute (in-memory in the single api process; ponytail: move to Postgres if api ever runs more than one replica).
+Demo roles (engineer's decision 2026-09-30, replacing cookie sessions for the localhost demo): the console sends `X-Demo-Role: admin | collector | viewer`; the API maps it to that role's seeded user (`services/auth.py`) and checks the role matrix per route (`api/deps.py`). Missing or unknown role: 401; wrong role: 403. The stack binds to 127.0.0.1 only; a hosted demo needs real sign-in first (DEBT).
 
 | Operation group | viewer | collector | admin |
 | --- | --- | --- | --- |
-| read dashboard, customers, timeline, runs, messages, replies, promises, disputes, escalations, payments, evals | yes | yes | yes |
+| read dashboard, customers, timeline, settings (kill switch, mode, flags), a run by id, messages, replies, promises, disputes, escalations, payments, evals | yes | yes | yes |
 | edit, approve, reject, resend, approve-batch, simulate reply, check payment, resolve dispute or escalation, match payment | no | yes | yes |
-| start run, settings, clock, reset, simulate bank credit, guardrail events, run list | no | no | yes |
+| start run, change settings, clock, reset, simulate bank credit, guardrail events, run list | no | no | yes |
 | MCP tools | n/a | all 13 (acts as collector) | n/a |
 
 A parametrised test calls every operation in `api/openapi.yaml` (`x-roles`) and every tool as each role.

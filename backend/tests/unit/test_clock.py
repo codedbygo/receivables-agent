@@ -51,11 +51,13 @@ def test_not_a_single_date(text: str) -> None:
     assert resolve_date(text, TODAY, "future") is None
 
 
+# TC-0207 (AC-US-00-012-4)
 def test_year_rolls_over_in_december() -> None:
     assert resolve_date("October 5", date(2026, 12, 20), "future") == date(2027, 10, 5)
 
 
 @pytest.mark.parametrize("text", ["31 Sep", "31/09/2026", "30 February"])
+# TC-0207 (AC-US-00-012-4)
 def test_impossible_dates_raise(text: str) -> None:
     with pytest.raises(DateInvalidError):
         resolve_date(text, TODAY, "future")

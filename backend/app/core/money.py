@@ -15,6 +15,8 @@ _UNITS = {
     "l": 10**5,
     "thousand": 10**3,
     "k": 10**3,
+    "rupees": 1,
+    "rupee": 1,
 }
 
 # A money token: optional currency, a number (Indian or international grouping,
@@ -24,8 +26,8 @@ _AMOUNT = re.compile(
     r"(?P<cur>₹|rs\.?|inr)?\s*"
     r"(?P<num>\d{1,3}(?:,\d{2})*,\d{3}|\d{1,3}(?:,\d{3})+|\d+)"
     r"(?:\.(?P<dec>\d{1,2}))?"
-    r"(?!\d|/\d)"
-    r"(?:\s*(?P<unit>crores?|cr|lakhs?|lacs?|thousand|l|k)(?![a-z]))?"
+    r"(?!\d|/\d|,\d)"
+    r"(?:\s*(?P<unit>crores?|cr|lakhs?|lacs?|thousand|rupees?|l|k)(?![a-z]))?"
     r"(?P<slash>\s*/-)?",
     re.IGNORECASE,
 )

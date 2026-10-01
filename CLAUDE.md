@@ -36,3 +36,4 @@ Add a line each time a mistake repeats; delete lines that stop applying.
 - The ledger computes every number; the model never writes an amount, total or date (tenets, docs/architecture/tenets.md).
 - `uv` here is a snap and does not start inside the Claude Code sandbox; run make with `UV=<pip-installed uv>` in the sandbox.
 - Anything matching `.env` in a command is blocked by the secret guard; write `.env.example` with the editor.
+- `find_up(name)` walks up from the caller's file, so a package named like a repo folder (`app/api`, `app/evals`) shadows it; pass `start`, or pick another package name.

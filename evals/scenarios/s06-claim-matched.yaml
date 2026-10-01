@@ -9,3 +9,5 @@ expected:
   class: PAYMENT_CONFIRMATION
   tools: []
   outcome: NO_ACTION
+setup:  # applied through product services before the run
+- {bank_credit: {amount_paise: 9650000, reference: NEFT INV-1301}}

@@ -10,28 +10,30 @@ def client(db_ok: bool) -> TestClient:
     return TestClient(app)
 
 
+# TC-0264 (AC-US-01-014-1)
 def test_healthz_is_ok_without_dependencies() -> None:
-    r = client(db_ok=False).get("/healthz")
+    r = client(db_ok=False).get("/api/v1/healthz")
     assert r.status_code == 200
     assert r.json() == {"status": "ok", "checks": {}}
 
 
+# TC-0264 (AC-US-01-014-1)
 def test_readyz_names_the_failing_dependency() -> None:
-    r = client(db_ok=False).get("/readyz")
+    r = client(db_ok=False).get("/api/v1/readyz")
     assert r.status_code == 503
     assert r.json() == {"status": "unavailable", "checks": {"database": "unavailable"}}
 
 
 def test_readyz_ok_when_database_answers() -> None:
-    r = client(db_ok=True).get("/readyz")
+    r = client(db_ok=True).get("/api/v1/readyz")
     assert r.status_code == 200
     assert r.json()["checks"] == {"database": "ok"}
 
 
 def test_every_response_carries_a_request_id() -> None:
-    r = client(db_ok=True).get("/healthz", headers={"X-Request-Id": "req_test1"})
+    r = client(db_ok=True).get("/api/v1/healthz", headers={"X-Request-Id": "req_test1"})
     assert r.headers["X-Request-Id"] == "req_test1"
-    assert client(db_ok=True).get("/healthz").headers["X-Request-Id"].startswith("req_")
+    assert client(db_ok=True).get("/api/v1/healthz").headers["X-Request-Id"].startswith("req_")
 
 
 def test_app_error_uses_the_shared_envelope() -> None:
@@ -53,3 +55,10 @@ def test_app_error_uses_the_shared_envelope() -> None:
             "request_id": "req_e1",
         }
     }
+
+
+def test_a_foreign_host_header_is_refused() -> None:
+    # Security review 2026-10-01: DNS rebinding sends the operator's browser here under an attacker's hostname.
+    r = client(True).get("/api/v1/healthz", headers={"Host": "attacker.example"})
+
+    assert r.status_code == 400

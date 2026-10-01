@@ -33,7 +33,7 @@ extend-exclude = [".claude"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "BLE", "S"]
-ignore = ["S101"]
+ignore = ["S101", "E501"]  # ruff format owns line length; SQL strings stay readable
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S"]

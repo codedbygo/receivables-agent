@@ -8,7 +8,7 @@ Decision policy: master prompt pause policy; fixes below are **auto-decided** an
 
 - Initial design completeness: **5/10.** The backlog names every screen and most states (empty states on the dashboard and customer page, error text on key failures), but says nothing about layout hierarchy, density, navigation, what the collector sees first, or how amounts and statuses are visually encoded. A 10 for this plan: each screen has a stated first/second/third read, every list has loading, empty, error and partial states, status badges and timeline icons are a fixed vocabulary, and the approval queue is designed as the product's hero.
 - DESIGN.md: none yet. `/design-consultation` runs in Phase 5.
-- Existing design leverage: none in the repository.
+- Existing design reuse: none in the repository.
 
 ## Pass 1: Information architecture (4/10 → 8/10)
 

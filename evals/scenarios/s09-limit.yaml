@@ -12,3 +12,9 @@ expected:
   - get_invoice
   - check_promise_status
   outcome: STOPPED_LIMIT
+script:  # the model's turns, served by a scripted transport; $customer is the customer's id
+- {tool: get_customer_history, args: {customer_id: $customer}}
+- {tool: get_invoice, args: {invoice_number: INV-1102}}
+- {tool: get_invoice, args: {invoice_number: INV-1118}}
+- {tool: check_promise_status, args: {customer_id: $customer}}
+- {tool: get_customer_history, args: {customer_id: $customer}}

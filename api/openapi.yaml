@@ -9,16 +9,17 @@ info:
     name: HACK-001 team
 x-api-style: 'REST over HTTP with JSON bodies; one service; deviations from docs/api style: money fields are *_paise with
   no currency field (INR only, ADR-0003 and tenet 2); error codes are UPPER_SNAKE to match the MCP tool envelope (eng review
-  Q2); authentication is a session cookie (ADR-0009).'
+  Q2); authentication is a demo role header (engineer''s decision 2026-09-30, superseding the cookie sessions of ADR-0009
+  for the localhost demo).'
 x-versioning: Major in the path (/api/v1); X-API-Version reserved for dated changes.
-x-authentication: 'Session cookie on every operation except those marked security: [] (health, sign-in, payment link) and
-  the bank webhook (HMAC). Scripts may send Authorization: Bearer ADMIN_TOKEN. A record the caller cannot see is 404.'
+x-authentication: 'X-Demo-Role: admin | collector | viewer on every operation except those marked security: [] (health, payment
+  link) and the bank webhook (HMAC). The stack binds to localhost only. A missing or unknown role is 401; a role without the
+  right is 403.'
 servers:
 - url: http://localhost:8000/api/v1
   description: local Docker Compose
 security:
-- sessionCookie: []
-- adminToken: []
+- demoRole: []
 tags:
 - name: health
   description: health
@@ -99,60 +100,6 @@ paths:
                 $ref: '#/components/schemas/Health'
         '503':
           $ref: '#/components/responses/Unavailable'
-  /auth/sessions:
-    post:
-      operationId: createSession
-      summary: Sign in
-      tags:
-      - auth
-      x-story-ids:
-      - US-01-007
-      x-roles: public
-      parameters:
-      - $ref: '#/components/parameters/ApiVersion'
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SignIn'
-      responses:
-        '201':
-          description: OK
-          headers:
-            X-Request-Id:
-              $ref: '#/components/headers/XRequestId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /auth/sessions/current:
-    delete:
-      operationId: deleteSession
-      summary: Sign out
-      tags:
-      - auth
-      x-story-ids:
-      - US-01-007
-      x-roles: viewer, collector, admin
-      parameters:
-      - $ref: '#/components/parameters/ApiVersion'
-      responses:
-        '204':
-          description: No content
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
   /auth/me:
     get:
       operationId: getMe
@@ -411,16 +358,15 @@ paths:
   /customers/{id}/timeline:
     get:
       operationId: listCustomerTimeline
-      summary: Timeline in time order
+      summary: Timeline, newest first, and the next action
       tags:
       - customers
       x-story-ids:
       - US-00-022
+      - US-00-004
       x-roles: viewer, collector, admin
       parameters:
       - $ref: '#/components/parameters/ApiVersion'
-      - $ref: '#/components/parameters/Cursor'
-      - $ref: '#/components/parameters/Limit'
       - name: id
         in: path
         required: true
@@ -436,17 +382,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - data
-                - page
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/TimelineEvent'
-                  page:
-                    $ref: '#/components/schemas/Page'
+                $ref: '#/components/schemas/Timeline'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -916,6 +852,8 @@ paths:
       x-roles: collector, admin
       parameters:
       - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
       requestBody:
         required: true
         content:
@@ -931,7 +869,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Message'
+                type: object
+                required:
+                - data
+                - page
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  page:
+                    $ref: '#/components/schemas/Page'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1430,12 +1378,12 @@ paths:
   /admin/settings:
     get:
       operationId: getSettings
-      summary: Runtime settings
+      summary: Runtime settings (every role reads the kill switch, autonomy mode and flags)
       tags:
       - admin
       x-story-ids:
       - US-01-006
-      x-roles: admin
+      x-roles: viewer, collector, admin
       parameters:
       - $ref: '#/components/parameters/ApiVersion'
       responses:
@@ -1661,6 +1609,41 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+  /invoices/{number}/pay-link:
+    post:
+      operationId: createPayLink
+      summary: Signed SIMULATED payment link for one invoice (FEATURE_PAYMENT_LINK)
+      tags:
+      - pay
+      x-story-ids:
+      - US-03-004
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^INV-\d+$
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayLinkToken'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /pay/{token}:
     get:
       operationId: getPayLink
@@ -1727,13 +1710,11 @@ paths:
           $ref: '#/components/responses/InternalError'
 components:
   securitySchemes:
-    sessionCookie:
+    demoRole:
       type: apiKey
-      in: cookie
-      name: ca_session
-    adminToken:
-      type: http
-      scheme: bearer
+      in: header
+      name: X-Demo-Role
+      description: admin, collector or viewer
     bankSignature:
       type: apiKey
       in: header
@@ -2342,6 +2323,13 @@ components:
         subject:
           type: string
           minLength: 1
+        channel:
+          anyOf:
+          - type: string
+            enum:
+            - email
+            - whatsapp
+          - type: 'null'
       required:
       - body
       - subject
@@ -3003,17 +2991,45 @@ components:
           type: string
           format: date
         job_id:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
         queued:
           type: boolean
+        run_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
       required:
       - run_date
       - job_id
       - queued
+      - run_ids
       example:
         run_date: '2026-09-30'
-        job_id: 12
-        queued: true
+        job_id: null
+        queued: false
+        run_ids:
+        - 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
+      description: 'No customer_ids: today''s daily run is queued (job_id). customer_ids: those customers run now, in the
+        request (run_ids).'
+    Timeline:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineEvent'
+        next_action:
+          type: string
+        page:
+          $ref: '#/components/schemas/Page'
+      required:
+      - data
+      - next_action
+      - page
+      description: Newest first, with the rule-based next action for the customer
     Dashboard:
       type: object
       properties:
@@ -3378,12 +3394,20 @@ components:
           type: array
           items:
             type: string
+        verified:
+          type: boolean
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/GuardrailCheck'
       required:
       - customer
       - summary
       - invoices
       - promises
       - talking_points
+      - verified
+      - checks
       example:
         customer:
           id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
@@ -3402,6 +3426,16 @@ components:
         promises: []
         talking_points:
         - Confirm a date for INV-1021 (₹4,00,000)
+    PayLinkToken:
+      type: object
+      properties:
+        token:
+          type: string
+        invoice_number:
+          type: string
+      required:
+      - token
+      - invoice_number
     PayLink:
       type: object
       properties:

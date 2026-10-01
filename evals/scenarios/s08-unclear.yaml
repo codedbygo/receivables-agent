@@ -1,10 +1,13 @@
 id: s08-unclear
-title: Unclear reply goes to human review only when confidence is low
+title: Unclear reply goes to a human
+# Q-023: this scenario first expected no tools. The reviewed label for r-0034 says human_review and REQ-067
+# sends low confidence to a human, so a bare "Noted." (confidence 0.5 < 0.75) is escalated.
 input:
   trigger: reply
   customer: Eastern Electricals
   reply_id: r-0034
 expected:
   class: NO_INTENT_UNCLEAR
-  tools: []
-  outcome: NO_ACTION
+  tools:
+  - escalate
+  outcome: ESCALATED

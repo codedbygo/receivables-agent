@@ -7,3 +7,10 @@ def test_migration_schema_matches_the_design() -> None:
     design = (ROOT / "docs" / "design" / "schema.sql").read_text(encoding="utf-8")
     shipped = (ROOT / "backend" / "app" / "db" / "schema.sql").read_text(encoding="utf-8")
     assert shipped == design, "copy docs/design/schema.sql to backend/app/db/schema.sql and add a migration"
+
+
+def test_seed_data_matches_the_eval_set() -> None:
+    for name in ("replies.jsonl", "fixture_invoices.json"):
+        design = (ROOT / "evals" / name).read_text(encoding="utf-8")
+        shipped = (ROOT / "backend" / "app" / "seed" / "data" / name).read_text(encoding="utf-8")
+        assert shipped == design, f"copy evals/{name} to backend/app/seed/data/{name}"

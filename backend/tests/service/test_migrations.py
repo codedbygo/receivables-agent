@@ -24,6 +24,7 @@ def test_downgrade_then_upgrade_restores_the_schema(engine: Engine, alembic_cfg:
     assert _tables(engine) == before
 
 
+# TC-0176 (AC-US-00-005-1)
 def test_money_columns_are_bigint_paise(engine: Engine) -> None:
     sql = text(
         "SELECT table_name, column_name, data_type FROM information_schema.columns "

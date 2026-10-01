@@ -14,7 +14,7 @@ tone:                              # REQ-052; case-insensitive regexes, matched 
     - "\\b(or else|you will regret|consequences will follow)\\b"
     - "\\bwe will (come|visit) (to )?your (office|premises|home)\\b"
   abuse:
-    - "\\b(idiot|stupid|fraud(ster)?|cheat(er)?|liar)\\b"
+    - "\\b(idiots?|stupid|fraud(ster)?s?|cheat(er)?s?|liars?)\\b"
   harassment:
     - "\\b(call|message) you (every|each) (hour|day)\\b"
   legal:

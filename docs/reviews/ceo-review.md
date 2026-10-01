@@ -19,9 +19,9 @@ Decision policy: the master prompt's pause policy (no approval stops before Phas
 2. Most direct path to the outcome? For a hackathon, the outcome is "judges believe this could run a real collections desk". The direct path is the ABC story plus visible proof of safety. The backlog's 46 stories are wider than that path; ordering, not cutting, fixes it (P0 first, P2 behind flags).
 3. Doing nothing: collections stays manual; there is no demo. Not an option.
 
-### 0B. Existing code leverage
+### 0B. Existing code reuse
 
-None in the repository. External leverage: the MCP SDK (spike: 2.x `MCPServer` serves both transports), Mailpit, Postgres. Premise 3 from office-hours (one tool registry used in-process by the orchestrator and served by MCP) avoids building two parallel tool layers; carried to eng review.
+None in the repository. External reuse: the MCP SDK (spike: 2.x `MCPServer` serves both transports), Mailpit, Postgres. Premise 3 from office-hours (one tool registry used in-process by the orchestrator and served by MCP) avoids building two parallel tool layers; carried to eng review.
 
 ### 0C. Dream state
 

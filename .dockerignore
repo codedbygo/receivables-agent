@@ -1,0 +1,11 @@
+*
+!backend/pyproject.toml
+!backend/uv.lock
+!backend/app
+!backend/alembic.ini
+!backend/migrations
+!prompts
+!policy
+!evals
+**/__pycache__
+**/.claude

@@ -8,7 +8,7 @@ Diagram: docs/architecture/diagrams/CollectionsAgent_DeploymentArchitecture_v1.s
 | ci | GitHub Actions runner | `make check` with Postgres as a service container, no network to OpenRouter | created per job |
 | hosted demo | not built (optional, separate decision) | n/a | n/a |
 
-Topology (compose, one network): `postgres` (postgres:17-alpine, named volume, healthcheck `pg_isready`), `mailhog` (Mailpit; SMTP 1025 on the network, UI bound to 127.0.0.1:8025), `api` (backend image, `uvicorn`, 127.0.0.1:8000), `mcp` (backend image, streamable HTTP on 127.0.0.1:8001; stdio via `docker compose exec -T mcp python -m app.mcp --stdio`), `worker` (backend image, `python -m app.worker`), `web` (nginx:stable-alpine serving `web/dist`, proxying `/api` to `api`, 127.0.0.1:8080). Start order by healthchecks: postgres, then migrate (one-shot), then api, mcp, worker, web.
+Topology (compose, one network): `postgres` (postgres:17-alpine, named volume, healthcheck `pg_isready`, host port 127.0.0.1:${POSTGRES_PORT:-5433}), `mailhog` (Mailpit; SMTP 1025 on the network, UI bound to 127.0.0.1:8025), `api` (backend image, `uvicorn`, 127.0.0.1:8000), `mcp` (backend image, streamable HTTP on 127.0.0.1:8001; stdio via `docker compose exec -T mcp python -m app.mcp --stdio`), `worker` (backend image, `python -m app.worker`), `web` (nginx:stable-alpine serving `web/dist`, proxying `/api` to `api`, 127.0.0.1:8080). Start order by healthchecks: postgres, then migrate (one-shot), then api, mcp, worker, web.
 
 Secrets: `.env` beside compose (never committed); `.env.example` lists every variable. `OPENROUTER_API_KEY` is only read when `LLM_MODE` is `live` or `record`.
 

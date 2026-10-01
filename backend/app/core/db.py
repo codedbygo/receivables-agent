@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 
 def make_engine(url: str) -> Engine:
-    return create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 3})
+    return create_engine(url, pool_pre_ping=True, hide_parameters=True, connect_args={"connect_timeout": 3})
 
 
 def make_sessionmaker(engine: Engine) -> sessionmaker[Session]:

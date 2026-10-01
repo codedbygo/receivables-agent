@@ -10,3 +10,5 @@ expected:
   - get_customer_history
   - escalate
   outcome: ESCALATED
+setup:  # applied through product services before the run
+- {dispute: {invoice: INV-1410, reason: Short supply on INV-1410}}

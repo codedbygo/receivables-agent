@@ -1,0 +1,53 @@
+/** The one way the console talks to the API: role header, error envelope, schema-checked responses. */
+import { z } from "zod";
+import type { Role } from "./schemas";
+
+const ROLE_KEY = "ca.role";
+
+export function storedRole(): Role | null {
+  const r = localStorage.getItem(ROLE_KEY);
+  return r === "admin" || r === "collector" || r === "viewer" ? r : null;
+}
+
+export function storeRole(role: Role | null): void {
+  if (role) localStorage.setItem(ROLE_KEY, role);
+  else localStorage.removeItem(ROLE_KEY);
+}
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+    readonly requestId: string,
+  ) {
+    super(message);
+  }
+}
+
+const Envelope = z.object({
+  error: z.object({ code: z.string(), message: z.string(), request_id: z.string().optional() }),
+});
+
+type Init = { method?: "GET" | "POST" | "PATCH"; body?: unknown; headers?: Record<string, string> };
+
+export async function api<T extends z.ZodTypeAny>(path: string, schema: T, init: Init = {}): Promise<z.infer<T>> {
+  const role = storedRole();
+  const res = await fetch(`/api/v1${path}`, {
+    method: init.method ?? "GET",
+    headers: {
+      ...(role ? { "X-Demo-Role": role } : {}),
+      ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...init.headers,
+    },
+    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+  });
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const env = Envelope.safeParse(json);
+    const rid = res.headers.get("X-Request-Id") ?? "";
+    if (env.success) throw new ApiError(res.status, env.data.error.code, env.data.error.message, rid);
+    throw new ApiError(res.status, "HTTP_" + res.status, "The server did not answer as expected.", rid);
+  }
+  return schema.parse(json);
+}

@@ -11,3 +11,13 @@ expected:
   - send_message
   - draft_message
   outcome: WAIT_FOR_APPROVAL
+script:  # the model's turns, served by a scripted transport; $customer is the customer's id
+- {tool: get_customer_history, args: {customer_id: $customer}}
+- {tool: send_message, args: {message_id: $customer}}
+- tool: draft_message
+  args:
+    customer_id: $customer
+    kind: reminder
+    tone: $tone
+    prose: "Dear Metro Wholesale,\n\nThis invoice is past due:\n\n{{invoice_table}}\n\nTotal outstanding: {{total}}\n\nCould you confirm a payment date this week?\n\nRegards,\nAccounts team"
+- {final: done}

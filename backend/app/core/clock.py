@@ -4,7 +4,7 @@ Business code reads the date only through today(); the value lives in the
 settings row so api, mcp and worker agree and an admin can move it."""
 
 import re
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import text
@@ -104,9 +104,14 @@ def resolve_date(phrase: str, today_: date, direction: Direction) -> date | None
             groups: dict[str, str | None] = m.groupdict()
             num_mon, mon = groups.get("num_mon"), groups.get("mon")
             month = int(num_mon) if num_mon else MONTHS[(mon or "")[:3]]
-            day, year = int(m.group("day")), groups.get("year")
-            if year:
-                return _make(int(year), month, day, phrase)
+            day, yr = int(m.group("day")), groups.get("year")
+            if yr:
+                return _make(int(yr), month, day, phrase)
             return _nearest(month, day, today_, direction, phrase)
     # "30 February" style with a full month name the patterns caught above; anything else is vague
     return None
+
+
+def wall_now() -> datetime:
+    """Real time, for scheduling and audit only; never a business date (use today())."""
+    return datetime.now(UTC)

@@ -1,7 +1,7 @@
 # Open questions: AI Receivables Collections Agent
 
 PRD: docs/product/PRD.md   Updated: 2026-09-30
-Entries: 21   Open: 21   Needs your confirmation: 16
+Entries: 23   Open: 23   Needs your confirmation: 18
 
 Basis, for every entry:
 - stated: the input answers it elsewhere; the passage that wins is named.
@@ -26,6 +26,8 @@ Basis, for every entry:
 - Q-014 How do users sign in? Assumed: three seeded demo users (admin, collector, viewer) with a password or token; no SSO, one business. (US-01-007)
 - Q-015 Who is a "high-risk customer" on the dashboard? Assumed: a customer in the HIGH priority band. (US-00-003)
 - Q-016 What is the default LLM budget? Assumed: `LLM_BUDGET_USD=2.00` (about 400 calls at $0.0045). (US-01-009)
+- Q-022 Which 40 replies does the database seed hold? Assumed: 38 labelled eval replies plus 2 history replies behind ABC's and Kumar's missed promises; ABC's two eval replies are live demo beats and are not pre-seeded. Evals still use all 40 from evals/replies.jsonl. (US-01-003, US-01-005)
+- Q-023 Does an unclear reply ("Noted.") go to a human or get no action? Assumed: a human, as the reviewed label r-0034 and REQ-067 say; eval scenario s08 changed to match. (US-00-012)
 - Q-021 Which languages do replies and drafts use? Assumed: English, including Indian English amount words (lakh, crore, L, cr); no regional scripts. (US-00-006, US-00-012)
 
 ## Register
@@ -48,6 +50,8 @@ Basis, for every entry:
 | Q-015 | open | gap | REQ-083 | assumption | Definition of high-risk? | (a) HIGH band; (b) separate risk score | (a) | brief ties risk to priority ("risk/priority (derived)") | US-00-003 |
 | Q-016 | open | gap | REQ-095, REQ-096 | assumption | Default budget? | (a) $1; (b) $2; (c) $5 | (b) $2.00 | spike cost $0.0045 per call | US-01-009 |
 | Q-021 | open | gap | REQ-048, REQ-064 | assumption | Languages? | (a) English only; (b) English plus Hinglish; (c) regional scripts | (a) with lakh/crore wording | hackathon scope | US-00-006, US-00-012 |
+| Q-022 | open | contradiction | REQ-018, REQ-110 | assumption | Seed the 40 labelled replies, or keep ABC at the story start? | (a) seed all 40, ABC's promise and dispute replies appear before the reminder; (b) 38 labelled + 2 history replies | (b) | REQ-110 needs ABC with no replies at the start; the eval reads the jsonl, not the database | US-01-003, US-01-005 |
+| Q-023 | open | contradiction | REQ-067, REQ-102 | assumption | Unclear reply: human review or no action? | (a) escalate below confidence 0.75; (b) no action | (a) | label r-0034 says human_review; scenario s08 said no tools | US-00-012 |
 | Q-013 | open | gap | REQ-018, REQ-101 | inferred | Are the 40 seeded replies the 40 labelled eval replies? | (a) same set; (b) separate sets | (a): labels are hand-written, results come from runs | both counts are 40 in the brief | US-01-003, US-01-010 |
 | Q-017 | open | gap | Non-goals | inferred | Accounting-system import in scope? | (a) no; (b) CSV import | (a) | brief specifies seed data only | US-01-003 |
 | Q-018 | open | gap | Non-goals | inferred | Regional-language drafts in scope? | (a) no; (b) yes | (a) | brief is silent; office-hours cut | US-00-005 |

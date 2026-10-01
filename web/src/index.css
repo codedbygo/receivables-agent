@@ -1,0 +1,159 @@
+/* Role colours generated from docs/design/tokens.json (roles only, never primitives in components). */
+@import "tailwindcss";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-sans-condensed/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+
+:root {
+  --c-bg: #f4f6f8;
+  --c-bg-subtle: #eef1f4;
+  --c-surface: #ffffff;
+  --c-surface-raised: #ffffff;
+  --c-overlay: #ffffff;
+  --c-text: #16202a;
+  --c-text-muted: #4e5b67;
+  --c-text-disabled: #8795a1;
+  --c-link: #0b5cad;
+  --c-border: #dde3e8;
+  --c-border-strong: #5d6b77;
+  --c-accent: #0f6e6e;
+  --c-accent-hover: #0b5454;
+  --c-accent-active: #073838;
+  --c-on-accent: #ffffff;
+  --c-accent-subtle: #effaf9;
+  --c-success: #1d6b3a;
+  --c-on-success: #ffffff;
+  --c-success-subtle: #effaf2;
+  --c-warning: #8a5a00;
+  --c-on-warning: #ffffff;
+  --c-warning-subtle: #fff8e6;
+  --c-danger: #b42318;
+  --c-on-danger: #ffffff;
+  --c-danger-subtle: #fff1f0;
+  --c-info: #0b5cad;
+  --c-on-info: #ffffff;
+  --c-info-subtle: #eef5ff;
+  --c-focus: #0b5cad;
+  --c-selection: #d6e6ff;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --c-bg: #11171d;
+    --c-bg-subtle: #0b0f13;
+    --c-surface: #1a222a;
+    --c-surface-raised: #26313b;
+    --c-overlay: #26313b;
+    --c-text: #eef1f4;
+    --c-text-muted: #a3b0bb;
+    --c-text-disabled: #5d6b77;
+    --c-link: #7cb7ff;
+    --c-border: #26313b;
+    --c-border-strong: #8795a1;
+    --c-accent: #3fb6b0;
+    --c-accent-hover: #7fd1cc;
+    --c-accent-active: #d5f1ef;
+    --c-on-accent: #042020;
+    --c-accent-subtle: #073838;
+    --c-success: #7fd49b;
+    --c-on-success: #06200f;
+    --c-success-subtle: #0d3b1e;
+    --c-warning: #f2c14e;
+    --c-on-warning: #291a00;
+    --c-warning-subtle: #4a3000;
+    --c-danger: #ff8a80;
+    --c-on-danger: #330906;
+    --c-danger-subtle: #5e120c;
+    --c-info: #7cb7ff;
+    --c-on-info: #031a33;
+    --c-info-subtle: #06305c;
+    --c-focus: #7cb7ff;
+    --c-selection: #06305c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --c-bg: #11171d;
+  --c-bg-subtle: #0b0f13;
+  --c-surface: #1a222a;
+  --c-surface-raised: #26313b;
+  --c-overlay: #26313b;
+  --c-text: #eef1f4;
+  --c-text-muted: #a3b0bb;
+  --c-text-disabled: #5d6b77;
+  --c-link: #7cb7ff;
+  --c-border: #26313b;
+  --c-border-strong: #8795a1;
+  --c-accent: #3fb6b0;
+  --c-accent-hover: #7fd1cc;
+  --c-accent-active: #d5f1ef;
+  --c-on-accent: #042020;
+  --c-accent-subtle: #073838;
+  --c-success: #7fd49b;
+  --c-on-success: #06200f;
+  --c-success-subtle: #0d3b1e;
+  --c-warning: #f2c14e;
+  --c-on-warning: #291a00;
+  --c-warning-subtle: #4a3000;
+  --c-danger: #ff8a80;
+  --c-on-danger: #330906;
+  --c-danger-subtle: #5e120c;
+  --c-info: #7cb7ff;
+  --c-on-info: #031a33;
+  --c-info-subtle: #06305c;
+  --c-focus: #7cb7ff;
+  --c-selection: #06305c;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-bg-subtle: var(--c-bg-subtle);
+  --color-surface: var(--c-surface);
+  --color-surface-raised: var(--c-surface-raised);
+  --color-overlay: var(--c-overlay);
+  --color-text: var(--c-text);
+  --color-text-muted: var(--c-text-muted);
+  --color-text-disabled: var(--c-text-disabled);
+  --color-link: var(--c-link);
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-accent-active: var(--c-accent-active);
+  --color-on-accent: var(--c-on-accent);
+  --color-accent-subtle: var(--c-accent-subtle);
+  --color-success: var(--c-success);
+  --color-on-success: var(--c-on-success);
+  --color-success-subtle: var(--c-success-subtle);
+  --color-warning: var(--c-warning);
+  --color-on-warning: var(--c-on-warning);
+  --color-warning-subtle: var(--c-warning-subtle);
+  --color-danger: var(--c-danger);
+  --color-on-danger: var(--c-on-danger);
+  --color-danger-subtle: var(--c-danger-subtle);
+  --color-info: var(--c-info);
+  --color-on-info: var(--c-on-info);
+  --color-info-subtle: var(--c-info-subtle);
+  --color-focus: var(--c-focus);
+  --color-selection: var(--c-selection);
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --text-label: 13px;
+  --text-body: 15px;
+  --text-title: 18px;
+  --text-heading: 22px;
+  --text-display: 28px;
+  --text-figure: 44px;
+  --container-console: 90rem;
+}
+
+html, body { background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); font-size: 15px; }
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+::selection { background: var(--color-selection); }
+@keyframes tick { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.tick { animation: tick 240ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .tick { animation: none; } }

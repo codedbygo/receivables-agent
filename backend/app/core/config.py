@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     tz: str = "Asia/Kolkata"
     sending_enabled: bool = True
     autonomy_mode: Literal["manual", "assisted", "trusted"] = "manual"
+    # Host headers the API answers to; anything else (DNS rebinding) gets 400. "testserver" is the test client.
+    allowed_hosts: str = "localhost,127.0.0.1,api,testserver"
     admin_token: str = ""
     feature_whatsapp: bool = False
     feature_voice: bool = False

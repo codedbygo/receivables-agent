@@ -59,8 +59,8 @@ Flow B: reply to promise or dispute (US-03-001, US-00-012 to US-00-016)
 | Class | Tool sequence (count) | Outcome |
 | --- | --- | --- |
 | PROMISE | `log_promise` (1) | WAIT_FOR_APPROVAL if a confirmation is drafted, else NO_ACTION |
-| PART_PAYMENT | `check_promise_status`, `create_followup` (2); payment itself only via ledger | NO_ACTION |
-| DISPUTE | `log_dispute`, `escalate`, `draft_message` (fixed acknowledgement) (3) | ESCALATED |
+| PART_PAYMENT | `check_promise_status`, `create_followup` (2); payment itself only via ledger | WAIT_FOR_APPROVAL (the follow-up draft waits) |
+| DISPUTE | `log_dispute`, `escalate`, `draft_message` (fixed acknowledgement) (3) | ESCALATED (outranks the waiting acknowledgement) |
 | STATEMENT_REQUEST | `draft_message` (statement) (1) | WAIT_FOR_APPROVAL |
 | PAYMENT_CONFIRMATION | Payment Verification role: ledger match; on no match `escalate` (1) | NO_ACTION or ESCALATED |
 | NO_INTENT_UNCLEAR, OTHER_NOISE | none, or `escalate` when confidence is low (0 or 1) | NO_ACTION or ESCALATED |

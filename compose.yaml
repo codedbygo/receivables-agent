@@ -1,5 +1,6 @@
-# Local stack (ADR-0010). Services arrive as they are built: mcp, worker and web
-# are added with P0 steps 6, 8 and 13. Ports bind to 127.0.0.1 only.
+# Local stack (ADR-0010): postgres, mailhog (Mailpit), migrate (one-shot: schema + seed if empty), api, mcp,
+# worker, web. Ports bind to 127.0.0.1 only. The web image is nginx serving web/dist, built on the host with
+# make web-build (ADR-0002: no Node image on this network).
 name: collections-agent
 services:
   postgres:
@@ -8,7 +9,7 @@ services:
       POSTGRES_USER: collections
       POSTGRES_PASSWORD: collections
       POSTGRES_DB: collections
-    ports: ["127.0.0.1:5432:5432"]
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5433}:5432"]  # host port; 5432 is often taken by another Postgres
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U collections -d collections"]
@@ -23,23 +24,73 @@ services:
       interval: 5s
       retries: 10
 
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://collections:collections@postgres:5432/collections
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed --if-empty"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
   api:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     env_file:
       - path: .env
         required: false
     environment:
       DATABASE_URL: postgresql+psycopg://collections:collections@postgres:5432/collections
       SMTP_HOST: mailhog
-    command: ["uvicorn", "app.api.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uvicorn", "app.api.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--log-config", "app/core/uvicorn_log.json"]
     ports: ["127.0.0.1:8000:8000"]
     depends_on:
-      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       mailhog: { condition: service_healthy }
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=2).status == 200 else 1)"]
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/readyz', timeout=2).status == 200 else 1)"]
       interval: 5s
       retries: 20
+
+  mcp:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://collections:collections@postgres:5432/collections
+    command: ["python", "-m", "app.mcp", "--host", "0.0.0.0", "--port", "8001"]
+    ports: ["127.0.0.1:8001:8001"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://collections:collections@postgres:5432/collections
+      SMTP_HOST: mailhog
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      mailhog: { condition: service_healthy }
+
+  web:
+    image: nginx:stable-alpine
+    volumes:
+      - ./web/dist:/usr/share/nginx/html:ro
+      - ./web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports: ["127.0.0.1:8080:80"]
+    depends_on:
+      api: { condition: service_healthy }
 
 volumes:
   pgdata:
