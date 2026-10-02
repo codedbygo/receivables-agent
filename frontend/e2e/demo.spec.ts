@@ -1,4 +1,5 @@
 /** The ABC demo story (brief 4.24, REQ-110) through the console against a running stack. */
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 const ADMIN = { "X-Demo-Role": "admin" };
@@ -95,10 +96,14 @@ test("ABC Distributors: reminder, approval, promise, payment, dispute", async ({
   }
 });
 
+// TC-0254 (AC-US-01-010-2): the page shows the figures `make eval` wrote to the report, never typed-in ones.
 test("Evaluation page shows the generated numbers", async ({ page }) => {
+  const report = readFileSync(new URL("../../docs/evals/report.md", import.meta.url), "utf-8");
+  const figure = (label: string) => report.match(new RegExp(`\\| ${label}[^|]*\\| (\\d+/\\d+)`))?.[1] ?? "missing";
   await page.goto("/");
   await page.getByRole("button", { name: /Viewer/ }).click();
   await page.getByRole("link", { name: "Evaluation" }).click();
   await expect(page.getByText("Red team rejected")).toBeVisible();
-  await expect(page.getByText("18/18")).toBeVisible();
+  await expect(page.getByText(figure("Red-team drafts rejected"), { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(figure("Golden drafts passing"), { exact: true }).first()).toBeVisible();
 });

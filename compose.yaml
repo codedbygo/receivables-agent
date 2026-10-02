@@ -1,5 +1,5 @@
 # Local stack (ADR-0010): postgres, mailhog (Mailpit), migrate (one-shot: schema + seed if empty), api, mcp,
-# worker, web. Ports bind to 127.0.0.1 only. The web image is nginx serving web/dist, built on the host with
+# worker, web. Ports bind to 127.0.0.1 only. The web image is nginx serving frontend/dist, built on the host with
 # make web-build (ADR-0002: no Node image on this network).
 name: collections-agent
 services:
@@ -87,9 +87,9 @@ services:
   web:
     image: nginx:stable-alpine
     volumes:
-      - ./web/dist:/usr/share/nginx/html:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
       # rendered by the nginx image at start: ${PUBLIC_HOST} becomes the hosted demo's name
-      - ./web/nginx.conf:/etc/nginx/templates/default.conf.template:ro
+      - ./frontend/nginx.conf:/etc/nginx/templates/default.conf.template:ro
     environment:
       PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
     ports: ["127.0.0.1:8080:80"]

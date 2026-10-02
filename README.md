@@ -11,7 +11,7 @@ From a clean checkout. You need Docker, and Node 24 with pnpm 10 to build the co
 is built on the host and served by nginx, so no Node image is pulled).
 
 ```bash
-make web-setup web-build   # install and build the console into web/dist
+make web-setup web-build   # install and build the console into frontend/dist
 make up                    # postgres, mailpit, migrate (schema + seed), api, mcp, worker, web
 ```
 

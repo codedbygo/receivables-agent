@@ -8,7 +8,7 @@ are unverified claims until `/cso --diff` and `claude-security` run on the relea
 | --- | --- | --- |
 | 1 | Role header is the only credential | Fixed: ADR-0013, tests in tests/unit/test_auth_tokens.py |
 | 2 | Pay-link token written to the request log | Fixed: log keeps the route template, test in tests/api/test_health.py |
-| 3 | No frame-ancestors | Fixed in web/nginx.conf; not run (no nginx here) |
+| 3 | No frame-ancestors | Fixed in frontend/nginx.conf; not run (no nginx here) |
 | 4 | Model could pick kind dispute_ack | Fixed in orchestrator; tests/service/test_orchestrator.py::test_model_cannot_draft_a_dispute_ack passes against Postgres |
 | 5 | Payment-details guardrail gaps | Fixed: UPI ids, spaced digits, NFKC; tests in tests/unit/test_verify.py |
 | 6 | Batch approve has no version check | Fixed: the batch carries `{id, version}` per draft; a changed draft refuses the whole batch (STALE_DRAFT). Contract in api/openapi.yaml, web Approvals page, test_batch_approval_refuses_a_draft_that_changed_after_it_was_shown |

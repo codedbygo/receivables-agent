@@ -193,3 +193,32 @@ def _wait_until_blocked(engine: Engine) -> None:
                 return
         threading.Event().wait(0.05)
     raise AssertionError("reset never waited on the draft's locks")
+
+
+def test_reset_survives_a_deadlock_with_a_worker_mid_write(seeded: Engine) -> None:
+    # e2e 2026-10-02: Admin reset during the worker's daily run failed 500 with DeadlockDetected.
+    worker = seeded.connect()
+    tx = worker.begin()
+    worker.execute(
+        text("""INSERT INTO messages (id, customer_id, kind, channel, tone, status, subject, body)
+        SELECT gen_random_uuid(), customer_id, 'reminder', 'email', 'firm', 'pending_approval', 's', 'b'
+        FROM invoices WHERE number = 'INV-1021'""")
+    )
+    errors: list[BaseException] = []
+    t = threading.Thread(target=lambda: _reset(seeded, errors))
+    t.start()
+    _wait_until_blocked(seeded)
+
+    # The worker now needs a table the reset already holds: a lock cycle. Postgres aborts the reset (it waited
+    # first), which must retry once the worker's transaction ends instead of failing.
+    worker.execute(
+        text("""INSERT INTO message_invoices (message_id, invoice_id)
+        SELECT m.id, i.id FROM messages m JOIN invoices i ON i.number = 'INV-1021' LIMIT 1""")
+    )
+    tx.commit()
+    worker.close()
+    t.join(timeout=60)
+
+    assert errors == []
+    assert q(seeded, "SELECT count(*) FROM messages") == [(0,)]
+    assert q(seeded, "SELECT count(*) FROM customers") == [(50,)]

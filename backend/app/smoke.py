@@ -116,6 +116,17 @@ def kill_switch_and_mail(c: httpx.Client) -> str:
     raise AssertionError("no email to ABC Distributors in the mail catcher after 30 s")
 
 
+# What a failing check raises: a failed assertion, an HTTP or socket error, a malformed body, an MCP task group.
+SMOKE_FAILURES = (
+    AssertionError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    httpx.HTTPError,
+    httpx2.HTTPError,
+    ExceptionGroup,
+)
 CHECKS: list[Check] = [health, reset, dashboard, mcp_list_overdue, kill_switch_and_mail, reset]
 
 
@@ -124,7 +135,7 @@ def run(client: httpx.Client, checks: list[Check] = CHECKS) -> bool:
     for check in checks:
         try:
             print(f"smoke: pass  {check.__name__}: {check(client)}")
-        except Exception as e:  # noqa: BLE001  every failure is reported, then the run fails
+        except SMOKE_FAILURES as e:  # every failure is reported, then the run fails
             passed = False
             print(f"smoke: FAIL  {check.__name__}: {e}")
     return passed

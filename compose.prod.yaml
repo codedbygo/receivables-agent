@@ -1,7 +1,8 @@
 # Hosted demo override (brief 9.3; docs/environments.md). Use with the base file:
 #   docker compose -f compose.yaml -f compose.prod.yaml up -d --build --wait
 # Every secret comes from the environment (.env on the host, never the repo); a missing one stops compose.
-# The console listens on 127.0.0.1:8080 only: put a TLS proxy in front (access codes must not cross plain HTTP).
+# Caddy is the only public listener: it gets a certificate for PUBLIC_HOST and serves the console over HTTPS
+# (access codes never cross plain HTTP). DNS for PUBLIC_HOST must point at the host, ports 80 and 443 open.
 x-db-url: &db-url postgresql+psycopg://collections:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/collections
 
 services:
@@ -48,3 +49,16 @@ services:
     environment:
       PUBLIC_HOST: ${PUBLIC_HOST:?set PUBLIC_HOST}
     restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    command: ["caddy", "reverse-proxy", "--from", "${PUBLIC_HOST:?set PUBLIC_HOST}", "--to", "web:80"]
+    ports: ["80:80", "443:443"]
+    volumes: [caddy_data:/data, caddy_config:/config]  # certificates survive restarts
+    depends_on:
+      web: { condition: service_started }
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

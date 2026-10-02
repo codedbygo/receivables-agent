@@ -5,7 +5,7 @@ root. The click-by-click script is in README.md, section 2.
 
 ## Before the audience arrives (10 minutes)
 
-1. `make web-setup web-build` (skip if `web/dist/index.html` exists and nothing changed).
+1. `make web-setup web-build` (skip if `frontend/dist/index.html` exists and nothing changed).
 2. `make up`. Wait for the prompt to return; it waits for every health check.
 3. `make demo`. Expect `reset-demo: data at the start of the ABC story, demo date 2026-09-30`.
 4. Open http://localhost:8080 (sign in as Admin) and http://localhost:8025 (Mailpit) in two tabs.

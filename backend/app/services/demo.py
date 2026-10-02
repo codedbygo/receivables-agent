@@ -17,8 +17,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
+from psycopg.errors import DeadlockDetected
 from sqlalchemy import Engine, text
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import OperationalError
 
 from app.core.config import Settings
 
@@ -528,6 +530,18 @@ def reset_demo(engine: Engine, s: Settings) -> None:
     if date.fromisoformat(s.demo_today) != TODAY:
         raise RuntimeError(f"DEMO_TODAY is {s.demo_today}; the seed is written for {TODAY}")
     tables = [t for t in reversed(_tables()) if t not in KEEP]
+    for attempt in range(3):
+        try:
+            _reset_once(engine, s, tables)
+            return
+        except OperationalError as e:
+            # A worker writing while the reset takes its locks can close a lock cycle; Postgres aborts the
+            # reset, and the retry waits for the worker's transaction to end instead.
+            if not isinstance(e.orig, DeadlockDetected) or attempt == 2:
+                raise
+
+
+def _reset_once(engine: Engine, s: Settings, tables: list[str]) -> None:
     with engine.begin() as conn:
         # One transaction, every table locked first: a worker mid-draft finishes (or waits) instead of
         # committing rows between the deletes, and nobody sees the ledger half empty.

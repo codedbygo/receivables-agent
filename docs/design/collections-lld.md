@@ -42,7 +42,7 @@ prompts/         draft_reminder/v1.md, classify_reply/v1.md, call_prep/v1.md (Ph
 policy/          guardrails.yaml (tone lexicon, legal allow-list, trusted allow-list rules)
 evals/           replies.jsonl (40 labelled), scenarios/*.yaml (>= 10), redteam/*.yaml, golden/*.yaml,
                  fixtures/<prompt>/<key>.json (replay), fixtures/manifest.json, run.py
-web/             Vite + React app: src/api (generated client), src/lib/format.ts (INR, dates),
+frontend/             Vite + React app: src/api (generated client), src/lib/format.ts (INR, dates),
                  src/routes (Today, Approvals, Customers, Customer, Evaluation, Admin, Pay), src/components
 compose.yaml, .env.example, Makefile
 ```

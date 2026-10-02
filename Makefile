@@ -1,5 +1,5 @@
 # Collections Agent. Every command lives here; `make help` lists them.
-# Backend in backend/ (uv), web console in web/ (npm), stack in compose.yaml.
+# Backend in backend/ (uv), web console in frontend/ (npm), stack in compose.yaml.
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 UV ?= uv
@@ -35,7 +35,7 @@ setup: ## Install backend dependencies (uv.lock) and print the git hooks command
 	@echo "setup: hooks are not enabled automatically; run: bash .githooks/install.sh"
 
 up: ## Start the stack (docker compose) and wait for health; build the console first (make web-build)
-	@[ -f web/dist/index.html ] || { echo "up: web/dist missing; run make web-setup web-build first" >&2; exit 1; }
+	@[ -f frontend/dist/index.html ] || { echo "up: frontend/dist missing; run make web-setup web-build first" >&2; exit 1; }
 	$(COMPOSE) up -d --build --wait
 
 down: ## Stop the stack (data volume kept)
@@ -82,17 +82,17 @@ demo: ## Reset the running stack to the start of the ABC story (needs make up), 
 	@echo "demo: console http://localhost:8080  inbox http://localhost:8025  script: README.md, How to demo"
 
 web-setup: ## Install the web console's dependencies (pnpm-lock.yaml)
-	cd web && pnpm install --frozen-lockfile
+	cd frontend && pnpm install --frozen-lockfile
 
-web-build: ## Build the web console into web/dist (served by the web service)
-	cd web && pnpm exec tsc --noEmit && pnpm exec vite build
+web-build: ## Build the web console into frontend/dist (served by the web service)
+	cd frontend && pnpm exec tsc --noEmit && pnpm exec vite build
 
 e2e: ## The demo story in a browser against the running stack (make up; E2E_BASE_URL to point elsewhere)
-	cd web && pnpm exec playwright test
+	cd frontend && pnpm exec playwright test
 
 web-check: ## Typecheck and unit-test the web console
-	@command -v pnpm >/dev/null || $(call skip,web-check,pnpm); [ -d web/node_modules ] || { echo "web-check: no web/node_modules; run make web-setup" >&2; exit 1; }; \
-	cd web && pnpm exec tsc --noEmit && pnpm exec vitest run 2>&1 | tail -4 && echo "web-check: typecheck and tests passed"
+	@command -v pnpm >/dev/null || $(call skip,web-check,pnpm); [ -d frontend/node_modules ] || { echo "web-check: no frontend/node_modules; run make web-setup" >&2; exit 1; }; \
+	cd frontend && pnpm exec tsc --noEmit && pnpm exec vitest run 2>&1 | tail -4 && echo "web-check: typecheck and tests passed"
 
 format: ## Format Python
 	cd $(BE) && $(UV) run ruff format .
@@ -130,7 +130,7 @@ fix: format ## Apply automatic fixes
 audit: ## Known-vulnerability scan of the locked Python and web dependencies (needs network; CI security job)
 	@$(call need_uv,audit); cd $(BE) && $(UV) export --frozen --no-hashes --no-emit-project -o .audit-requirements.txt >/dev/null \
 	&& $(UV) run pip-audit -r .audit-requirements.txt --no-deps --disable-pip --progress-spinner off; s=$$?; rm -f .audit-requirements.txt; [ $$s -eq 0 ]
-	@command -v pnpm >/dev/null || $(call skip,audit,pnpm); cd web && pnpm audit --prod
+	@command -v pnpm >/dev/null || $(call skip,audit,pnpm); cd frontend && pnpm audit --prod
 	@echo "audit: python and web dependencies have no known vulnerabilities"
 
 check: ## The gate: every gate in GATES, then the tally. CI runs exactly this.

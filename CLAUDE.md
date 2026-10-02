@@ -8,7 +8,7 @@ Loaded into every session: keep this file under 40 lines.
 ```
 Repository:   receivables-agent (CollectionsAgentPlatform; Server/API + web)
 Stack:        Python 3.12, FastAPI, SQLAlchemy 2, Alembic, mcp 2.x (backend/);
-              React 19 + Vite (web/, P0 step 13)
+              React 19 + Vite (frontend/, P0 step 13; renamed from web/ on 2026-10-02)
 Databases:    PostgreSQL 17 (compose service postgres)
 Entrypoint:   backend/app/api/main.py (create_app); mcp and worker to come
 Run, test:    make up, make test; gate: make check

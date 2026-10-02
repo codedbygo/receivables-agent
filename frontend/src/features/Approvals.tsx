@@ -2,10 +2,10 @@
 Every draft shows its guardrail report; edited text is verified again by the API before it is saved. */
 import { useEffect, useState } from "react";
 import { href } from "../app/route";
-import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading } from "../components/ui";
+import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading, Panel } from "../components/ui";
 import { api } from "../lib/api";
-import { stamp } from "../lib/format";
-import { useAction, useMessages, useSettings } from "../lib/hooks";
+import { day, inr, stamp } from "../lib/format";
+import { useAction, useCustomer, useMessages, useSettings } from "../lib/hooks";
 import * as S from "../lib/schemas";
 import { RunDialog } from "./RunDialog";
 
@@ -117,6 +117,7 @@ export function Approvals({ role }: { role: S.Role }) {
             </article>
           )}
 
+          {current && <DraftContext customerId={current.customer_id} />}
           {current && <GuardrailReport checks={current.guardrail_report} verified={current.verified} key={current.id + current.version} />}
         </div>
       )}
@@ -124,6 +125,39 @@ export function Approvals({ role }: { role: S.Role }) {
       {current && dialog === "reject" && <RejectDialog message={current} onClose={() => setDialog(null)} />}
       <RunDialog runId={runId} onClose={() => setRunId(null)} />
     </div>
+  );
+}
+
+/** What the approver decides with (brief 4.11): outstanding, open invoices with days overdue, why this customer. */
+function DraftContext({ customerId }: { customerId: string }) {
+  const q = useCustomer(customerId);
+  if (!q.data) return <Loading what="the customer's ledger" />;
+  const { customer, invoices, priority } = q.data;
+  return (
+    <Panel title="Draft context">
+      <p className="num font-semibold">Outstanding {inr(customer.outstanding_paise)}</p>
+      <ul className="mt-2 space-y-1 text-label">
+        {invoices
+          .filter((i) => i.remaining_paise > 0)
+          .map((i) => (
+            <li key={i.id} className="flex flex-wrap justify-between gap-2">
+              <span className="font-mono">{i.number}</span>
+              <span className="num">{inr(i.remaining_paise)}</span>
+              <span className={i.days_overdue > 0 ? "text-danger" : "text-text-muted"}>
+                {i.days_overdue > 0 ? `${i.days_overdue} days overdue` : `due ${day(i.due_date)}`}
+              </span>
+            </li>
+          ))}
+      </ul>
+      <p className="mt-3 font-semibold">
+        Priority {priority.score} {priority.band}
+      </p>
+      <ul className="list-disc pl-5 text-label">
+        {priority.reasons.map((r) => (
+          <li key={r.code}>{r.text}</li>
+        ))}
+      </ul>
+    </Panel>
   );
 }
 
