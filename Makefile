@@ -55,10 +55,10 @@ test-integration: ## Postgres tests (needs make up; drops and recreates the publ
 	[ "$$n" -gt 0 ] || { echo "test-integration: 0 test files, nothing checked" >&2; exit 1; }; \
 	set -o pipefail; cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run pytest -m integration 2>&1 | tail -5 && echo "test-integration: $$n test files checked"
 
-coverage: ## Whole suite with line coverage (needs Postgres): fails under 90% overall or 85% on guardrails, services, tools, mcp
-	@$(call need_uv,coverage); set -o pipefail; cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run pytest --cov --cov-report=term-missing:skip-covered --cov-fail-under=90 2>&1 | tail -25 \
-	&& $(UV) run coverage report --include='app/guardrails/*,app/services/*,app/tools/*,app/mcp/*' --fail-under=85 | tail -1 \
-	&& echo "coverage: gates met (overall >= 90%, core >= 85%)"
+coverage: ## Whole suite with line coverage (needs Postgres): fails under 100% line coverage, overall and on guardrails, services, tools, mcp
+	@$(call need_uv,coverage); set -o pipefail; cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run pytest --cov --cov-report=term-missing:skip-covered --cov-fail-under=100 2>&1 | tail -25 \
+	&& $(UV) run coverage report --include='app/guardrails/*,app/services/*,app/tools/*,app/mcp/*' --fail-under=100 | tail -1 \
+	&& echo "coverage: gates met (100% overall and core)"
 
 smoke: ## Post-deploy checks against a running stack; resets the demo data first and last (SMOKE_BASE_URL, ADMIN_TOKEN, MCP_URL, MCP_TOKEN, MAILPIT_URL, MAILPIT_UI_AUTH)
 	@$(call need_uv,smoke); cd $(BE) && $(UV) run python -m app.smoke

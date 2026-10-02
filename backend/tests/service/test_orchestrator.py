@@ -12,7 +12,7 @@ from app.agent.orchestrator import Orchestrator, redact
 from app.core.config import Settings
 from app.llm.gateway import Gateway
 from app.services.demo import reset_demo, uid
-from app.tools.registry import build_registry
+from app.tools.registry import ToolContext, build_registry
 
 pytestmark = pytest.mark.integration
 ABC = uid("customer", "ABC Distributors")
@@ -263,3 +263,36 @@ def test_emails_phones_and_bodies_are_redacted_in_steps(seeded: Engine) -> None:
     assert "[redacted:email]" in stored and "[redacted:phone]" in stored
     assert "ravi@abc" not in stored and "98765" not in stored
     assert redact({"body": "We will pay on Friday"}) == {"body": "[redacted:text]"}
+
+
+# Brief 9.2: three bounds stop a runaway model (the registry's limit, the agent_steps seq constraint, the loop).
+# With the first two switched off, the loop's own bound still stops it; the constraint is restored in finally.
+def test_the_model_loop_is_bounded_even_without_the_other_two_limits(seeded: Engine) -> None:
+    o = orch(seeded, [call("get_customer_history", {"customer_id": ABC})] * 5)
+    started = o._start(ABC, "manual")
+    assert started is not None
+    run_id, d = started
+    ctx = ToolContext(actor="ai", source="agent", run_id=run_id)  # no max_calls: the registry does not count
+    with seeded.begin() as c:
+        c.execute(text("ALTER TABLE agent_steps DROP CONSTRAINT chk_agent_steps_seq"))
+    try:
+        reason = o._model_loop(run_id, ctx, ABC, "firm", "email", d)
+    finally:
+        with seeded.begin() as c:
+            c.execute(text("DELETE FROM agent_steps WHERE seq > 4"))
+            c.execute(
+                text("ALTER TABLE agent_steps ADD CONSTRAINT chk_agent_steps_seq CHECK (seq BETWEEN 1 AND 4)")
+            )
+
+    assert reason == "tool-call limit 4 reached" and ctx.calls == 5
+
+
+def test_the_template_draft_is_skipped_when_the_history_cannot_be_read(
+    seeded: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    o = orch(seeded, [])
+    monkeypatch.setattr(o, "invoke", lambda *_a: {"ok": False, "error": {"code": "NOT_FOUND"}})
+
+    o._template(uid("none", "run"), ToolContext(actor="ai", source="agent"), ABC, "firm", "email")
+
+    assert rows(seeded, f"SELECT count(*) FROM messages WHERE customer_id = '{ABC}'") == [(0,)]

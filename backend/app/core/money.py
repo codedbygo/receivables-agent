@@ -50,8 +50,8 @@ def parse_amounts(text: str) -> list[AmountSpan]:
         if not (m.group("cur") or unit or "," in num or m.group("slash")):
             continue
         value = Decimal(num.replace(",", "") + "." + (m.group("dec") or "0")) * _UNITS.get(unit, 1) * 100
-        if value != value.to_integral_value():
-            continue  # sub-paise amounts are not money we can verify
+        # At most two decimals times a whole-number unit: always whole paise. Widening _AMOUNT breaks this.
+        assert value == value.to_integral_value(), m.group()
         start = m.start("cur") if m.group("cur") else m.start("num")
         end = m.end("unit") if unit else (m.end("dec") if m.group("dec") else m.end("num"))
         spans.append(AmountSpan(start, end, int(value), text[start:end]))

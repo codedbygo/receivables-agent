@@ -183,3 +183,51 @@ def test_tool_calls_are_returned_parsed(clean: Engine, tmp_path: Path) -> None:
     assert [(t.name, t.arguments) for t in result.tool_calls] == [
         ("get_customer_history", {"customer_id": "abc"})
     ]
+
+
+def raising(error: Exception) -> httpx.MockTransport:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise error
+
+    return httpx.MockTransport(handler)
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        (httpx.ReadTimeout("slow"), ErrorCode.LLM_TIMEOUT),
+        (httpx.ConnectError("refused"), ErrorCode.LLM_UPSTREAM),
+    ],
+)
+def test_a_model_that_never_answers_is_tried_three_times_then_named(
+    clean: Engine, tmp_path: Path, error: Exception, code: ErrorCode
+) -> None:
+    slept: list[float] = []
+    settings = Settings(llm_mode="live", openrouter_api_key="test-key")
+    gw = Gateway(settings, clean, transport=raising(error), sleep=slept.append, fixtures_dir=tmp_path)
+
+    with pytest.raises(AppError) as e:
+        gw.complete(PROMPT, MSGS)
+
+    assert e.value.code == code
+    assert len(slept) == 2 and slept[0] < slept[1]
+
+
+def test_without_a_settings_row_the_configured_budget_applies(clean: Engine, tmp_path: Path) -> None:
+    with clean.begin() as c:
+        c.execute(text("DELETE FROM settings"))
+    gw, _ = gateway(clean, Stub((200, ok_body())), tmp_path, llm_budget_usd=0.0)
+
+    with pytest.raises(AppError) as e:
+        gw.complete(PROMPT, MSGS)
+
+    assert e.value.code == ErrorCode.BUDGET_EXHAUSTED
+
+
+def test_a_request_the_provider_refuses_is_not_retried(clean: Engine, tmp_path: Path) -> None:
+    gw, slept = gateway(clean, Stub((400, {})), tmp_path)
+
+    with pytest.raises(AppError) as e:
+        gw.complete(PROMPT, MSGS)
+
+    assert e.value.code == ErrorCode.LLM_UPSTREAM and slept == []

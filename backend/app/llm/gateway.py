@@ -215,23 +215,27 @@ class Gateway:
     # --- transport ----------------------------------------------------------------------------------
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
         headers = {"Authorization": f"Bearer {self.s.openrouter_api_key}", "X-Title": "Collections Agent"}
+        last = AppError(ErrorCode.LLM_UPSTREAM, "Cannot reach the model provider.")
         for attempt in range(3):
+            if attempt:
+                self.sleep(2 ** (attempt - 1) + random.random() * 0.25)  # noqa: S311  jitter, not security
             try:
                 r = self.http.post(URL, json=payload, headers=headers)
             except httpx.TimeoutException as e:
-                if attempt == 2:
-                    raise AppError(ErrorCode.LLM_TIMEOUT, "The model did not answer in time.") from e
+                last = AppError(ErrorCode.LLM_TIMEOUT, "The model did not answer in time.")
+                last.__cause__ = e
+                continue
             except httpx.TransportError as e:
-                if attempt == 2:
-                    raise AppError(ErrorCode.LLM_UPSTREAM, "Cannot reach the model provider.") from e
-            else:
-                if r.status_code == 200:
-                    data: dict[str, Any] = r.json()
-                    return data
-                if r.status_code not in RETRYABLE or attempt == 2:
-                    raise AppError(ErrorCode.LLM_UPSTREAM, f"Model provider returned {r.status_code}.")
-            self.sleep(2**attempt + random.random() * 0.25)  # noqa: S311  jitter, not security
-        raise AssertionError("unreachable")
+                last = AppError(ErrorCode.LLM_UPSTREAM, "Cannot reach the model provider.")
+                last.__cause__ = e
+                continue
+            if r.status_code == 200:
+                data: dict[str, Any] = r.json()
+                return data
+            last = AppError(ErrorCode.LLM_UPSTREAM, f"Model provider returned {r.status_code}.")
+            if r.status_code not in RETRYABLE:
+                raise last
+        raise last
 
     @staticmethod
     def _parse(body: dict[str, Any], key: str, model: str, mode: str) -> LlmResult:

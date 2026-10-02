@@ -92,3 +92,11 @@ def test_payment_details_the_ledger_does_not_hold_are_rejected_however_they_are_
     assert verify(str(case["text"]), ctx(case)).ok  # the clean draft passes
     report = verify(str(case["text"]) + "\n" + detail, ctx(case))
     assert "PAYMENT_DETAILS_UNVERIFIED" in report.codes
+
+
+def test_a_date_more_than_60_days_ahead_that_no_invoice_owns_is_a_mismatch() -> None:
+    case = GOLD[0]
+
+    report = verify(str(case["text"]) + "\nWe will call you again on 15 January 2027.", ctx(case))
+
+    assert "DATE_MISMATCH" in report.codes

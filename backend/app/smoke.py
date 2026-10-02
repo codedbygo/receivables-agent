@@ -101,8 +101,10 @@ def kill_switch_and_mail(c: httpx.Client) -> str:
         m = _abc_draft(c)
         h = {**headers(), "If-Match": str(m["version"])}
         ok(c.post(f"/api/v1/messages/{m['id']}/approve", headers=h))
-        blocked = c.post(f"/api/v1/messages/{m['id']}/resend", headers=headers())
-        assert blocked.json().get("error", {}).get("code") == "SENDING_DISABLED", blocked.text[:200]
+        for _ in range(5):  # the worker polls every 2 s; the message must stay unsent while sending is off
+            status = ok(c.get(f"/api/v1/messages/{m['id']}", headers=headers()))["status"]
+            assert status == "approved", f"sent while the kill switch was on: {status}"
+            time.sleep(1)  # watching the worker, not a test delay
     finally:
         ok(c.patch("/api/v1/admin/settings", json={"sending_enabled": True}, headers=headers()))
     mail = os.environ.get("MAILPIT_URL", "http://localhost:8025")

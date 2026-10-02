@@ -109,8 +109,9 @@ def _amount(amount_text: str | None, reply: str) -> int | None:
 def _date(date_text: str | None, reply: str, today: date, klass: str) -> date | None:
     if not date_text:
         return None
-    wanted = date_text.strip().lower()
-    if wanted not in date_phrases(reply):
+    # A date that ends a sentence is captured with its full stop ("5 oct."); the model quotes it without one.
+    wanted = date_text.strip().lower().rstrip(".")
+    if wanted not in {p.rstrip(".") for p in date_phrases(reply)}:
         return None  # not a date phrase the customer wrote
     try:
         return resolve_date(date_text, today, "past" if klass in PAST_CLASSES else "future")
