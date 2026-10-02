@@ -77,3 +77,13 @@ def test_the_request_log_never_carries_a_path_parameter(caplog: pytest.LogCaptur
     logged = " ".join(str(r.__dict__.get("path")) for r in caplog.records)
     assert "deadbeef" not in logged
     assert "/api/v1/probe/{token}" in logged
+
+
+def test_the_database_pool_is_closed_when_the_app_shuts_down(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each app owns one engine; leaving its pool open leaks connections until Postgres refuses clients."""
+    app = create_app(Settings(database_url="postgresql+psycopg://x:x@nowhere:1/x"))
+    disposed: list[bool] = []
+    monkeypatch.setattr(app.state.engine, "dispose", lambda: disposed.append(True))
+    with TestClient(app):
+        assert disposed == []
+    assert disposed == [True]

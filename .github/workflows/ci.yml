@@ -90,5 +90,5 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: make setup
-      - run: make test-integration
+      - run: make coverage  # the whole suite, integration included, with the coverage gates
       - run: make eval

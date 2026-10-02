@@ -1,6 +1,7 @@
 """US-00-001, US-00-002 over HTTP against the seeded database."""
 
 import os
+from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,10 +16,11 @@ ABC = uid("customer", "ABC Distributors")
 
 
 @pytest.fixture(scope="module")
-def client(engine: Engine) -> TestClient:
+def client(engine: Engine) -> Iterator[TestClient]:
     settings = Settings(database_url=os.environ["DATABASE_URL"])
     reset_demo(engine, settings)
-    return TestClient(create_app(settings), headers={"X-Demo-Role": "viewer"})
+    with TestClient(create_app(settings), headers={"X-Demo-Role": "viewer"}) as c:
+        yield c
 
 
 # TC-0160 (AC-US-00-001-1)

@@ -3,7 +3,8 @@
 import logging
 import secrets
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from fastapi.responses import JSONResponse
@@ -31,7 +32,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if not settings.session_secret:  # signs payment links; links die with the process, which suits the demo
         settings = settings.model_copy(update={"session_secret": secrets.token_hex(32)})
     check_auth_config(settings)
-    app = FastAPI(title="Collections Agent API", version="1.0.0")
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        yield
+        app.state.engine.dispose()  # close the pool: one engine per app, never left holding connections
+
+    app = FastAPI(title="Collections Agent API", version="1.0.0", lifespan=lifespan)
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=[h for h in settings.allowed_hosts.split(",") if h]
     )

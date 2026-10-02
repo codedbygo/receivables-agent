@@ -23,6 +23,7 @@ dev = [
     "mypy>=1.11",
     "types-PyYAML",
     "pip-audit>=2.9",
+    "pytest-cov>=6",
 ]
 
 [build-system]
@@ -54,3 +55,8 @@ plugins = ["pydantic.mypy"]
 testpaths = ["tests"]
 markers = ["integration: needs Postgres (make up)"]
 addopts = "-q"
+
+[tool.coverage.run]
+source = ["app"]
+# The MCP server, worker and CLIs run as subprocesses in their tests; measure those too.
+patch = ["subprocess"]

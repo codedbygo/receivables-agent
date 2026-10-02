@@ -88,7 +88,10 @@ services:
     image: nginx:stable-alpine
     volumes:
       - ./web/dist:/usr/share/nginx/html:ro
-      - ./web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # rendered by the nginx image at start: ${PUBLIC_HOST} becomes the hosted demo's name
+      - ./web/nginx.conf:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
     ports: ["127.0.0.1:8080:80"]
     depends_on:
       api: { condition: service_healthy }

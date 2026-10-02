@@ -25,7 +25,7 @@ define not_built
 @echo "$(1): not built yet ($(2)); see docs/design/collections-lld.md section 10" >&2; exit 1
 endef
 
-.PHONY: help setup up down logs migrate migrate-down test-integration seed reset-demo demo test lint typecheck format format-check fix eval eval-replay web-setup web-build web-check e2e check audit doctor clean
+.PHONY: help setup up down logs migrate migrate-down test-integration seed reset-demo demo test lint typecheck format format-check fix eval eval-replay web-setup web-build web-check e2e check audit coverage smoke db-backup db-restore doctor clean
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -54,6 +54,22 @@ test-integration: ## Postgres tests (needs make up; drops and recreates the publ
 	@n=$$(git ls-files -co --exclude-standard '$(BE)/tests/service/test_*.py' '$(BE)/tests/tool/test_*.py' | wc -l | tr -d ' '); \
 	[ "$$n" -gt 0 ] || { echo "test-integration: 0 test files, nothing checked" >&2; exit 1; }; \
 	set -o pipefail; cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run pytest -m integration 2>&1 | tail -5 && echo "test-integration: $$n test files checked"
+
+coverage: ## Whole suite with line coverage (needs Postgres): fails under 90% overall or 85% on guardrails, services, tools, mcp
+	@$(call need_uv,coverage); set -o pipefail; cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run pytest --cov --cov-report=term-missing:skip-covered --cov-fail-under=90 2>&1 | tail -25 \
+	&& $(UV) run coverage report --include='app/guardrails/*,app/services/*,app/tools/*,app/mcp/*' --fail-under=85 | tail -1 \
+	&& echo "coverage: gates met (overall >= 90%, core >= 85%)"
+
+smoke: ## Post-deploy checks against a running stack; resets the demo data first and last (SMOKE_BASE_URL, ADMIN_TOKEN, MCP_URL, MCP_TOKEN, MAILPIT_URL, MAILPIT_UI_AUTH)
+	@$(call need_uv,smoke); cd $(BE) && $(UV) run python -m app.smoke
+
+db-backup: ## pg_dump the stack's database to backups/<UTC timestamp>.sql (COMPOSE="docker compose -f compose.yaml -f compose.prod.yaml" for the hosted demo)
+	@mkdir -p backups; f=backups/$$(date -u +%Y%m%dT%H%M%SZ).sql; \
+	$(COMPOSE) exec -T postgres pg_dump -U collections --clean --if-exists collections > $$f && echo "db-backup: $$f"
+
+db-restore: ## Restore a backup into the stack's database: make db-restore FILE=backups/<file>.sql
+	@[ -f "$(FILE)" ] || { echo "db-restore: FILE=backups/<file>.sql is required" >&2; exit 1; }
+	$(COMPOSE) exec -T postgres psql -v ON_ERROR_STOP=1 -U collections collections < $(FILE)
 
 seed: ## Load the deterministic demo seed into an empty database
 	cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run python -m app.seed

@@ -29,8 +29,10 @@ root. The click-by-click script is in README.md, section 2.
 
 ## Rollback
 
-Check out the previous release tag, run `make web-build` and `make up` (it rebuilds the images), then `make demo`
-to put the data back at the start of the story.
+Check out the previous release tag, run `make web-build` and redeploy with the same compose command (it rebuilds
+the images), then `make db-restore FILE=backups/<the backup taken before the deploy>.sql` and `make smoke`.
+Locally, `make up` then `make demo` puts the data back at the start of the story. Hosts and commands per
+environment: [docs/environments.md](../environments.md).
 
 ## After the demo
 

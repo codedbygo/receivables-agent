@@ -1,0 +1,50 @@
+# Hosted demo override (brief 9.3; docs/environments.md). Use with the base file:
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d --build --wait
+# Every secret comes from the environment (.env on the host, never the repo); a missing one stops compose.
+# The console listens on 127.0.0.1:8080 only: put a TLS proxy in front (access codes must not cross plain HTTP).
+x-db-url: &db-url postgresql+psycopg://collections:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/collections
+
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    ports: !reset []  # never published on the hosted demo
+    restart: unless-stopped
+
+  mailhog:
+    environment:
+      MP_UI_AUTH: ${MAILPIT_UI_AUTH:?set MAILPIT_UI_AUTH as user:password}
+    restart: unless-stopped
+
+  migrate:
+    environment:
+      DATABASE_URL: *db-url
+
+  api:
+    environment:
+      DATABASE_URL: *db-url
+      DEMO_OPEN_ROLES: "false"
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN}
+      COLLECTOR_TOKEN: ${COLLECTOR_TOKEN:?set COLLECTOR_TOKEN}
+      VIEWER_TOKEN: ${VIEWER_TOKEN:?set VIEWER_TOKEN}
+      ALLOWED_HOSTS: localhost,127.0.0.1,api,${PUBLIC_HOST:?set PUBLIC_HOST}
+      LLM_MODE: ${LLM_MODE:-replay}  # one-line fallback: LLM_MODE=replay
+    ports: !reset []  # reached through the web service only
+    restart: unless-stopped
+
+  mcp:
+    environment:
+      DATABASE_URL: *db-url
+      MCP_TOKEN: ${MCP_TOKEN:?set MCP_TOKEN}
+    restart: unless-stopped
+
+  worker:
+    environment:
+      DATABASE_URL: *db-url
+      LLM_MODE: ${LLM_MODE:-replay}
+    restart: unless-stopped
+
+  web:
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?set PUBLIC_HOST}
+    restart: unless-stopped
