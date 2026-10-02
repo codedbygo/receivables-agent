@@ -22,8 +22,12 @@ export function Approvals({ role }: { role: S.Role }) {
   const approve = useAction((m: S.Message) =>
     api(`/messages/${m.id}/approve`, S.Message, { method: "POST", headers: { "If-Match": String(m.version) } }),
   );
-  const batch = useAction((ids: string[]) =>
-    api("/messages/approve-batch", S.page(S.Message), { method: "POST", body: { message_ids: ids } }),
+  // Each draft at the version on screen: one changed since it was shown refuses the batch (STALE_DRAFT).
+  const batch = useAction((ms: S.Message[]) =>
+    api("/messages/approve-batch", S.page(S.Message), {
+      method: "POST",
+      body: { messages: ms.map((m) => ({ id: m.id, version: m.version })) },
+    }),
   );
 
   // Keyboard: J/K move, A approve, E edit, R reject (DESIGN.md). Synchronises with the document, not state.
@@ -52,7 +56,7 @@ export function Approvals({ role }: { role: S.Role }) {
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-display font-semibold">Approvals</h1>
         {assisted && canAct && queue.length > 0 && (
-          <Button onClick={() => batch.mutate(queue.filter((m) => m.verified).map((m) => m.id))} busy={batch.isPending}>
+          <Button onClick={() => batch.mutate(queue.filter((m) => m.verified))} busy={batch.isPending}>
             Approve all verified ({queue.filter((m) => m.verified).length})
           </Button>
         )}

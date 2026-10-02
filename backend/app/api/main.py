@@ -52,13 +52,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response.headers["X-Request-Id"] = rid
         # Method, route template, status and time: never a body, a query string, a header value or a path
         # parameter (a pay-link token is one). An unmatched path is not echoed either.
-        route = request.scope.get("route")
+        path = request.url.path if request.scope.get("route") else "(unmatched)"
+        for name, value in request.path_params.items():
+            path = path.replace(str(value), "{" + name + "}")
         log.info(
             "request",
             extra={
                 "request_id": rid,
                 "method": request.method,
-                "path": getattr(route, "path", "(unmatched)"),
+                "path": path,
                 "status": response.status_code,
                 "ms": round((time.perf_counter() - started) * 1000, 1),
             },

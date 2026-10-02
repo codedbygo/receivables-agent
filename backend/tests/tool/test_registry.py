@@ -193,3 +193,40 @@ def test_additional_tool_answers_in_its_schema(reg: Registry, tool: str, args: d
 
     assert "data" in out, out
     reg.tools[tool].output.model_validate(out["data"])
+
+
+# Audit finding 7: a reply, dispute or payment named by id must belong to the customer the tool acts for.
+def error_code(out: dict[str, object]) -> object:
+    error = out.get("error")
+    return error.get("code") if isinstance(error, dict) else None
+
+
+def test_log_promise_refuses_another_customers_reply(reg: Registry, engine: Engine) -> None:
+    other_reply = scalar(engine, f"SELECT id::text FROM replies WHERE customer_id <> '{ABC}' LIMIT 1")
+    args = {
+        "customer_id": ABC,
+        "amount_paise": 30_000_000,
+        "promised_date": "2026-10-05",
+        "reply_id": other_reply,
+    }
+    out = reg.invoke("log_promise", args, ctx())
+    assert error_code(out) == "MESSAGE_CUSTOMER_MISMATCH"
+    assert scalar(engine, f"SELECT count(*) FROM promises WHERE reply_id = '{other_reply}'") == 0
+
+
+def test_escalate_refuses_another_customers_reply(reg: Registry, engine: Engine) -> None:
+    other_reply = scalar(engine, f"SELECT id::text FROM replies WHERE customer_id <> '{ABC}' LIMIT 1")
+    args = {"customer_id": ABC, "kind": "dispute", "reason": "check", "reply_id": other_reply}
+    out = reg.invoke("escalate", args, ctx())
+    assert error_code(out) == "MESSAGE_CUSTOMER_MISMATCH"
+
+
+def test_log_dispute_refuses_another_customers_reply(reg: Registry, engine: Engine) -> None:
+    other_reply = scalar(engine, f"SELECT id::text FROM replies WHERE customer_id <> '{ABC}' LIMIT 1")
+    args = {
+        "customer_id": ABC,
+        "invoice_number": "INV-1047",
+        "reason": "wrong quantity",
+        "reply_id": other_reply,
+    }
+    assert error_code(reg.invoke("log_dispute", args, ctx())) == "MESSAGE_CUSTOMER_MISMATCH"

@@ -79,6 +79,25 @@ def _invoices_of(session: Session, customer_id: str, numbers: list[str]) -> list
     return [(found[n].id, n) for n in numbers]
 
 
+OWNED = {
+    "reply_id": "SELECT 1 FROM replies WHERE id = CAST(:i AS uuid) AND customer_id = CAST(:c AS uuid)",
+    "dispute_id": "SELECT 1 FROM disputes WHERE id = CAST(:i AS uuid) AND customer_id = CAST(:c AS uuid)",
+    # an unmatched bank payment has no customer yet and may be escalated from any customer's context
+    "payment_id": """SELECT 1 FROM payments WHERE id = CAST(:i AS uuid)
+        AND (customer_id IS NULL OR customer_id = CAST(:c AS uuid))""",
+}
+
+
+def _owned(session: Session, customer_id: str, **refs: str | None) -> None:
+    """A reply, dispute or payment named by id must be this customer's (security audit finding 7)."""
+    for key, ref in refs.items():
+        if (
+            ref is not None
+            and session.execute(text(OWNED[key]), {"i": ref, "c": customer_id}).scalar() is None
+        ):
+            raise AppError(ErrorCode.MESSAGE_CUSTOMER_MISMATCH, "That record belongs to another customer.")
+
+
 def log_promise(
     session: Session,
     customer_id: str,
@@ -89,6 +108,7 @@ def log_promise(
     actor: Actor = "ai",
 ) -> PromiseOut:
     ledger.get_customer(session, today(session), customer_id)
+    _owned(session, customer_id, reply_id=reply_id)
     if reply_id:
         existing = session.execute(
             text("SELECT id::text FROM promises WHERE reply_id = CAST(:r AS uuid) AND status = 'pending'"),
@@ -162,6 +182,7 @@ def log_dispute(
     actor: Actor = "ai",
 ) -> DisputeOut:
     [(inv_id, _)] = _invoices_of(session, customer_id, [invoice_number])
+    _owned(session, customer_id, reply_id=reply_id)
     if session.execute(
         text("SELECT 1 FROM disputes WHERE invoice_id = CAST(:i AS uuid) AND status = 'open'"), {"i": inv_id}
     ).scalar():
@@ -199,6 +220,7 @@ def escalate(
     payment_id: str | None = None,
 ) -> EscalationOut:
     ledger.get_customer(session, today(session), customer_id)
+    _owned(session, customer_id, dispute_id=dispute_id, reply_id=reply_id, payment_id=payment_id)
     existing = session.execute(
         text("""SELECT id::text FROM escalations WHERE customer_id = CAST(:c AS uuid)
         AND kind = :k AND status = 'open' AND dispute_id IS NOT DISTINCT FROM CAST(:d AS uuid)

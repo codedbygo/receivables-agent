@@ -174,12 +174,16 @@ def test_assisted_mode_approves_every_verified_draft_in_one_action(api: TestClie
         "/api/v1/messages", params={"filter[status]": "pending_approval"}, headers=COLLECTOR
     ).json()["data"]
     refused = api.post(
-        "/api/v1/messages/approve-batch", json={"message_ids": [d["id"] for d in drafts]}, headers=COLLECTOR
+        "/api/v1/messages/approve-batch",
+        json={"messages": [{"id": d["id"], "version": d["version"]} for d in drafts]},
+        headers=COLLECTOR,
     )
     api.patch("/api/v1/admin/settings", json={"autonomy_mode": "assisted"}, headers=ADMIN)
 
     done = api.post(
-        "/api/v1/messages/approve-batch", json={"message_ids": [d["id"] for d in drafts]}, headers=COLLECTOR
+        "/api/v1/messages/approve-batch",
+        json={"messages": [{"id": d["id"], "version": d["version"]} for d in drafts]},
+        headers=COLLECTOR,
     )
 
     assert len(drafts) == 5
@@ -215,3 +219,34 @@ def test_todays_promises_list_and_check_payment(api: TestClient, engine: Engine)
     assert (row["customer_name"], row["amount_paise"]) == ("ABC Distributors", 30000000)
     assert (before["promise"]["status"], before["message"]) == ("pending", "No matching payment yet")
     assert after["promise"]["status"] == "fulfilled"
+
+
+def test_batch_approval_refuses_a_draft_that_changed_after_it_was_shown(api: TestClient) -> None:
+    # Security audit finding 6: a draft rewritten after the collector saw it is never approved unseen.
+    ids = [p["customer_id"] for p in api.get("/api/v1/priorities", headers=VIEWER).json()["data"][:2]]
+    api.post("/api/v1/runs", json={"customer_ids": ids}, headers=ADMIN)
+    api.patch("/api/v1/admin/settings", json={"autonomy_mode": "assisted"}, headers=ADMIN)
+    shown = api.get(
+        "/api/v1/messages", params={"filter[status]": "pending_approval"}, headers=COLLECTOR
+    ).json()["data"]
+    first = shown[0]
+    api.patch(
+        f"/api/v1/messages/{first['id']}",
+        json={"subject": first["subject"], "body": first["body"] + "\n\nThank you."},
+        headers={**COLLECTOR, "If-Match": str(first["version"])},
+    )
+
+    r = api.post(
+        "/api/v1/messages/approve-batch",
+        json={"messages": [{"id": d["id"], "version": d["version"]} for d in shown]},
+        headers=COLLECTOR,
+    )
+
+    assert r.json()["error"]["code"] == "STALE_DRAFT"
+    statuses = {
+        m["status"]
+        for m in api.get("/api/v1/messages", params={"filter[status]": "approved"}, headers=COLLECTOR).json()[
+            "data"
+        ]
+    }
+    assert statuses == set()  # nothing in the batch was approved

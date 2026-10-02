@@ -25,7 +25,7 @@ define not_built
 @echo "$(1): not built yet ($(2)); see docs/design/collections-lld.md section 10" >&2; exit 1
 endef
 
-.PHONY: help setup up down logs migrate migrate-down test-integration seed reset-demo demo test lint typecheck format format-check fix eval eval-replay web-setup web-build web-check e2e check doctor clean
+.PHONY: help setup up down logs migrate migrate-down test-integration seed reset-demo demo test lint typecheck format format-check fix eval eval-replay web-setup web-build web-check e2e check audit doctor clean
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -110,6 +110,12 @@ eval-replay: ## Offline evaluation gate: 40 replies, red team, golden (no databa
 
 fix: format ## Apply automatic fixes
 	cd $(BE) && $(UV) run ruff check --fix .
+
+audit: ## Known-vulnerability scan of the locked Python and web dependencies (needs network; CI security job)
+	@$(call need_uv,audit); cd $(BE) && $(UV) export --frozen --no-hashes --no-emit-project -o .audit-requirements.txt >/dev/null \
+	&& $(UV) run pip-audit -r .audit-requirements.txt --no-deps --disable-pip --progress-spinner off; s=$$?; rm -f .audit-requirements.txt; [ $$s -eq 0 ]
+	@command -v pnpm >/dev/null || $(call skip,audit,pnpm); cd web && pnpm audit --prod
+	@echo "audit: python and web dependencies have no known vulnerabilities"
 
 check: ## The gate: every gate in GATES, then the tally. CI runs exactly this.
 	@mkdir -p $(STATE); rm -f $(SKIPPED)

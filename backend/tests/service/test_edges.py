@@ -436,3 +436,10 @@ def test_role_matrix(api: TestClient, method: str, path: str, roles: str) -> Non
     assert anonymous.status_code == 401
     for role, status in results.items():
         assert (status == 403) == (role not in allowed), (role, status)
+
+
+def test_an_unknown_run_id_is_404_not_500(api: TestClient) -> None:
+    # Audit finding 11
+    r = api.get(f"/api/v1/runs/{uid('none', 'run')}", headers={"X-Demo-Role": "viewer"})
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "NOT_FOUND"

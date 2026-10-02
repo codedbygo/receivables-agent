@@ -41,9 +41,15 @@ class Reject(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
 
 
+class BatchItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: uuid.UUID
+    version: int = Field(ge=1)  # the version the collector saw; a newer draft is refused (STALE_DRAFT)
+
+
 class BatchApprove(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    message_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+    messages: list[BatchItem] = Field(min_length=1, max_length=50)
 
 
 class RunStart(BaseModel):
@@ -90,10 +96,13 @@ def list_messages(
 
 @router.post("/messages/approve-batch", response_model=MessagesPage)
 def approve_batch(session: SessionDep, user: Collector, body: BatchApprove) -> MessagesPage:
-    """Assisted mode (US-01-016): each message passes the same checks as a single approval."""
+    """Assisted mode (US-01-016): each message passes the same checks as a single approval, at the version
+    the collector saw. One stale draft refuses the whole batch (one transaction)."""
     if runtime.autonomy_mode(session) != "assisted":
         raise AppError(ErrorCode.FEATURE_DISABLED, "Batch approval needs Assisted mode.")
-    return MessagesPage(data=[approval.approve(session, str(m), None, user.id) for m in body.message_ids])
+    return MessagesPage(
+        data=[approval.approve(session, str(m.id), m.version, user.id) for m in body.messages]
+    )
 
 
 @router.get("/messages/{id}", response_model=approval.Message)
