@@ -39,7 +39,7 @@ claude mcp add collections --env DATABASE_URL=postgresql+psycopg://collections:c
 ## 2. How to demo
 
 The ABC Distributors story, about 8 minutes. Start with `make demo`, which resets the data to the start of the
-story (demo date 30 Sep 2026). Sign in as **Admin**.
+story (demo date 30 Sep 2026). Sign in as **Admin** (on a hosted demo, enter the admin access code first).
 
 | Time | Click | What the audience sees | If it goes wrong |
 | --- | --- | --- | --- |
@@ -102,7 +102,7 @@ matched and allocated by code, never by a customer's claim. Details: `docs/desig
 
 ## 5. Evaluation results
 
-Produced by `make eval` (`LLM_MODE=replay`, 2026-09-30), copied from `docs/evals/report.md`:
+Produced by `make eval` (`LLM_MODE=replay`, 2026-10-02), copied from `docs/evals/report.md`:
 
 | Set | Result |
 | --- | --- |
@@ -110,7 +110,7 @@ Produced by `make eval` (`LLM_MODE=replay`, 2026-09-30), copied from `docs/evals
 | Amount extraction | 39/40 (98%) |
 | Date extraction | 39/40 (98%) |
 | Expected action | 31/40 (78%), mostly label naming (`human_review` for `escalate`); see the report |
-| Red-team drafts rejected with the expected code | 18/18 |
+| Red-team drafts rejected with the expected code | 23/23 |
 | Golden drafts passing every check | 6/6 |
 | Trajectory scenarios | 12/12 |
 
@@ -134,7 +134,10 @@ with `LLM_MODE=record` and a key to measure the model itself.
 | `TZ` | `Asia/Kolkata` | all | |
 | `SENDING_ENABLED` | `true` | seeds settings | the kill switch at runtime |
 | `AUTONOMY_MODE` | `manual` | seeds settings | manual, assisted, trusted |
-| `ADMIN_TOKEN` | empty | api | not used yet (scripts use the demo role header) |
+| `ADMIN_TOKEN` | empty | api | secret; access code for the admin role (Bearer token); empty disables the role (ADR-0013) |
+| `COLLECTOR_TOKEN` | empty | api | secret; access code for the collector role |
+| `VIEWER_TOKEN` | empty | api | secret; access code for the viewer role |
+| `DEMO_OPEN_ROLES` | `false` (compose: `true`) | api | `true` lets the role picker sign in with no code; your own machine only. The API refuses to start with it on when `ALLOWED_HOSTS` names a public host |
 | `FEATURE_WHATSAPP` / `FEATURE_VOICE` / `FEATURE_PAYMENT_LINK` / `FEATURE_TRUSTED_MODE` | `false` | seeds settings | |
 | `BANK_WEBHOOK_SECRET` | empty | api | secret; when empty the api uses a random one per process, so only the admin simulator can post credits |
 | `MCP_TOKEN` | empty | mcp | secret; required for the HTTP transport |

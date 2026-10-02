@@ -2,9 +2,11 @@
 (US-01-016, US-00-024, US-00-025, US-03-004). Each flag off refuses with FEATURE_DISABLED (AC-US-01-016-4)."""
 
 import os
+import smtplib
 import time
 from collections.abc import Iterator
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
@@ -155,3 +157,17 @@ def test_payment_link_expires(api: TestClient, engine: Engine) -> None:
             paylink.read(s, "k", old)
         assert e.value.code == ErrorCode.NOT_FOUND
         assert paylink.read(s, "k", fresh).invoice_number == "INV-1034"
+
+
+# TC-0275 (AC-US-00-025-2): the voice feature prepares a call sheet and places no call.
+def test_voice_makes_no_outbound_request(api: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*_a: object, **_k: object) -> None:
+        raise AssertionError("outbound request from the voice path")
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", refuse)
+    monkeypatch.setattr(smtplib.SMTP, "connect", refuse)
+    flags(api, feature_voice=True)
+
+    sheet = api.get(f"/api/v1/customers/{ABC}/call-prep", headers=COLLECTOR)
+
+    assert sheet.status_code == 200 and sheet.json()["talking_points"]

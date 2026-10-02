@@ -251,3 +251,35 @@ def test_same_event_in_a_second_transaction_returns_the_first_payment(engine: En
         )
 
     assert second.id == first.id
+
+
+# TC-0175 (AC-US-01-001-6): every step a reply flow writes names one of the four agent roles.
+def test_each_step_names_one_of_the_four_agent_roles(engine: Engine, o: Orchestrator) -> None:
+    for body in (
+        "We can pay 3 lakh on October 5.",
+        "We already paid 5 lakh last week.",
+        "INV-1047 is wrong, the quantity does not match our order.",
+    ):
+        reply(o, message_for(engine), body)
+
+    with engine.connect() as c:
+        roles = {r for (r,) in c.execute(text("SELECT DISTINCT role FROM agent_steps"))}
+    assert roles and roles <= {"collections", "reply_understanding", "payment_verification", "escalation"}
+
+
+# TC-0220 (AC-US-00-019-2): a credit of exactly the invoice amount marks it paid, never below zero.
+def test_an_exact_payment_marks_the_invoice_paid(engine: Engine, o: Orchestrator) -> None:
+    amount = one(engine, "SELECT amount_paise FROM invoices WHERE number = 'INV-1034'")
+    assert amount == 20_000_000
+
+    credit(engine, 20_000_000, "INV-1034")
+
+    assert one(engine, "SELECT status FROM invoices WHERE number = 'INV-1034'") == "paid"
+    assert (
+        one(
+            engine,
+            """SELECT b.remaining_paise FROM invoice_balances b JOIN invoices i ON i.id = b.invoice_id
+            WHERE i.number = 'INV-1034'""",
+        )
+        == 0
+    )

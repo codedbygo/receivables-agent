@@ -6,8 +6,10 @@ from datetime import date
 
 import pytest
 from sqlalchemy import Engine, text
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.services import approval
 from app.services.demo import reset_demo, uid
 from app.tools.registry import Registry, ToolContext, build_registry
 
@@ -230,3 +232,37 @@ def test_log_dispute_refuses_another_customers_reply(reg: Registry, engine: Engi
         "reply_id": other_reply,
     }
     assert error_code(reg.invoke("log_dispute", args, ctx())) == "MESSAGE_CUSTOMER_MISMATCH"
+
+
+# TC-0248 (AC-US-03-002-3): every core tool, called with valid input, answers in its declared output schema.
+def test_every_core_tool_output_validates_against_its_schema(reg: Registry, engine: Engine) -> None:
+    c = ctx()
+    draft = reg.invoke(
+        "draft_message",
+        {
+            "customer_id": ABC,
+            "kind": "reminder",
+            "tone": "firm",
+            "prose": "Dear ABC Distributors,\n\nThese invoices are past due:\n\n{{invoice_table}}\n\n"
+            "Total outstanding: {{total}}\n\nCould you confirm a payment date?\n\nRegards,\nAccounts team",
+        },
+        c,
+    )
+    data = draft["data"]
+    assert isinstance(data, dict)
+    with Session(bind=engine) as s, s.begin():
+        approval.approve(s, str(data["message_id"]), None, None)
+    calls = {
+        "list_overdue": {"limit": 15},
+        "get_customer_history": {"customer_id": ABC},
+        "send_message": {"message_id": data["message_id"]},
+        "log_promise": {"customer_id": ABC, "amount_paise": 30_000_000, "promised_date": "2026-10-05"},
+        "log_dispute": {"customer_id": ABC, "invoice_number": "INV-1047", "reason": "wrong quantity"},
+        "escalate": {"customer_id": ABC, "kind": "dispute", "reason": "customer disputes INV-1047"},
+    }
+    outputs = {"draft_message": draft} | {name: reg.invoke(name, args, ctx()) for name, args in calls.items()}
+
+    for name, out in outputs.items():
+        assert out["ok"], (name, out.get("error"))
+        reg.tools[name].output.model_validate(out["data"])
+    assert len(outputs) == 7

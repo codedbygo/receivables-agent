@@ -8,7 +8,7 @@ import httpx
 import pytest
 from sqlalchemy import Engine, text
 
-from app.agent.orchestrator import Orchestrator
+from app.agent.orchestrator import Orchestrator, redact
 from app.core.config import Settings
 from app.llm.gateway import Gateway
 from app.services.demo import reset_demo, uid
@@ -246,3 +246,20 @@ def test_model_cannot_draft_a_dispute_ack(seeded: Engine) -> None:
     run = o.run_collections(ABC, "manual")
 
     assert rows(seeded, f"SELECT kind FROM messages WHERE agent_run_id = '{run.id}'") == [("reminder",)]
+
+
+# TC-0191 (AC-US-00-008-2): emails, phones and free text never reach the trajectory.
+def test_emails_phones_and_bodies_are_redacted_in_steps(seeded: Engine) -> None:
+    reason = "Ravi wrote from ravi@abc-distributors.example.in, call +91 98765 43210"
+    o = orch(
+        seeded, [call("escalate", {"customer_id": ABC, "kind": "low_confidence", "reason": reason}), final()]
+    )
+
+    run = o.run_collections(ABC, "manual")
+
+    stored = str(
+        rows(seeded, f"SELECT arguments_redacted::text FROM agent_steps WHERE agent_run_id = '{run.id}'")
+    )
+    assert "[redacted:email]" in stored and "[redacted:phone]" in stored
+    assert "ravi@abc" not in stored and "98765" not in stored
+    assert redact({"body": "We will pay on Friday"}) == {"body": "[redacted:text]"}

@@ -1,6 +1,6 @@
 # Evaluation report
 
-Generated 2026-09-30T17:52:26+00:00 by `make eval` with `LLM_MODE=replay`. Every figure below is computed by `backend/app/evaluation/harness.py` from a run of the product code; none is typed by hand. Regenerate with `make eval`.
+Generated 2026-10-02T11:33:07+00:00 by `make eval` with `LLM_MODE=replay`. Every figure below is computed by `backend/app/evaluation/harness.py` from a run of the product code; none is typed by hand. Regenerate with `make eval`.
 
 ## Labelled replies (40)
 
@@ -19,7 +19,7 @@ Expected-action labels name two actions differently: `human_review` is what the 
 
 | Set | Result |
 |---|---|
-| Red-team drafts rejected with the expected code | 18/18 (100%) |
+| Red-team drafts rejected with the expected code | 23/23 (100%) |
 | Golden drafts passing every check | 6/6 (100%) |
 
 ## Trajectory scenarios: 12/12 (100%)
@@ -49,7 +49,7 @@ Expected-action labels name two actions differently: `human_review` is what the 
 | r-0012 | action | verify_payment | create_followup |
 | r-0013 | action | verify_payment | create_followup |
 | r-0014 | action | verify_payment | create_followup |
-| r-0015 | action | verify_payment | create_followup |
+| r-0015 | action | verify_payment | escalate |
 | r-0034 | action | human_review | escalate |
 | r-0035 | action | human_review | escalate |
 | r-0036 | action | human_review | escalate |
