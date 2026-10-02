@@ -1,4 +1,4 @@
-/** The one way the console talks to the API: role header, error envelope, schema-checked responses. */
+/** The one way the console talks to the API: access code, error envelope, schema-checked responses. */
 import { z } from "zod";
 import type { Role } from "./schemas";
 
@@ -12,6 +12,24 @@ export function storedRole(): Role | null {
 export function storeRole(role: Role | null): void {
   if (role) localStorage.setItem(ROLE_KEY, role);
   else localStorage.removeItem(ROLE_KEY);
+}
+
+const CODE_KEY = "ca.code";
+
+/** The access code lives in sessionStorage: it goes when the tab closes. */
+export function storedCode(): string {
+  return sessionStorage.getItem(CODE_KEY) ?? "";
+}
+
+export function storeCode(code: string): void {
+  if (code) sessionStorage.setItem(CODE_KEY, code);
+  else sessionStorage.removeItem(CODE_KEY);
+}
+
+/** A hosted demo sends the access code; a laptop (no code) sends the role header the API accepts there. */
+export function authHeaders(role: Role | null, code: string): Record<string, string> {
+  if (code) return { Authorization: `Bearer ${code}` };
+  return role ? { "X-Demo-Role": role } : {};
 }
 
 export class ApiError extends Error {
@@ -36,7 +54,7 @@ export async function api<T extends z.ZodTypeAny>(path: string, schema: T, init:
   const res = await fetch(`/api/v1${path}`, {
     method: init.method ?? "GET",
     headers: {
-      ...(role ? { "X-Demo-Role": role } : {}),
+      ...authHeaders(role, storedCode()),
       ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...init.headers,
     },

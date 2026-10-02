@@ -44,6 +44,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://collections:collections@postgres:5432/collections
       SMTP_HOST: mailhog
+      DEMO_OPEN_ROLES: ${DEMO_OPEN_ROLES:-true}
     command: ["uvicorn", "app.api.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--log-config", "app/core/uvicorn_log.json"]
     ports: ["127.0.0.1:8000:8000"]
     depends_on:

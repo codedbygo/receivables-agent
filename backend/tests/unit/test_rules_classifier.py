@@ -4,7 +4,7 @@ accuracy: the report shows which classifier produced its numbers. Thresholds gua
 import json
 from datetime import date
 
-from app.agent.classify import classify
+from app.agent.classify import _amount, classify
 from app.core.paths import find_up
 
 ROWS = [
@@ -81,3 +81,10 @@ def test_a_truncated_figure_from_the_model_is_not_accepted() -> None:
     assert _amount("₹50,000", reply) == 5_000_000
     assert _date("Oct 1", reply, TODAY, "PROMISE") is None
     assert _date("Oct 15", reply, TODAY, "PROMISE") == date(2026, 10, 15)
+
+
+# TC-0206 (AC-US-00-012-3)
+def test_code_parsed_amount_wins_and_a_model_amount_absent_from_the_text_is_dropped() -> None:
+    reply = "We can pay 3 lakh on October 5."
+    assert _amount("3 lakh", reply) == 30_000_000  # parsed by code from the customer's own words
+    assert _amount("300000 rupees", reply) is None  # the model's figure is not in the text: dropped

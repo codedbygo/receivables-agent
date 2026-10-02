@@ -27,7 +27,12 @@ class Settings(BaseSettings):
     autonomy_mode: Literal["manual", "assisted", "trusted"] = "manual"
     # Host headers the API answers to; anything else (DNS rebinding) gets 400. "testserver" is the test client.
     allowed_hosts: str = "localhost,127.0.0.1,api,testserver"
+    # Access codes, one per role, sent as "Authorization: Bearer <code>". An empty code disables that role.
     admin_token: str = ""
+    collector_token: str = ""
+    viewer_token: str = ""
+    # The X-Demo-Role header signs anyone in as that role: for a laptop only (refused on a public host).
+    demo_open_roles: bool = False
     feature_whatsapp: bool = False
     feature_voice: bool = False
     feature_payment_link: bool = False

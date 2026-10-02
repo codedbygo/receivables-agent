@@ -275,6 +275,10 @@ class Orchestrator:
                 args["customer_id"] = customer_id
             if call.name == "draft_message":  # tone and channel are the business's, not the model's
                 args.update({"tone": tone, "channel": channel})
+                if (
+                    args.get("kind") == "dispute_ack"
+                ):  # that kind skips the disputed-invoice rule: code's, not the model's
+                    args["kind"] = "reminder"
             out = self.invoke(run_id, ctx, "collections", call.name, args)
             if not out["ok"] and out["error"]["code"] == "TOOL_LIMIT":
                 return f"tool-call limit {MAX_CALLS} reached"

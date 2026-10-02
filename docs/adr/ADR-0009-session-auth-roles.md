@@ -1,6 +1,6 @@
 # ADR-0009: Use seeded users with session cookies and three roles
 
-- Status: Accepted
+- Status: Accepted (auth mechanism superseded in part by ADR-0013)
 - Date: 2026-09-30
 - Task: HACK-001
 - Deciders: Savitha Sista (engineer; approved the Phase 3 recommendations by replying "continue")

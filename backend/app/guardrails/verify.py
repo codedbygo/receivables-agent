@@ -2,6 +2,7 @@
 placeholders are filled; no model is involved. Returns a report of every token checked."""
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date
 from functools import cache
@@ -14,9 +15,10 @@ from app.core.paths import find_up
 
 INVOICE = re.compile(r"\bINV-\d+\b")
 DATES = [re.compile(p.pattern, re.IGNORECASE) for p in PATTERNS]
-# Payment details the ledger does not hold: a link, an email address, an IFSC code or an account-length digit run.
+# Payment details the ledger does not hold: a link, an email or UPI id (name@bank), an IFSC code or an
+# account-length digit run, which may be split by single spaces or hyphens. Matched on NFKC text.
 PAYMENT_DETAILS = re.compile(
-    r"https?://\S+|\bwww\.\S+|\b[\w.+-]+@[\w-]+\.[\w.]+\b|\b[A-Z]{4}0[A-Z0-9]{6}\b|(?<![\d-])\d{9,}\b",
+    r"https?://\S+|\bwww\.\S+|\b[\w.+-]+@[a-z][\w.-]*\b|\b[A-Z]{4}0[A-Z0-9]{6}\b|(?<![\d-])(?:\d[ -]?){8,}\d\b",
     re.IGNORECASE,
 )
 SALUTATION = re.compile(r"^\s*(?:dear|hello|hi|to)\s+([^,\n]+)", re.IGNORECASE | re.MULTILINE)
@@ -179,7 +181,7 @@ def verify(text: str, ctx: VerifyContext, legal_allow: tuple[str, ...] | None = 
             else:
                 report.add("date", m.group())
 
-    for m in PAYMENT_DETAILS.finditer(text):
+    for m in PAYMENT_DETAILS.finditer(unicodedata.normalize("NFKC", text)):
         report.add("payment_details", m.group(), "PAYMENT_DETAILS_UNVERIFIED")
 
     for m in SALUTATION.finditer(text):

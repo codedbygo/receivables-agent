@@ -11,7 +11,7 @@ from app.agent.orchestrator import Orchestrator
 from app.core.clock import today
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
-from app.services.auth import Role, User, demo_user
+from app.services.auth import Role, User, demo_user, role_for_token
 
 ROLE_HEADER = "X-Demo-Role"
 
@@ -26,10 +26,17 @@ def get_today(session: Annotated[Session, Depends(get_session)]) -> date:
 
 
 def current_user(request: Request, session: Annotated[Session, Depends(get_session)]) -> User:
-    """The demo user for the role the console selected; 401 without one (AC-US-01-007-3)."""
-    user = demo_user(session, request.headers.get(ROLE_HEADER, ""))
+    """The demo user for the caller's role; 401 without one (AC-US-01-007-3). The role is read from the access
+    code in the Authorization header; the role header counts only when DEMO_OPEN_ROLES is on (laptop)."""
+    settings: Settings = request.app.state.settings
+    if settings.demo_open_roles:
+        role: str | None = request.headers.get(ROLE_HEADER, "")
+    else:
+        bearer = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+        role = role_for_token(settings, bearer)
+    user = demo_user(session, role) if role else None
     if user is None:
-        raise AppError(ErrorCode.UNAUTHORIZED, "Choose a role to continue.")
+        raise AppError(ErrorCode.UNAUTHORIZED, "Sign in to continue.")
     return user
 
 

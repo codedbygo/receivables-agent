@@ -75,3 +75,20 @@ def test_legal_phrase_on_the_allow_list_passes() -> None:
 
     assert "TONE_UNSAFE" in verify(text, ctx(GOLD[0])).codes
     assert verify(text, ctx(GOLD[0]), legal_allow=("we will initiate legal action",)).ok
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        "Please pay to acme@okhdfcbank today.",  # a UPI id has no dot after the @
+        "Transfer to a/c 1234 5678 9012 today.",  # an account number split by spaces
+        "Transfer to a/c 1234-5678-9012 today.",
+        "Pay at ｈｔｔｐｓ://pay.example.in/now today.",  # fullwidth characters
+    ],
+)
+# TC-0190 (AC-US-00-007-3)
+def test_payment_details_the_ledger_does_not_hold_are_rejected_however_they_are_written(detail: str) -> None:
+    case = GOLD[0]
+    assert verify(str(case["text"]), ctx(case)).ok  # the clean draft passes
+    report = verify(str(case["text"]) + "\n" + detail, ctx(case))
+    assert "PAYMENT_DETAILS_UNVERIFIED" in report.codes

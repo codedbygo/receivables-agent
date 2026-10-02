@@ -219,6 +219,23 @@ def match_payment(session: SessionDep, _: Collector, id: Id, body: PaymentMatch)
 MAX_WEBHOOK_BYTES = 64 * 1024
 
 
+async def read_capped(request: Request) -> bytes:
+    """The request body, read chunk by chunk; stops as soon as it passes the cap (a chunked request has no
+    Content-Length to check up front)."""
+    try:
+        declared = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        raise AppError(ErrorCode.VALIDATION_ERROR, "Invalid Content-Length.") from None
+    if declared > MAX_WEBHOOK_BYTES:
+        raise AppError(ErrorCode.VALIDATION_ERROR, "Body too large.")
+    body = bytearray()
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > MAX_WEBHOOK_BYTES:
+            raise AppError(ErrorCode.VALIDATION_ERROR, "Body too large.")
+    return bytes(body)
+
+
 @router.post("/webhooks/bank", response_model=payments.Payment)
 async def bank_webhook(
     request: Request,
@@ -226,11 +243,7 @@ async def bank_webhook(
     signature: Annotated[str, Header(alias="X-Bank-Signature")],
 ) -> payments.Payment:
     """Signed simulated bank feed (REQ-116). No role: the HMAC is the credential."""
-    if int(request.headers.get("content-length") or 0) > MAX_WEBHOOK_BYTES:  # before reading it
-        raise AppError(ErrorCode.VALIDATION_ERROR, "Body too large.")
-    raw = await request.body()
-    if len(raw) > MAX_WEBHOOK_BYTES:
-        raise AppError(ErrorCode.VALIDATION_ERROR, "Body too large.")
+    raw = await read_capped(request)
     secret = request.app.state.settings.bank_webhook_secret
     return await run_in_threadpool(receive, request, secret, timestamp, signature, raw)
 

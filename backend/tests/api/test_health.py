@@ -1,3 +1,6 @@
+import logging
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import create_app
@@ -62,3 +65,15 @@ def test_a_foreign_host_header_is_refused() -> None:
     r = client(True).get("/api/v1/healthz", headers={"Host": "attacker.example"})
 
     assert r.status_code == 400
+
+
+def test_the_request_log_never_carries_a_path_parameter(caplog: pytest.LogCaptureFixture) -> None:
+    """A pay-link token is the last path segment: the log keeps the route template, not the credential."""
+    app = create_app(Settings(database_url="postgresql+psycopg://x:x@nowhere:1/x"))
+    app.add_api_route("/api/v1/probe/{token}", lambda token: {"ok": True})
+    with caplog.at_level(logging.INFO, logger="api"):
+        TestClient(app).get("/api/v1/probe/INV-1.1790000000.deadbeef")
+        TestClient(app).get("/api/v1/nowhere/INV-1.1790000000.deadbeef")
+    logged = " ".join(str(r.__dict__.get("path")) for r in caplog.records)
+    assert "deadbeef" not in logged
+    assert "/api/v1/probe/{token}" in logged

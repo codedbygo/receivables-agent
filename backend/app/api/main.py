@@ -16,6 +16,7 @@ from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_sessionmaker, ping
 from app.core.errors import AppError, ErrorCode
 from app.llm.gateway import Gateway
+from app.services.auth import check_auth_config
 from app.tools.registry import build_registry
 
 log = logging.getLogger("api")
@@ -29,6 +30,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         settings = settings.model_copy(update={"bank_webhook_secret": secrets.token_hex(32)})
     if not settings.session_secret:  # signs payment links; links die with the process, which suits the demo
         settings = settings.model_copy(update={"session_secret": secrets.token_hex(32)})
+    check_auth_config(settings)
     app = FastAPI(title="Collections Agent API", version="1.0.0")
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=[h for h in settings.allowed_hosts.split(",") if h]
@@ -48,13 +50,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         started = time.perf_counter()
         response = await call_next(request)
         response.headers["X-Request-Id"] = rid
-        # Method, path (ids only), status and time: never a body, a query string or a header value.
+        # Method, route template, status and time: never a body, a query string, a header value or a path
+        # parameter (a pay-link token is one). An unmatched path is not echoed either.
+        route = request.scope.get("route")
         log.info(
             "request",
             extra={
                 "request_id": rid,
                 "method": request.method,
-                "path": request.url.path,
+                "path": getattr(route, "path", "(unmatched)"),
                 "status": response.status_code,
                 "ms": round((time.perf_counter() - started) * 1000, 1),
             },

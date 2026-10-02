@@ -8,7 +8,7 @@ import { Customers } from "../features/Customers";
 import { Evaluation } from "../features/Evaluation";
 import { Pay } from "../features/Pay";
 import { Today } from "../features/Today";
-import { storedRole, storeRole } from "../lib/api";
+import { storedRole, storeCode, storeRole } from "../lib/api";
 import { useMe } from "../lib/hooks";
 import type { Role } from "../lib/schemas";
 import { href, useRoute, type Route } from "./route";
@@ -29,18 +29,30 @@ const ROLES: { role: Role; label: string; what: string }[] = [
   { role: "viewer", label: "Viewer", what: "Read-only: every screen, no actions." },
 ];
 
-/** S-01: demo roles, no passwords (engineer's decision 2026-09-30; the stack binds to localhost only). */
-function SignIn({ onPick }: { onPick: (r: Role) => void }) {
+/** S-01: pick a role. A hosted demo asks for that role's access code; on a laptop the code stays empty. */
+function SignIn({ onPick }: { onPick: (r: Role, code: string) => void }) {
+  const [code, setCode] = useState("");
   return (
     <main className="mx-auto max-w-xl px-4 py-16">
       <h1 className="font-display text-display font-semibold">Collections Agent</h1>
       <p className="mb-8 text-text-muted">Choose a demo role to continue. Every number you will see comes from the ledger.</p>
+      <label className="mb-6 block">
+        <span className="mb-1 block font-semibold">Access code</span>
+        <input
+          type="password"
+          autoComplete="off"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          className="min-h-11 w-full rounded border border-border bg-surface px-3"
+        />
+        <span className="text-label text-text-muted">Leave empty when running on your own machine.</span>
+      </label>
       <ul className="space-y-3">
         {ROLES.map((r) => (
           <li key={r.role}>
             <button
               type="button"
-              onClick={() => onPick(r.role)}
+              onClick={() => onPick(r.role, code)}
               className="w-full rounded border border-border bg-surface p-4 text-left hover:border-accent"
             >
               <span className="block font-semibold">{r.label}</span>
@@ -65,7 +77,8 @@ function Shell() {
   const route = useRoute();
   const [role, setRole] = useState<Role | null>(storedRole);
   const qc = useQueryClient();
-  const pick = (r: Role | null) => {
+  const pick = (r: Role | null, code = "") => {
+    storeCode(code);
     storeRole(r);
     setRole(r);
     qc.clear();
@@ -92,7 +105,7 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
   }
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <nav aria-label="Main" className="flex shrink-0 flex-row gap-1 overflow-x-auto border-b border-border bg-surface p-2 md:w-40 md:flex-col md:overflow-visible md:border-r md:border-b-0">
+      <nav aria-label="Main" className="flex shrink-0 flex-row flex-wrap gap-1 border-b border-border bg-surface p-2 md:w-40 md:flex-col md:flex-nowrap md:border-r md:border-b-0">
         <span className="hidden px-2 py-3 font-display text-title font-semibold md:block">Collections</span>
         {NAV.filter((n) => !n.adminOnly || role === "admin").map((n) => (
           <a

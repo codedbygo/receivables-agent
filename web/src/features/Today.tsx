@@ -93,6 +93,9 @@ export function Today() {
               ))}
               {a.escalations.map((x) => (
                 <li key={x.id} className="py-2">
+                  <span className="mr-2 rounded border border-border px-1.5 text-label font-semibold text-text-muted">
+                    Escalated
+                  </span>
                   <a href={link(x.customer_id)} className="text-link underline">{x.customer_name}</a>: {x.reason}
                 </li>
               ))}

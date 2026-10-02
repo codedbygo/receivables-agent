@@ -229,3 +229,20 @@ def test_unexpected_error_in_a_run_fails_it_and_frees_the_customer(
     assert rows(seeded, f"SELECT status, outcome FROM agent_runs WHERE customer_id = '{ABC}'") == [
         ("finished", "FAILED")
     ]
+
+
+# Audit finding 4: the model cannot pick the one kind that skips the disputed-invoice rule.
+def test_model_cannot_draft_a_dispute_ack(seeded: Engine) -> None:
+    o = orch(
+        seeded,
+        [
+            call(
+                "draft_message", {"customer_id": ABC, "kind": "dispute_ack", "prose": PROSE, "tone": "firm"}
+            ),
+            final(),
+        ],
+    )
+
+    run = o.run_collections(ABC, "manual")
+
+    assert rows(seeded, f"SELECT kind FROM messages WHERE agent_run_id = '{run.id}'") == [("reminder",)]

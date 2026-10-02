@@ -13,6 +13,9 @@ from sqlalchemy.orm import Session
 
 BACKEND = Path(__file__).parents[1]
 
+# Tests sign in with the role header, which is only honoured on a laptop (see app/services/auth.py).
+os.environ.setdefault("DEMO_OPEN_ROLES", "true")
+
 
 def _alembic() -> Config:
     cfg = Config(str(BACKEND / "alembic.ini"))
