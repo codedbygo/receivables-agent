@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+**/.venv
+**/node_modules
+**/__pycache__
+.claude
+.bearing
+.scratch
+.idea
+.vscode
+backups
+frontend/dist

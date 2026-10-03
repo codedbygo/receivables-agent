@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 from sqlalchemy import Connection, Engine, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.channels.email import ChannelError, MessageChannel, Outbound
 from app.core.clock import today
@@ -117,6 +117,12 @@ def approve(session: Session, message_id: str, if_match: int | None, user_id: st
     )
     enqueue(session.connection(), "send_message", message_id, {"message_id": message_id})
     return get_message(session, message_id)
+
+
+def get_message_now(factory: sessionmaker[Session], message_id: str) -> Message:
+    """The message as committed, after any inline send."""
+    with factory() as session:
+        return get_message(session, message_id)
 
 
 def reject(session: Session, message_id: str, reason: str, user_id: str | None) -> Message:

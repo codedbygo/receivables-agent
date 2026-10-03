@@ -49,6 +49,8 @@ tags:
   description: admin
 - name: evals
   description: evals
+- name: cron
+  description: cron
 - name: pay
   description: pay
 paths:
@@ -1607,6 +1609,39 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /cron/tick:
+    get:
+      operationId: runCronTick
+      summary: Run due jobs (Vercel Cron; ADR-0015)
+      description: Schedules the daily run and promise check for the demo date, requeues stale jobs, then runs due
+        jobs inside a time budget. Authorization is Bearer CRON_SECRET; with no secret configured the route is closed.
+      tags:
+      - cron
+      x-story-ids:
+      - US-01-014
+      x-roles: Vercel Cron (CRON_SECRET)
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      security: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs_run]
+                properties:
+                  jobs_run:
+                    type: integer
+                    minimum: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalError'
   /invoices/{number}/pay-link:

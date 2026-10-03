@@ -27,11 +27,15 @@ def enqueue(conn: Connection, kind: str, key: str, payload: dict[str, Any] | Non
 
 
 def run_once(engine: Engine, handlers: dict[str, Handler]) -> str | None:
-    """Claim one due job, run it, record the result. Returns the job kind, or None when idle."""
+    """Claim one due job of a kind in handlers, run it, record the result. Returns the job kind, or None when idle."""
     with engine.begin() as c:
         job = c.execute(
             text("""SELECT id, kind, payload, attempts, max_attempts FROM jobs
-            WHERE status = 'queued' AND run_at <= now() ORDER BY run_at, id FOR UPDATE SKIP LOCKED LIMIT 1""")
+            WHERE status = 'queued' AND run_at <= now() AND kind = ANY(:kinds)
+            ORDER BY run_at, id FOR UPDATE SKIP LOCKED LIMIT 1"""),
+            {
+                "kinds": list(handlers)
+            },  # only kinds this caller can run: an inline sender leaves the daily run
         ).first()
         if job is None:
             return None

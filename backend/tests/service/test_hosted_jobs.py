@@ -3,7 +3,6 @@ budget, and an approved message is sent in the same request when SEND_INLINE is 
 
 import os
 import smtplib
-from collections.abc import Iterator
 from email.message import EmailMessage
 
 import pytest

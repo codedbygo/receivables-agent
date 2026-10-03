@@ -23,7 +23,7 @@ from app.llm.gateway import Gateway
 from app.services import approval, payments
 from app.services.demo import reset_demo, uid
 from app.tools.registry import ToolContext, build_registry
-from app.worker.__main__ import IST, schedule
+from app.worker.runner import IST, schedule
 
 pytestmark = pytest.mark.integration
 ABC = uid("customer", "ABC Distributors")

@@ -3,15 +3,16 @@
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Header, Path, Query
+from fastapi import APIRouter, Header, Path, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent import replies
-from app.api.deps import Admin, Collector, Orch, Reader, SessionDep, Today
+from app.api.deps import Admin, AppSettings, Collector, Orch, Reader, SessionDep, Today
 from app.core.db import transaction
 from app.core.errors import AppError, ErrorCode
 from app.services import approval, overview, runtime
 from app.worker.jobs import enqueue
+from app.worker.runner import send_handlers, tick
 
 router = APIRouter()
 Id = Annotated[uuid.UUID, Path()]
@@ -95,14 +96,17 @@ def list_messages(
 
 
 @router.post("/messages/approve-batch", response_model=MessagesPage)
-def approve_batch(session: SessionDep, user: Collector, body: BatchApprove) -> MessagesPage:
+def approve_batch(
+    request: Request, settings: AppSettings, user: Collector, body: BatchApprove
+) -> MessagesPage:
     """Assisted mode (US-01-016): each message passes the same checks as a single approval, at the version
     the collector saw. One stale draft refuses the whole batch (one transaction)."""
-    if runtime.autonomy_mode(session) != "assisted":
-        raise AppError(ErrorCode.FEATURE_DISABLED, "Batch approval needs Assisted mode.")
-    return MessagesPage(
-        data=[approval.approve(session, str(m.id), m.version, user.id) for m in body.messages]
-    )
+    with transaction(request.app.state.sessions) as session:
+        if runtime.autonomy_mode(session) != "assisted":
+            raise AppError(ErrorCode.FEATURE_DISABLED, "Batch approval needs Assisted mode.")
+        data = [approval.approve(session, str(m.id), m.version, user.id) for m in body.messages]
+    _send_inline(request, settings)
+    return MessagesPage(data=[approval.get_message_now(request.app.state.sessions, str(m.id)) for m in data])
 
 
 @router.get("/messages/{id}", response_model=approval.Message)
@@ -118,8 +122,20 @@ def edit_message(
 
 
 @router.post("/messages/{id}/approve", response_model=approval.Message)
-def approve_message(session: SessionDep, user: Collector, id: Id, if_match: IfMatch) -> approval.Message:
-    return approval.approve(session, str(id), _version(if_match), user.id)
+def approve_message(
+    request: Request, settings: AppSettings, user: Collector, id: Id, if_match: IfMatch
+) -> approval.Message:
+    # Its own transaction: the approval and its send job must be committed before an inline send claims it.
+    with transaction(request.app.state.sessions) as session:
+        approval.approve(session, str(id), _version(if_match), user.id)
+    _send_inline(request, settings)
+    return approval.get_message_now(request.app.state.sessions, str(id))
+
+
+def _send_inline(request: Request, settings: AppSettings) -> None:
+    """Serverless (ADR-0015): no worker runs between requests, so send the queued messages now."""
+    if settings.send_inline:
+        tick(request.app.state.engine, send_handlers(settings), budget_s=20)
 
 
 @router.post("/messages/{id}/reject", response_model=approval.Message)

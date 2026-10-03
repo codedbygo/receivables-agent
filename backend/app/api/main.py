@@ -12,7 +12,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.agent.orchestrator import Orchestrator
 from app.api.deps import require
-from app.api.routers import admin, ledger, messages, records
+from app.api.routers import admin, cron, ledger, messages, records
 from app.channels.email import check_email_config
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_sessionmaker, ping
@@ -102,7 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(body, status_code=200 if ok else 503)
 
     api.include_router(ledger.router, dependencies=[Depends(require("viewer", "collector", "admin"))])
-    for r in (messages.router, records.router, admin.router):
+    for r in (messages.router, records.router, admin.router, cron.router):
         api.include_router(r)
     app.include_router(api)
     return app
