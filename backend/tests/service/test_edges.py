@@ -410,8 +410,8 @@ OPS = [
     for p, ops in SPEC["paths"].items()
     for m, o in ops.items()
     if not str(o["x-roles"]).startswith(
-        ("public", "bank feed")
-    )  # the webhook has no role; its HMAC is tested apart
+        ("public", "bank feed", "cron secret")
+    )  # the webhook and cron have no role; HMAC and CRON_SECRET are tested apart
 ]
 
 

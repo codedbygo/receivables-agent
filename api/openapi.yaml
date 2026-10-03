@@ -1621,7 +1621,7 @@ paths:
       - cron
       x-story-ids:
       - US-01-014
-      x-roles: Vercel Cron (CRON_SECRET)
+      x-roles: cron secret (Vercel Cron)
       parameters:
       - $ref: '#/components/parameters/ApiVersion'
       security: []
