@@ -13,6 +13,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.agent.orchestrator import Orchestrator
 from app.api.deps import require
 from app.api.routers import admin, ledger, messages, records
+from app.channels.email import check_email_config
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_sessionmaker, ping
 from app.core.errors import AppError, ErrorCode
@@ -32,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if not settings.session_secret:  # signs payment links; links die with the process, which suits the demo
         settings = settings.model_copy(update={"session_secret": secrets.token_hex(32)})
     check_auth_config(settings)
+    check_email_config(settings.smtp_user, settings.email_redirect_to)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

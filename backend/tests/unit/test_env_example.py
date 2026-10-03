@@ -13,6 +13,8 @@ SECRETS = (
     "BANK_WEBHOOK_SECRET",
     "MCP_TOKEN",
     "SESSION_SECRET",
+    "SMTP_PASSWORD",
+    "CRON_SECRET",
 )
 
 
