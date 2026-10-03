@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: collections
       POSTGRES_PASSWORD: collections
       POSTGRES_DB: collections
-    ports: ["127.0.0.1:${POSTGRES_PORT:-5433}:5432"]  # host port; 5432 is often taken by another Postgres
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5434}:5432"]  # host port; 5432 is often taken by another Postgres
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U collections -d collections"]

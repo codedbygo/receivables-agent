@@ -36,11 +36,15 @@ test("a customer with no history shows every section with empty states", async (
   for (const label of ["Outstanding", "Oldest overdue", "Priority", "Next action"]) {
     await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
   }
-  for (const title of ["Why this priority", "Timeline", "Invoices", "Promises", "Disputes", "Messages", "Agent runs"]) {
+  for (const title of ["Why this priority", "Timeline", "Invoices", "Promises", "Disputes"]) {
     await expect(page.getByRole("region", { name: title })).toBeVisible();
   }
   await expect(page.getByRole("region", { name: "Promises" }).getByText("No promises recorded.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Disputes" }).getByText("No disputes.")).toBeVisible();
+  await page.getByRole("tab", { name: /Messages and runs/ }).click();
+  for (const title of ["Messages", "Agent runs"]) {
+    await expect(page.getByRole("region", { name: title })).toBeVisible();
+  }
   await expect(page.getByRole("region", { name: "Agent runs" }).getByText("The agent has not run for this customer.")).toBeVisible();
 });
 
@@ -77,6 +81,7 @@ test("a missed promise shows a warning and proposes a follow-up", async ({ page 
   await page.getByRole("button", { name: "Run agent now" }).click();
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.getByText("Review the draft in Approvals")).toBeVisible();
+  await page.getByRole("tab", { name: /Messages and runs/ }).click();
   await expect(page.getByRole("region", { name: "Messages" }).getByText(/pending approval/i).first()).toBeVisible();
 });
 
@@ -91,7 +96,7 @@ test("the timeline is ordered and every event names its actor", async ({ page })
   for (let i = 0; i < n; i++) {
     const meta = (await events.nth(i).locator("div").last().innerText()).trim();
     expect(meta).toMatch(/^(AI|Human|System|Customer)\b/);
-    expect((await events.nth(i).locator("span[aria-hidden]").innerText()).trim()).not.toBe("");
+    await expect(events.nth(i).locator("span[aria-hidden] svg")).toHaveCount(1); // the event icon
     stamps.push(meta.split(" · ").at(-1) ?? "");
   }
   const times = stamps.map((s) => Date.parse(s.replace(/,/, "")));
@@ -105,9 +110,13 @@ test("the admin page shows sending, mode, spend, runs and guardrail failures", a
   await signIn(page, "Admin");
   await page.getByRole("link", { name: "Admin" }).click();
   await expect(page.getByRole("heading", { name: "Admin", level: 1 })).toBeVisible();
-  for (const title of ["Kill switch", "Autonomy", "LLM spend", "Recent runs", "Guardrail events"]) {
+  for (const title of ["Kill switch", "Autonomy", "LLM spend"]) {
     await expect(page.getByRole("region", { name: title })).toBeVisible();
   }
   await expect(page.getByRole("region", { name: "LLM spend" }).getByText(/\$/).first()).toBeVisible();
   await expect(page.getByRole("region", { name: "Autonomy" }).getByText(/Manual/i).first()).toBeVisible();
+  await page.getByRole("tab", { name: "Activity" }).click();
+  for (const title of ["Recent runs", "Guardrail events"]) {
+    await expect(page.getByRole("region", { name: title })).toBeVisible();
+  }
 });

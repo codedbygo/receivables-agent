@@ -45,18 +45,18 @@ logs: ## Tail the stack logs
 	$(COMPOSE) logs -f --tail=100
 
 migrate: ## Apply database migrations (alembic upgrade head)
-	cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run alembic upgrade head
+	cd $(BE) && DATABASE_URL='$(DATABASE_URL)' $(UV) run alembic upgrade head
 
 migrate-down: ## Roll back one migration
-	cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run alembic downgrade -1
+	cd $(BE) && DATABASE_URL='$(DATABASE_URL)' $(UV) run alembic downgrade -1
 
 test-integration: ## Postgres tests (needs make up; drops and recreates the public schema of DATABASE_URL)
 	@n=$$(git ls-files -co --exclude-standard '$(BE)/tests/service/test_*.py' '$(BE)/tests/tool/test_*.py' | wc -l | tr -d ' '); \
 	[ "$$n" -gt 0 ] || { echo "test-integration: 0 test files, nothing checked" >&2; exit 1; }; \
-	set -o pipefail; cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run pytest -m integration 2>&1 | tail -5 && echo "test-integration: $$n test files checked"
+	set -o pipefail; cd $(BE) && DATABASE_URL='$(DATABASE_URL)' $(UV) run pytest -m integration 2>&1 | tail -5 && echo "test-integration: $$n test files checked"
 
 coverage: ## Whole suite with line coverage (needs Postgres): fails under 100% line coverage, overall and on guardrails, services, tools, mcp
-	@$(call need_uv,coverage); set -o pipefail; cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run pytest --cov --cov-report=term-missing:skip-covered --cov-fail-under=100 2>&1 | tail -25 \
+	@$(call need_uv,coverage); set -o pipefail; cd $(BE) && DATABASE_URL='$(DATABASE_URL)' $(UV) run pytest --cov --cov-report=term-missing:skip-covered --cov-fail-under=100 2>&1 | tail -25 \
 	&& $(UV) run coverage report --include='app/guardrails/*,app/services/*,app/tools/*,app/mcp/*' --fail-under=100 | tail -1 \
 	&& echo "coverage: gates met (100% overall and core)"
 
@@ -72,10 +72,10 @@ db-restore: ## Restore a backup into the stack's database: make db-restore FILE=
 	$(COMPOSE) exec -T postgres psql -v ON_ERROR_STOP=1 -U collections collections < $(FILE)
 
 seed: ## Load the deterministic demo seed into an empty database
-	cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run python -m app.seed
+	cd $(BE) && DATABASE_URL='$(DATABASE_URL)' $(UV) run python -m app.seed
 
 reset-demo: ## Reset data to the start of the ABC story (keeps users, sessions, llm_calls)
-	cd $(BE) && DATABASE_URL=$(DATABASE_URL) $(UV) run python -m app.seed --reset
+	cd $(BE) && DATABASE_URL='$(DATABASE_URL)' $(UV) run python -m app.seed --reset
 
 demo: ## Reset the running stack to the start of the ABC story (needs make up), then print where to go
 	$(COMPOSE) exec -T api python -m app.seed --reset
@@ -119,7 +119,7 @@ test: ## pytest (no network; Postgres tests are marked integration and need make
 	set -o pipefail; cd $(BE) && $(UV) run pytest -m "not integration" 2>&1 | tail -5 && echo "test: $$n test files checked"
 
 eval: ## Full evaluation (needs make up): replies, guardrails, 12 scenarios; writes docs/evals/report.md, resets demo data
-	cd $(BE) && DATABASE_URL=$(DATABASE_URL) LLM_MODE=replay $(UV) run python -m app.evaluation
+	cd $(BE) && DATABASE_URL='$(DATABASE_URL)' LLM_MODE=replay $(UV) run python -m app.evaluation
 
 eval-replay: ## Offline evaluation gate: 40 replies, red team, golden (no database, no network)
 	@$(call need_uv,eval-replay); cd $(BE) && LLM_MODE=replay $(UV) run python -m app.evaluation --offline

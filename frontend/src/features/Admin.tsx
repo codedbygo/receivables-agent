@@ -1,12 +1,17 @@
 /** S-11 Admin with S-12 Simulate bank credit, S-13 Reset demo and S-14 Advance clock
 (US-01-001, US-01-002, US-01-004, US-01-005, US-01-006, US-01-008, US-01-009). */
+import { Activity, CalendarDays, Cpu, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
-import { href } from "../app/route";
-import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading, Panel, Table, td, tdNum } from "../components/ui";
-import { api } from "../lib/api";
-import { day, inr, stamp } from "../lib/format";
-import { useAction, useCustomers, useGuardrailEvents, usePayments, useRuns, useSettings } from "../lib/hooks";
-import * as S from "../lib/schemas";
+import { href } from "@/app/route";
+import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading, PageHeader, Panel, Table, td, tdNum } from "@/components/kit";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { day, inr, stamp } from "@/lib/format";
+import { useAction, useCustomers, useGuardrailEvents, usePayments, useRuns, useSettings } from "@/lib/hooks";
+import * as S from "@/lib/schemas";
 import { RunDialog } from "./RunDialog";
 
 type Open = "credit" | "reset" | "clock" | null;
@@ -37,73 +42,105 @@ export function Admin() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="font-display text-display font-semibold">Admin</h1>
-        <p className="text-text-muted">
-          Demo date <span className="num font-semibold text-text">{day(cfg.demo_today)}</span> · LLM mode{" "}
-          <span className="font-mono">{cfg.llm_mode}</span>
-        </p>
-      </header>
+      <PageHeader title="Admin" description="Sending, autonomy, budget and the demo controls.">
+        <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-sm shadow-xs">
+          <CalendarDays aria-hidden className="size-4 text-primary" />
+          <span className="text-muted-foreground">Demo date</span>
+          <span className="num font-semibold">{day(cfg.demo_today)}</span>
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-sm shadow-xs">
+          <Cpu aria-hidden className="size-4 text-primary" />
+          <span className="text-muted-foreground">LLM mode</span>
+          <span className="font-mono font-semibold">{cfg.llm_mode}</span>
+        </span>
+      </PageHeader>
       <ErrorLine error={patch.error ?? dailyRun.error} />
 
+      <Tabs defaultValue="controls" className="gap-6">
+        <TabsList>
+          <TabsTrigger value="controls">
+            <SlidersHorizontal aria-hidden /> Controls
+          </TabsTrigger>
+          <TabsTrigger value="activity">
+            <Activity aria-hidden /> Activity
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="controls" className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-3">
         <Panel title="Kill switch">
-          <p className="mb-3 font-semibold" role="status">
-            {cfg.sending_enabled ? "Sending is on" : "Sending is paused: no send path works"}
-          </p>
-          <Button
-            variant={cfg.sending_enabled ? "danger" : "primary"}
-            busy={patch.isPending}
-            onClick={() => patch.mutate({ sending_enabled: !cfg.sending_enabled })}
-          >
-            {cfg.sending_enabled ? "Pause all sending" : "Turn sending back on"}
-          </Button>
-          <p className="mt-2 text-label text-text-muted">Analysis and drafting continue while sending is paused.</p>
+          <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-3">
+            <span className="flex items-center gap-2 font-semibold" role="status">
+              <span aria-hidden className={cn("size-2 rounded-full", cfg.sending_enabled ? "bg-success" : "bg-danger")} />
+              {cfg.sending_enabled ? "Sending is on" : "Sending is paused: no send path works"}
+            </span>
+          </div>
+          <div className="mt-3">
+            <Button
+              variant={cfg.sending_enabled ? "danger" : "primary"}
+              busy={patch.isPending}
+              onClick={() => patch.mutate({ sending_enabled: !cfg.sending_enabled })}
+            >
+              {cfg.sending_enabled ? "Pause all sending" : "Turn sending back on"}
+            </Button>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">Analysis and drafting continue while sending is paused.</p>
         </Panel>
 
         <Panel title="Autonomy">
-          <fieldset>
-            <legend className="sr-only">Autonomy mode</legend>
-            {(["manual", "assisted", "trusted"] as const).map((m) => (
-              <label key={m} className="flex min-h-11 items-center gap-2">
-                <input
-                  type="radio"
-                  name="autonomy"
-                  checked={cfg.autonomy_mode === m}
-                  disabled={m === "trusted" && !cfg.feature_trusted_mode}
-                  onChange={() => patch.mutate({ autonomy_mode: m })}
-                />
-                <span className="font-semibold capitalize">{m}</span>
-                <span className="text-label text-text-muted">
-                  {m === "manual" && "every message approved one by one"}
-                  {m === "assisted" && "batch approval of verified drafts"}
-                  {m === "trusted" && (cfg.feature_trusted_mode ? "allow-listed gentle reminders auto-send" : "flag off")}
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          <RadioGroup
+            aria-label="Autonomy mode"
+            value={cfg.autonomy_mode}
+            onValueChange={(m) => patch.mutate({ autonomy_mode: m as S.Settings["autonomy_mode"] })}
+            className="gap-2"
+          >
+            {(["manual", "assisted", "trusted"] as const).map((m) => {
+              const off = m === "trusted" && !cfg.feature_trusted_mode;
+              return (
+                <label
+                  key={m}
+                  className={cn(
+                    "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-accent has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary-subtle",
+                    off && "cursor-not-allowed bg-muted",
+                  )}
+                >
+                  <RadioGroupItem value={m} disabled={off} />
+                  <span className="min-w-0">
+                    <span className="block font-semibold capitalize">{m}</span>
+                    <span className="block text-sm text-muted-foreground">
+                      {m === "manual" && "every message approved one by one"}
+                      {m === "assisted" && "batch approval of verified drafts"}
+                      {m === "trusted" && (cfg.feature_trusted_mode ? "allow-listed gentle reminders auto-send" : "flag off")}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </RadioGroup>
         </Panel>
 
         <Panel title="LLM spend">
-          <p className="num font-display text-heading font-semibold">
-            {usd(cfg.llm_spent_micro_usd)} of {usd(cfg.llm_budget_micro_usd)}
-          </p>
-          <p className="text-label text-text-muted">Calls are refused once the budget is spent; drafting falls back to templates.</p>
+          <p className="num text-2xl font-semibold tracking-tight">{usd(cfg.llm_spent_micro_usd)}</p>
+          <p className="num text-sm text-muted-foreground">of {usd(cfg.llm_budget_micro_usd)} budget</p>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted" aria-hidden>
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${Math.min(100, (cfg.llm_spent_micro_usd / Math.max(1, cfg.llm_budget_micro_usd)) * 100)}%` }}
+            />
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">Calls are refused once the budget is spent; drafting falls back to templates.</p>
         </Panel>
       </div>
 
       <Panel title="Feature flags (P2, off by default)">
-        <ul className="grid gap-2 md:grid-cols-2">
+        <ul className="grid gap-3 md:grid-cols-2">
           {FLAGS.map(([key, label]) => (
             <li key={key}>
-              <label className="flex min-h-11 items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={cfg[key]}
-                  onChange={() => patch.mutate({ [key]: !cfg[key] })}
-                />
-                <span className="font-semibold">{label}</span>
-                <span className="text-label text-text-muted">{cfg[key] ? "on" : "off"}</span>
+              <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2 hover:bg-accent">
+                <span>
+                  <span className="block font-semibold">{label}</span>
+                  <span className="block text-sm text-muted-foreground">{cfg[key] ? "on" : "off"}</span>
+                </span>
+                <Switch checked={cfg[key]} onCheckedChange={() => patch.mutate({ [key]: !cfg[key] })} />
               </label>
             </li>
           ))}
@@ -128,6 +165,8 @@ export function Admin() {
         )}
       </Panel>
 
+        </TabsContent>
+        <TabsContent value="activity" className="space-y-6">
       <div className="grid gap-6 xl:grid-cols-2">
         <Panel title="Recent runs">
           {runs.isPending ? (
@@ -139,7 +178,7 @@ export function Admin() {
               {runs.data.data.map((r) => (
                 <tr key={r.id}>
                   <td className={td}>
-                    <button type="button" className="text-link underline" onClick={() => setRunId(r.id)}>
+                    <button type="button" className="font-medium text-link underline-offset-4 hover:underline" onClick={() => setRunId(r.id)}>
                       {r.customer_name}
                     </button>
                   </td>
@@ -187,7 +226,7 @@ export function Admin() {
                 </td>
                 <td className={td}>
                   {p.customer_id ? (
-                    <a className="text-link underline" href={href({ page: "customer", id: p.customer_id })}>
+                    <a className="font-medium text-link underline-offset-4 hover:underline" href={href({ page: "customer", id: p.customer_id })}>
                       Open
                     </a>
                   ) : (
@@ -199,6 +238,8 @@ export function Admin() {
           </Table>
         )}
       </Panel>
+        </TabsContent>
+      </Tabs>
 
       {open === "clock" && <ClockDialog onClose={() => setOpen(null)} today={cfg.demo_today} />}
       {open === "credit" && <CreditDialog onClose={() => setOpen(null)} />}
