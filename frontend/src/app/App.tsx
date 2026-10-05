@@ -43,7 +43,8 @@ function SignIn({ onPick }: { onPick: (r: Role, code: string) => void }) {
         <span className="mb-1 block font-semibold">Access code</span>
         <input
           type="password"
-          autoComplete="off"
+          name="access-code"
+          autoComplete="one-time-code"
           value={code}
           onChange={(e) => setCode(e.target.value)}
           className="min-h-11 w-full rounded border border-border bg-surface px-3"

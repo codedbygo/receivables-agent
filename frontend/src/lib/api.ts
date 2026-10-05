@@ -26,10 +26,14 @@ export function storeCode(code: string): void {
   else sessionStorage.removeItem(CODE_KEY);
 }
 
-/** A hosted demo sends the access code; a laptop (no code) sends the role header the API accepts there. */
+/** The access code (hosted demo) and the role header (laptop, DEMO_OPEN_ROLES). The API reads exactly one of them
+ * for its mode and ignores the other, so a code autofilled by a password manager cannot lock out a laptop user, and
+ * the header grants nothing on a hosted API. */
 export function authHeaders(role: Role | null, code: string): Record<string, string> {
-  if (code) return { Authorization: `Bearer ${code}` };
-  return role ? { "X-Demo-Role": role } : {};
+  return {
+    ...(code ? { Authorization: `Bearer ${code}` } : {}),
+    ...(role ? { "X-Demo-Role": role } : {}),
+  };
 }
 
 export class ApiError extends Error {
