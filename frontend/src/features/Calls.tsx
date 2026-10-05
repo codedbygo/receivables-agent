@@ -3,7 +3,7 @@
  * customer's side to test the flow. */
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Badge, Button, Empty, ErrorLine, Panel } from "../components/ui";
+import { Badge, Button, Empty, ErrorLine, Panel } from "@/components/kit";
 import { api } from "../lib/api";
 import { stamp } from "../lib/format";
 import { useAction } from "../lib/hooks";

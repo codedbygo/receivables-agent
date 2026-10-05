@@ -1,7 +1,7 @@
 /** S-06 Customers: the CRM list, sortable by each column (US-00-026, US-00-002). */
 import { useState } from "react";
 import { href } from "../app/route";
-import { BandBadge, Empty, ErrorLine, inputClass, Loading, td, tdNum } from "../components/ui";
+import { BandBadge, Empty, ErrorLine, inputClass, Loading, td, tdNum } from "../components/kit";
 import { day, inr } from "../lib/format";
 import { useCustomers } from "../lib/hooks";
 import type { Customer } from "../lib/schemas";
@@ -89,7 +89,7 @@ export function Customers() {
               {rows.map((c) => (
                 <tr key={c.id} className="hover:bg-bg-subtle">
                   <td className={td}>
-                    <a href={href({ page: "customer", id: c.id })} className="font-semibold text-link underline">
+                    <a href={href({ page: "customer", id: c.id })} className="font-semibold font-medium text-link underline-offset-4 hover:underline">
                       {c.name}
                     </a>
                   </td>

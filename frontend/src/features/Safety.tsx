@@ -1,5 +1,5 @@
 /** AI Safety Center (HACK-003): counts of real guardrail, approval and send events. No figure here is estimated. */
-import { Badge, ErrorLine, Figure, Loading, Panel, Table, td, tdNum } from "../components/ui";
+import { Badge, ErrorLine, Figure, Loading, Panel, Table, td, tdNum } from "@/components/kit";
 import { useSafety } from "../lib/hooks";
 
 export function SafetyCenter() {

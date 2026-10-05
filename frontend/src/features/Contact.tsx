@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { z } from "zod";
-import { Badge, Button, Dialog, Empty, ErrorLine, Field, Figure, inputClass, Loading, Panel } from "../components/ui";
+import { Badge, Button, Dialog, Empty, ErrorLine, Field, Figure, inputClass, Loading, Panel } from "@/components/kit";
 import { api } from "../lib/api";
 import { day, inr } from "../lib/format";
 import { useAction } from "../lib/hooks";

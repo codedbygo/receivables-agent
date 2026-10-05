@@ -1,6 +1,6 @@
 /** S-17 Payment link (public, SIMULATED; US-03-004). No role: the signed token is the credential. */
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Button, ErrorLine, Loading } from "../components/ui";
+import { Button, ErrorLine, Loading } from "../components/kit";
 import { api } from "../lib/api";
 import { inr } from "../lib/format";
 import * as S from "../lib/schemas";

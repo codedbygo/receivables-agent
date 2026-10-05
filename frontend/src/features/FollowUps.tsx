@@ -2,7 +2,7 @@
  * action and the reasons are rules, never model output. Closing one needs a note. */
 import { useState } from "react";
 import { href } from "../app/route";
-import { Badge, Button, Dialog, ErrorLine, Field, inputClass } from "../components/ui";
+import { Badge, Button, Dialog, ErrorLine, Field, inputClass } from "@/components/kit";
 import { api } from "../lib/api";
 import { day, inr } from "../lib/format";
 import { useAction } from "../lib/hooks";

@@ -1,159 +1,223 @@
-/* Role colours generated from docs/design/tokens.json (roles only, never primitives in components). */
+/* Theme: shadcn/ui variables (modern fintech palette, light and dark) plus the console's role names as aliases.
+   Components use the shadcn names (bg-card, text-muted-foreground, bg-primary); older code uses the role names. */
 @import "tailwindcss";
 @import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
 @import "@fontsource/ibm-plex-sans/600.css";
-@import "@fontsource/ibm-plex-sans-condensed/600.css";
+@import "@fontsource/ibm-plex-sans/700.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 
+/* Dark when chosen in the toggle, or when the system is dark and the toggle is not forcing light. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
 :root {
-  --c-bg: #f4f6f8;
-  --c-bg-subtle: #eef1f4;
-  --c-surface: #ffffff;
-  --c-surface-raised: #ffffff;
-  --c-overlay: #ffffff;
-  --c-text: #16202a;
-  --c-text-muted: #4e5b67;
-  --c-text-disabled: #8795a1;
-  --c-link: #0b5cad;
-  --c-border: #dde3e8;
-  --c-border-strong: #5d6b77;
-  --c-accent: #0f6e6e;
-  --c-accent-hover: #0b5454;
-  --c-accent-active: #073838;
-  --c-on-accent: #ffffff;
-  --c-accent-subtle: #effaf9;
-  --c-success: #1d6b3a;
-  --c-on-success: #ffffff;
-  --c-success-subtle: #effaf2;
-  --c-warning: #8a5a00;
-  --c-on-warning: #ffffff;
-  --c-warning-subtle: #fff8e6;
-  --c-danger: #b42318;
-  --c-on-danger: #ffffff;
-  --c-danger-subtle: #fff1f0;
-  --c-info: #0b5cad;
-  --c-on-info: #ffffff;
-  --c-info-subtle: #eef5ff;
-  --c-focus: #0b5cad;
-  --c-selection: #d6e6ff;
+  --radius: 0.75rem;
+  --background: #f6f7f9;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f6;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f4f8;
+  --muted-foreground: #4b5a6b;
+  --accent: #eef2f6;
+  --accent-foreground: #0f172a;
+  --destructive: #b42318;
+  --border: #e3e8ef;
+  --input: #d5dce5;
+  --ring: #0f766e;
+  --link: #0b5cad;
+  --success: #15803d;
+  --success-subtle: #ecfdf3;
+  --warning: #a15c07;
+  --warning-subtle: #fffaeb;
+  --danger: #b42318;
+  --danger-subtle: #fef3f2;
+  --info: #0b5cad;
+  --info-subtle: #eff6ff;
+  --primary-subtle: #f0fdfa;
+  --border-strong: #64748b;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #475569;
+  --sidebar-muted: #64748b;
+  --sidebar-active: #f0fdfa;
+  --sidebar-strong: #0f172a;
+  --sidebar-primary: #0f766e;
+  --sidebar-border: #e3e8ef;
+  --selection: #ccfbf1;
   color-scheme: light;
 }
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --c-bg: #11171d;
-    --c-bg-subtle: #0b0f13;
-    --c-surface: #1a222a;
-    --c-surface-raised: #26313b;
-    --c-overlay: #26313b;
-    --c-text: #eef1f4;
-    --c-text-muted: #a3b0bb;
-    --c-text-disabled: #5d6b77;
-    --c-link: #7cb7ff;
-    --c-border: #26313b;
-    --c-border-strong: #8795a1;
-    --c-accent: #3fb6b0;
-    --c-accent-hover: #7fd1cc;
-    --c-accent-active: #d5f1ef;
-    --c-on-accent: #042020;
-    --c-accent-subtle: #073838;
-    --c-success: #7fd49b;
-    --c-on-success: #06200f;
-    --c-success-subtle: #0d3b1e;
-    --c-warning: #f2c14e;
-    --c-on-warning: #291a00;
-    --c-warning-subtle: #4a3000;
-    --c-danger: #ff8a80;
-    --c-on-danger: #330906;
-    --c-danger-subtle: #5e120c;
-    --c-info: #7cb7ff;
-    --c-on-info: #031a33;
-    --c-info-subtle: #06305c;
-    --c-focus: #7cb7ff;
-    --c-selection: #06305c;
+    --background: #0a0f17;
+    --foreground: #e6edf5;
+    --card: #111824;
+    --card-foreground: #e6edf5;
+    --popover: #151e2c;
+    --popover-foreground: #e6edf5;
+    --primary: #2dd4bf;
+    --primary-foreground: #042f2b;
+    --secondary: #1a2332;
+    --secondary-foreground: #e6edf5;
+    --muted: #161f2d;
+    --muted-foreground: #9aa8ba;
+    --accent: #1a2332;
+    --accent-foreground: #e6edf5;
+    --destructive: #f87171;
+    --border: #1f2a3a;
+    --input: #2a3648;
+    --ring: #2dd4bf;
+    --link: #7cb7ff;
+    --success: #4ade80;
+    --success-subtle: #0c2a1a;
+    --warning: #fbbf24;
+    --warning-subtle: #2e2208;
+    --danger: #f87171;
+    --danger-subtle: #331313;
+    --info: #7cb7ff;
+    --info-subtle: #0c223d;
+    --primary-subtle: #082926;
+    --border-strong: #64748b;
+    --sidebar: #070b12;
+    --sidebar-foreground: #c2ccd8;
+    --sidebar-muted: #8592a3;
+    --sidebar-active: #131c2c;
+    --sidebar-strong: #ffffff;
+    --sidebar-primary: #2dd4bf;
+    --sidebar-border: #141d2b;
+    --selection: #134e4a;
     color-scheme: dark;
   }
 }
+
 :root[data-theme="dark"] {
-  --c-bg: #11171d;
-  --c-bg-subtle: #0b0f13;
-  --c-surface: #1a222a;
-  --c-surface-raised: #26313b;
-  --c-overlay: #26313b;
-  --c-text: #eef1f4;
-  --c-text-muted: #a3b0bb;
-  --c-text-disabled: #5d6b77;
-  --c-link: #7cb7ff;
-  --c-border: #26313b;
-  --c-border-strong: #8795a1;
-  --c-accent: #3fb6b0;
-  --c-accent-hover: #7fd1cc;
-  --c-accent-active: #d5f1ef;
-  --c-on-accent: #042020;
-  --c-accent-subtle: #073838;
-  --c-success: #7fd49b;
-  --c-on-success: #06200f;
-  --c-success-subtle: #0d3b1e;
-  --c-warning: #f2c14e;
-  --c-on-warning: #291a00;
-  --c-warning-subtle: #4a3000;
-  --c-danger: #ff8a80;
-  --c-on-danger: #330906;
-  --c-danger-subtle: #5e120c;
-  --c-info: #7cb7ff;
-  --c-on-info: #031a33;
-  --c-info-subtle: #06305c;
-  --c-focus: #7cb7ff;
-  --c-selection: #06305c;
+  --background: #0a0f17;
+  --foreground: #e6edf5;
+  --card: #111824;
+  --card-foreground: #e6edf5;
+  --popover: #151e2c;
+  --popover-foreground: #e6edf5;
+  --primary: #2dd4bf;
+  --primary-foreground: #042f2b;
+  --secondary: #1a2332;
+  --secondary-foreground: #e6edf5;
+  --muted: #161f2d;
+  --muted-foreground: #9aa8ba;
+  --accent: #1a2332;
+  --accent-foreground: #e6edf5;
+  --destructive: #f87171;
+  --border: #1f2a3a;
+  --input: #2a3648;
+  --ring: #2dd4bf;
+  --link: #7cb7ff;
+  --success: #4ade80;
+  --success-subtle: #0c2a1a;
+  --warning: #fbbf24;
+  --warning-subtle: #2e2208;
+  --danger: #f87171;
+  --danger-subtle: #331313;
+  --info: #7cb7ff;
+  --info-subtle: #0c223d;
+  --primary-subtle: #082926;
+  --border-strong: #64748b;
+  --sidebar: #070b12;
+  --sidebar-foreground: #c2ccd8;
+  --sidebar-muted: #8592a3;
+  --sidebar-active: #131c2c;
+  --sidebar-strong: #ffffff;
+  --sidebar-primary: #2dd4bf;
+  --sidebar-border: #141d2b;
+  --selection: #134e4a;
   color-scheme: dark;
 }
 
 @theme inline {
-  --color-bg: var(--c-bg);
-  --color-bg-subtle: var(--c-bg-subtle);
-  --color-surface: var(--c-surface);
-  --color-surface-raised: var(--c-surface-raised);
-  --color-overlay: var(--c-overlay);
-  --color-text: var(--c-text);
-  --color-text-muted: var(--c-text-muted);
-  --color-text-disabled: var(--c-text-disabled);
-  --color-link: var(--c-link);
-  --color-border: var(--c-border);
-  --color-border-strong: var(--c-border-strong);
-  --color-accent: var(--c-accent);
-  --color-accent-hover: var(--c-accent-hover);
-  --color-accent-active: var(--c-accent-active);
-  --color-on-accent: var(--c-on-accent);
-  --color-accent-subtle: var(--c-accent-subtle);
-  --color-success: var(--c-success);
-  --color-on-success: var(--c-on-success);
-  --color-success-subtle: var(--c-success-subtle);
-  --color-warning: var(--c-warning);
-  --color-on-warning: var(--c-on-warning);
-  --color-warning-subtle: var(--c-warning-subtle);
-  --color-danger: var(--c-danger);
-  --color-on-danger: var(--c-on-danger);
-  --color-danger-subtle: var(--c-danger-subtle);
-  --color-info: var(--c-info);
-  --color-on-info: var(--c-on-info);
-  --color-info-subtle: var(--c-info-subtle);
-  --color-focus: var(--c-focus);
-  --color-selection: var(--c-selection);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-strong: var(--sidebar-strong);
+  --color-sidebar-border: var(--sidebar-border);
+  /* Role names kept for existing screens. */
+  --color-bg: var(--background);
+  --color-bg-subtle: var(--muted);
+  --color-surface: var(--card);
+  --color-surface-raised: var(--popover);
+  --color-overlay: var(--popover);
+  --color-text: var(--foreground);
+  --color-text-muted: var(--muted-foreground);
+  --color-text-disabled: var(--border-strong);
+  --color-link: var(--link);
+  --color-border-strong: var(--border-strong);
+  --color-on-primary: var(--primary-foreground);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-focus: var(--ring);
+  --color-selection: var(--selection);
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
-  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-display: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --text-label: 13px;
-  --text-body: 15px;
-  --text-title: 18px;
-  --text-heading: 22px;
-  --text-display: 28px;
-  --text-figure: 44px;
+  --text-label: 0.8125rem;
+  --text-body: 0.9375rem;
+  --text-title: 1.125rem;
+  --text-heading: 1.375rem;
+  --text-display: 1.75rem;
+  --text-figure: 2rem;
   --container-console: 90rem;
 }
 
-html, body { background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); font-size: 15px; }
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body { background: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); font-size: 15px; -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
+  ::selection { background: var(--color-selection); }
+}
+
 .num { font-variant-numeric: tabular-nums; }
-:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-::selection { background: var(--color-selection); }
 @keyframes tick { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .tick { animation: tick 240ms ease-out both; }
 @media (prefers-reduced-motion: reduce) { .tick { animation: none; } }

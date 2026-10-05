@@ -2,7 +2,7 @@
  * invoices. Promise, dispute and help requests become real records for a collector; Pay Now is SIMULATED. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { Badge, Button, ErrorLine, Field, inputClass, Loading, Table, td, tdNum } from "../components/ui";
+import { Badge, Button, ErrorLine, Field, inputClass, Loading, Table, td, tdNum } from "@/components/kit";
 import { api } from "../lib/api";
 import { day, inr } from "../lib/format";
 import * as S from "../lib/schemas";

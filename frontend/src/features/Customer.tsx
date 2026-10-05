@@ -1,6 +1,30 @@
 /** S-07 Customer with S-09 Record reply and S-10 Resolve dispute (US-00-001, US-00-004, US-00-016, US-00-022). */
 import { useQuery } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Ban,
+  Bot,
+  Check,
+  CheckCheck,
+  CircleDot,
+  FileText,
+  Flag,
+  Handshake,
+  IndianRupee,
+  LayoutList,
+  Mail,
+  MessagesSquare,
+  PenLine,
+  Reply,
+  ShieldCheck,
+  ShieldX,
+  Tag,
+  type LucideIcon,
+} from "lucide-react";
 import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import {
   Badge,
   BandBadge,
@@ -17,43 +41,45 @@ import {
   td,
   tdNum,
   WhyFactors,
-} from "../components/ui";
-import { api } from "../lib/api";
+} from "@/components/kit";
+import { api } from "@/lib/api";
+import { day, inr, stamp } from "@/lib/format";
+import { useAction, useCustomer, useSettings } from "@/lib/hooks";
+import * as S from "@/lib/schemas";
 import { CallsPanel } from "./Calls";
 import { ContactPanel, MemoryPanel } from "./Contact";
 import { FollowUpCard } from "./FollowUps";
-import { day, inr, stamp } from "../lib/format";
-import { useAction, useCustomer, useSettings } from "../lib/hooks";
-import * as S from "../lib/schemas";
 import { RunDialog } from "./RunDialog";
 
 const ACTOR: Record<string, string> = { ai: "AI", human: "Human", system: "System", customer: "Customer" };
-const ICON: Record<string, string> = {
-  invoice_due: "📄",
-  drafted: "✎",
-  guardrail_passed: "✓",
-  guardrail_failed: "✗",
-  approved: "✔",
-  edited: "✎",
-  rejected: "✗",
-  sent: "✉",
-  send_failed: "⚠",
-  reply_received: "↩",
-  classified: "◆",
-  promise_logged: "🤝",
-  payment_received: "₹",
-  promise_fulfilled: "✓",
-  promise_partially_fulfilled: "◐",
-  promise_missed: "⚠",
-  dispute_opened: "⚑",
-  dispute_resolved: "✓",
-  dispute_assigned: "→",
-  dispute_investigating: "🔍",
-  followup_created: "⏰",
-  followup_closed: "✓",
-  escalated: "⤴",
-  escalation_resolved: "✓",
+/** Icon and tone per timeline event; the summary text always says what happened. */
+const ICON: Record<string, [LucideIcon, string]> = {
+  invoice_due: [FileText, "bg-muted text-muted-foreground"],
+  drafted: [PenLine, "bg-info-subtle text-info"],
+  guardrail_passed: [ShieldCheck, "bg-success-subtle text-success"],
+  guardrail_failed: [ShieldX, "bg-danger-subtle text-danger"],
+  approved: [Check, "bg-success-subtle text-success"],
+  edited: [PenLine, "bg-info-subtle text-info"],
+  rejected: [Ban, "bg-danger-subtle text-danger"],
+  sent: [Mail, "bg-primary-subtle text-primary"],
+  send_failed: [AlertTriangle, "bg-danger-subtle text-danger"],
+  reply_received: [Reply, "bg-info-subtle text-info"],
+  classified: [Tag, "bg-info-subtle text-info"],
+  promise_logged: [Handshake, "bg-warning-subtle text-warning"],
+  payment_received: [IndianRupee, "bg-success-subtle text-success"],
+  promise_fulfilled: [CheckCheck, "bg-success-subtle text-success"],
+  promise_partially_fulfilled: [CircleDot, "bg-warning-subtle text-warning"],
+  promise_missed: [AlertTriangle, "bg-warning-subtle text-warning"],
+  dispute_opened: [Flag, "bg-danger-subtle text-danger"],
+  dispute_resolved: [Check, "bg-success-subtle text-success"],
+  dispute_assigned: [ArrowUpRight, "bg-info-subtle text-info"],
+  dispute_investigating: [MessagesSquare, "bg-info-subtle text-info"],
+  followup_created: [CircleDot, "bg-warning-subtle text-warning"],
+  followup_closed: [Check, "bg-success-subtle text-success"],
+  escalated: [ArrowUpRight, "bg-danger-subtle text-danger"],
+  escalation_resolved: [Check, "bg-success-subtle text-success"],
 };
+
 
 export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
   const q = useCustomer(id);
@@ -81,8 +107,8 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="font-display text-display font-semibold">{c.name}</h1>
-          <p className="text-text-muted">
+          <h1 className="text-display font-semibold tracking-tight">{c.name}</h1>
+          <p className="mt-1 text-muted-foreground capitalize">
             {c.segment.replaceAll("_", " ")} · {c.credit_terms_days}-day terms · {c.email} · {c.phone}
           </p>
         </div>
@@ -115,7 +141,7 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-6 rounded border border-border bg-surface p-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Figure label="Outstanding" value={inr(c.outstanding_paise)} hint={`${inr(c.overdue_paise)} overdue`} />
         <Figure label="Oldest overdue" value={`${oldest} days`} />
         <Figure
@@ -126,7 +152,7 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
             </>
           }
         />
-        <Figure label="Next action" value={<span className="text-title">{nextAction}</span>} />
+        <Figure label="Next action" value={<span className="text-base leading-snug font-semibold">{nextAction}</span>} />
       </div>
 
       <ContactPanel customerId={id} canAct={canAct} />
@@ -135,30 +161,43 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
         <WhyFactors factors={priority.factors} score={priority.score} />
       </Panel>
 
+      <Tabs defaultValue="overview" className="gap-6">
+        <TabsList>
+          <TabsTrigger value="overview">
+            <LayoutList aria-hidden /> Overview
+          </TabsTrigger>
+          <TabsTrigger value="activity">
+            <MessagesSquare aria-hidden /> Messages and runs
+            <span className="num rounded-full bg-muted px-1.5 text-xs">{messages.length + runs.length}</span>
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview">
       <div className="grid gap-6 xl:grid-cols-2">
         <Panel title="Timeline">
           {timeline.length === 0 ? (
             <Empty>Nothing has happened for this customer yet.</Empty>
           ) : (
-            <ol className="space-y-3 border-l-2 border-border pl-6">
-              {timeline.map((e) => (
-                <li key={e.id} className="relative">
-                  <span
-                    aria-hidden
-                    className="absolute -left-9 flex size-6 items-center justify-center rounded-full border border-border bg-surface text-label"
-                  >
-                    {ICON[e.kind] ?? "•"}
-                  </span>
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="font-semibold">{e.summary}</span>
-                    {e.amount_paise !== null && <span className="num font-semibold">{inr(e.amount_paise)}</span>}
-                  </div>
-                  <div className="text-label text-text-muted">
-                    {ACTOR[e.actor] ?? e.actor}
-                    {e.actor_name ? ` (${e.actor_name})` : ""} · {e.kind.replaceAll("_", " ")} · {stamp(e.occurred_at)}
-                  </div>
-                </li>
-              ))}
+            <ol className="relative space-y-5 before:absolute before:top-2 before:bottom-2 before:left-4 before:w-px before:bg-border">
+              {timeline.map((e) => {
+                const [Icon, tone] = ICON[e.kind] ?? [CircleDot, "bg-muted text-muted-foreground"];
+                return (
+                  <li key={e.id} className="relative flex gap-3">
+                    <span aria-hidden className={cn("relative z-10 grid size-8 shrink-0 place-items-center rounded-full ring-4 ring-card", tone)}>
+                      <Icon className="size-4" />
+                    </span>
+                    <div className="min-w-0 flex-1 pt-1">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="font-semibold">{e.summary}</span>
+                        {e.amount_paise !== null && <span className="num font-semibold">{inr(e.amount_paise)}</span>}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {ACTOR[e.actor] ?? e.actor}
+                        {e.actor_name ? ` (${e.actor_name})` : ""} · {e.kind.replaceAll("_", " ")} · {stamp(e.occurred_at)}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           )}
         </Panel>
@@ -179,7 +218,7 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
                   <td className={td}>
                     <Badge value={i.status} />
                     {canAct && flags?.feature_payment_link && i.remaining_paise > 0 && (
-                      <button type="button" className="mt-1 block text-label text-link underline" onClick={() => link.mutate(i.number)}>
+                      <button type="button" className="mt-1 block text-label font-medium text-link underline-offset-4 hover:underline" onClick={() => link.mutate(i.number)}>
                         Payment link
                       </button>
                     )}
@@ -246,7 +285,8 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
           </Panel>
         </div>
       </div>
-
+        </TabsContent>
+        <TabsContent value="activity" className="space-y-6">
       <CallsPanel customerId={id} canAct={canAct} voiceOn={Boolean(flags?.feature_voice)} />
 
       <MemoryPanel customerId={id} canAct={canAct} />
@@ -294,13 +334,15 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
                 <td className={td}>{r.outcome ? <Badge value={r.outcome} /> : "Running"}</td>
                 <td className={tdNum}>{r.tool_call_count} of 4</td>
                 <td className={td}>
-                  <Button onClick={() => setRunId(r.id)}>View</Button>
+                  <Button icon={Bot} onClick={() => setRunId(r.id)}>View</Button>
                 </td>
               </tr>
             ))}
           </Table>
         )}
       </Panel>
+        </TabsContent>
+      </Tabs>
 
       {replyTo && <ReplyDialog message={replyTo} onClose={() => setReplyTo(null)} onRun={setRunId} />}
       {callPrep && <CallPrepDialog customerId={id} onClose={() => setCallPrep(false)} />}

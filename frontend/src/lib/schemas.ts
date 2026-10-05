@@ -306,6 +306,7 @@ export const page = <T extends z.ZodTypeAny>(item: T) => z.object({ data: z.arra
 export type Role = z.infer<typeof Role>;
 export type User = z.infer<typeof User>;
 export type Customer = z.infer<typeof Customer>;
+export type Payment = z.infer<typeof Payment>;
 export type Invoice = z.infer<typeof Invoice>;
 export type Priority = z.infer<typeof Priority>;
 export type Message = z.infer<typeof Message>;

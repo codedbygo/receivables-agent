@@ -1,7 +1,7 @@
 /** CFO view (HACK-003 F8): receivables, collections, risk and what needs attention. Every figure comes from the API,
  * which computes it from the ledger; the definitions are shown under the figures. */
 import { href } from "../app/route";
-import { BarList, Badge, ErrorLine, Figure, Loading, Panel, WhyFactors } from "../components/ui";
+import { BarList, Badge, ErrorLine, Figure, Loading, Panel, WhyFactors } from "@/components/kit";
 import { day, inr } from "../lib/format";
 import { useExecutive } from "../lib/hooks";
 

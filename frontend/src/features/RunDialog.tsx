@@ -1,5 +1,5 @@
 /** S-08 Agent run: the trajectory, step by step, with redacted arguments (US-00-008). */
-import { Badge, Dialog, ErrorLine, Loading, Table, td } from "../components/ui";
+import { Badge, Dialog, ErrorLine, Loading, Table, td } from "../components/kit";
 import { stamp } from "../lib/format";
 import { useRun } from "../lib/hooks";
 
@@ -41,7 +41,7 @@ export function RunDialog({ runId, onClose }: { runId: string | null; onClose: (
             ))}
           </Table>
           <div className="text-right">
-            <button type="button" onClick={onClose} className="text-link underline">Close</button>
+            <button type="button" onClick={onClose} className="font-medium text-link underline-offset-4 hover:underline">Close</button>
           </div>
         </div>
       )}

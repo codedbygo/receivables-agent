@@ -1,5 +1,5 @@
 /** S-16 Evaluation: the numbers from the last `make eval`, never typed by hand (US-01-010 to US-01-012). */
-import { Badge, Empty, ErrorLine, Figure, Loading, Panel, Table, td } from "../components/ui";
+import { Badge, Empty, ErrorLine, Figure, Loading, Panel, Table, td } from "../components/kit";
 import { ApiError } from "../lib/api";
 import { stamp } from "../lib/format";
 import { useEval } from "../lib/hooks";
@@ -29,13 +29,13 @@ export function Evaluation() {
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-6 rounded border border-border bg-surface p-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Figure label="Classification" value={pct(replies.class)} hint="40 labelled replies" />
         <Figure label="Amount extraction" value={pct(replies.amount)} />
         <Figure label="Date extraction" value={pct(replies.date)} />
         <Figure label="Expected action" value={pct(replies.action)} />
       </div>
-      <div className="grid grid-cols-2 gap-6 rounded border border-border bg-surface p-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Figure label="Red team rejected" value={pct(r.red_team)} hint="invented amounts, wrong totals, threats" />
         <Figure label="Golden drafts pass" value={pct(r.golden)} />
         {r.scenarios && <Figure label="Trajectory scenarios" value={pct(r.scenarios)} />}

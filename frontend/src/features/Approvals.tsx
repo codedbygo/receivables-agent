@@ -2,7 +2,7 @@
 Every draft shows its guardrail report; edited text is verified again by the API before it is saved. */
 import { useEffect, useState } from "react";
 import { href } from "../app/route";
-import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading, Panel } from "../components/ui";
+import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading, Panel } from "../components/kit";
 import { api } from "../lib/api";
 import { day, inr, stamp } from "../lib/format";
 import { useAction, useCustomer, useMessages, useSettings } from "../lib/hooks";
@@ -90,9 +90,9 @@ export function Approvals({ role }: { role: S.Role }) {
           </ul>
 
           {current && (
-            <article className="min-w-0 rounded border border-border bg-surface p-4">
+            <article className="min-w-0 rounded-xl border bg-card p-5 shadow-xs">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <a className="font-semibold text-link underline" href={href({ page: "customer", id: current.customer_id })}>
+                <a className="font-semibold font-medium text-link underline-offset-4 hover:underline" href={href({ page: "customer", id: current.customer_id })}>
                   {current.customer_name}
                 </a>
                 <Badge value={current.status} />
@@ -163,7 +163,7 @@ function DraftContext({ customerId }: { customerId: string }) {
 
 export function GuardrailReport({ checks, verified }: { checks: S.Check[]; verified: boolean }) {
   return (
-    <aside aria-label="Guardrail report" className="rounded border border-border bg-surface p-4">
+    <aside aria-label="Guardrail report" className="rounded-xl border bg-card p-5 shadow-xs">
       <h2 className="mb-2 font-display text-title font-semibold">Guardrail report</h2>
       <p className={`mb-3 font-semibold ${verified ? "text-success" : "text-danger"}`}>
         {verified ? "✓ Every figure matches the ledger" : "Error: this text has not passed the guardrails"}
