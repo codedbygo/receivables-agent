@@ -24,6 +24,7 @@ from app.core.db import make_sessionmaker, transaction
 from app.core.errors import AppError
 from app.llm.gateway import Gateway
 from app.llm.prompts import load_prompt
+from app.services import communication
 from app.services.tone import select_tone
 from app.tools.registry import Registry, ToolContext
 
@@ -34,6 +35,7 @@ COLLECTIONS_TOOLS = frozenset(
     {
         "list_overdue",
         "get_customer_history",
+        "get_customer_memory",
         "get_invoice",
         "check_promise_status",
         "draft_message",
@@ -44,10 +46,10 @@ TEMPLATES = {
     "gentle": "Dear {name},\n\nA gentle reminder that these invoices are now past due:\n\n{{{{invoice_table}}}}\n\n"
     "Total outstanding: {{{{total}}}}\n\nPlease let us know when we can expect payment.\n\nRegards,\nAccounts team",
     "firm": "Dear {name},\n\nOur records show these invoices past their due date:\n\n{{{{invoice_table}}}}\n\n"
-    "Total outstanding: {{{{total}}}}\n\nCould you confirm a date for payment this week? If any invoice needs "
+    "Total outstanding: {{{{total}}}}\n\n{{{{promise_recall}}}}Could you confirm a date for payment this week? If any invoice needs "
     "a correction, reply and we will look at it straight away.\n\nRegards,\nAccounts team",
     "final": "Dear {name},\n\nYour account needs to be settled. These invoices are well past due:\n\n"
-    "{{{{invoice_table}}}}\n\nTotal outstanding: {{{{total}}}}\n\nPlease call us this week so we can agree a "
+    "{{{{invoice_table}}}}\n\nTotal outstanding: {{{{total}}}}\n\n{{{{promise_recall}}}}Please call us this week so we can agree a "
     "plan.\n\nRegards,\nAccounts team",
 }
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
@@ -203,7 +205,10 @@ class Orchestrator:
                 LEFT JOIN invoice_balances b ON b.invoice_id = i.id WHERE c.id = CAST(:c AS uuid) GROUP BY c.id"""),
                 {"d": d, "since": d - timedelta(days=14), "c": customer_id},
             ).one()
-        return select_tone(r.oldest, r.missed, r.recent > 0), "email"  # WhatsApp choice lands with US-00-024
+            channel = communication.plan(
+                s, customer_id, d
+            ).draft_channel  # cadence, preference, flags, consent
+        return select_tone(r.oldest, r.missed, r.recent > 0), channel
 
     def run_collections(self, customer_id: str, trigger: str) -> RunResult | None:
         started = self._start(customer_id, trigger)

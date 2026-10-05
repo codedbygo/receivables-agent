@@ -189,6 +189,7 @@ def test_a_message_only_ever_goes_to_the_customers_stored_address(orch: Orchestr
 
     class Capture:
         name = "email"
+        simulated = False
 
         def send(self, m: Outbound) -> str:
             sent.append(m)

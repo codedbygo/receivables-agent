@@ -52,7 +52,7 @@ def test_dashboard_totals_equal_direct_queries(api: TestClient, engine: Engine) 
         engine, f"SELECT count(DISTINCT i.customer_id) {balances} AND i.due_date < :d"
     )
     assert d["missed_promises"] == scalar(engine, "SELECT count(*) FROM promises WHERE status = 'missed'")
-    assert d["open_disputes"] == scalar(engine, "SELECT count(*) FROM disputes WHERE status = 'open'")
+    assert d["open_disputes"] == scalar(engine, "SELECT count(*) FROM disputes WHERE status <> 'resolved'")
     assert d["pending_approvals"] == scalar(
         engine, "SELECT count(*) FROM messages WHERE status = 'pending_approval'"
     )

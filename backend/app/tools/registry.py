@@ -16,7 +16,7 @@ from app.core.clock import today
 from app.core.db import make_sessionmaker, transaction
 from app.core.errors import AppError, ErrorCode
 from app.llm.gateway import Gateway
-from app.services import approval, collections, drafting, ledger, payments
+from app.services import approval, collections, drafting, ledger, memory, payments
 from app.services.priority import Reason, top
 
 FORBIDDEN_FIELDS = {"sql", "query", "raw"}  # REQ-042
@@ -92,7 +92,7 @@ class DraftMessageIn(CustomerIn):
     kind: drafting.Kind
     prose: str = Field(min_length=1, max_length=4000)
     tone: Literal["gentle", "firm", "final"]
-    channel: Literal["email", "whatsapp", "voice"] = "email"
+    channel: Literal["email", "whatsapp", "sms", "voice"] = "email"
     invoice_numbers: list[str] | None = Field(None, max_length=20)
 
 
@@ -160,6 +160,10 @@ def _list_overdue(s: Session, _: ToolContext, i: ListOverdueIn) -> ListOverdueOu
 
 def _history(s: Session, _: ToolContext, i: CustomerIn) -> collections.History:
     return collections.history(s, i.customer_id)
+
+
+def _memory(s: Session, _: ToolContext, i: CustomerIn) -> memory.AgentMemory:
+    return memory.agent_view(s, i.customer_id)
 
 
 def _customer(s: Session, _: ToolContext, i: CustomerIn) -> ledger.Customer:
@@ -276,6 +280,14 @@ TOOLS = [
         _send,
     ),
     Tool("get_invoice", "One invoice with its balance.", InvoiceIn, InvoiceOut, _get_invoice),
+    Tool(
+        "get_customer_memory",
+        "What happened with this customer, oldest first: messages, replies, promises, payments, disputes, calls, "
+        "with ledger amounts and the recall sentence for a broken promise. Read-only; no customer text.",
+        CustomerIn,
+        memory.AgentMemory,
+        _memory,
+    ),
     Tool(
         "check_promise_status",
         "Settle and list a customer's promises against the ledger.",

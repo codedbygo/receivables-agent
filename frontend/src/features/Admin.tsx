@@ -12,8 +12,9 @@ import { RunDialog } from "./RunDialog";
 type Open = "credit" | "reset" | "clock" | null;
 
 const FLAGS = [
-  ["feature_whatsapp", "Simulated WhatsApp"],
-  ["feature_voice", "Prepare Call"],
+  ["feature_whatsapp", "WhatsApp (simulated unless Twilio is configured)"],
+  ["feature_sms", "SMS (simulated unless Twilio is configured)"],
+  ["feature_voice", "Voice calls and Prepare Call (simulated unless Twilio is configured)"],
   ["feature_payment_link", "Simulated payment link"],
   ["feature_trusted_mode", "Trusted mode"],
 ] as const;

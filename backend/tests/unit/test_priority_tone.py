@@ -99,3 +99,36 @@ def test_nothing_overdue_scores_zero() -> None:
 # TC-0172 (AC-US-01-001-3)
 def test_tone(oldest_days: int, missed: int, reminded_recently: bool, tone: str) -> None:
     assert select_tone(oldest_days, missed, reminded_recently) == tone
+
+
+# HACK-003 F4: every factor shows the points it added, and the points explain the score.
+def test_abc_factors_show_points_that_add_up_to_the_score() -> None:
+    p = score(ABC.model_copy(update={"no_response": True}))
+
+    by_code = {f.code: f for f in p.factors}
+    assert list(by_code) == [
+        "OUTSTANDING",
+        "OLDEST_OVERDUE",
+        "MISSED_PROMISES",
+        "OVERDUE_COUNT",
+        "SEGMENT",
+        "NO_ACTIVE_DISPUTE",
+        "NO_RESPONSE",
+    ]
+    assert by_code["OUTSTANDING"].value == "₹7,50,000"
+    assert by_code["OUTSTANDING"].points == 35.0
+    assert by_code["NO_ACTIVE_DISPUTE"].points == 0
+    assert by_code["NO_RESPONSE"].label == "No response to last reminder"
+    assert abs(sum(f.points for f in p.factors) - p.score) < 0.5
+
+
+def test_open_disputes_appear_as_a_deduction() -> None:
+    p = score(ABC.model_copy(update={"open_disputes": 1, "disputed_numbers": ("INV-1047",)}))
+
+    dispute = next(f for f in p.factors if f.code == "OPEN_DISPUTES")
+    assert dispute.points == -5
+    assert abs(sum(f.points for f in p.factors) - p.score) < 0.5
+
+
+def test_nothing_overdue_has_no_factors() -> None:
+    assert score(ABC.model_copy(update={"overdue_paise": 0})).factors == []

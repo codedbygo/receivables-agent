@@ -36,7 +36,7 @@ test("a customer with no history shows every section with empty states", async (
   for (const label of ["Outstanding", "Oldest overdue", "Priority", "Next action"]) {
     await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
   }
-  for (const title of ["Why this priority", "Timeline", "Invoices", "Promises", "Disputes", "Messages", "Agent runs"]) {
+  for (const title of ["Why is this customer", "Timeline", "Invoices", "Promises", "Disputes", "Messages", "Agent runs"]) {
     await expect(page.getByRole("region", { name: title })).toBeVisible();
   }
   await expect(page.getByRole("region", { name: "Promises" }).getByText("No promises recorded.")).toBeVisible();

@@ -152,6 +152,58 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalError'
+  /executive:
+    get:
+      operationId: getExecutive
+      summary: "CFO dashboard: KPIs, series and the attention list with factors"
+      description: Every figure is computed from the ledger; the definitions field states each one. Shape in backend/app/services/executive.py.
+      tags:
+      - dashboard
+      x-story-ids:
+      - HACK-003
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /safety:
+    get:
+      operationId: getSafety
+      summary: "AI Safety Center: counts of guardrail, approval and send events"
+      description: Counts of real rows only; the sources field states what each count is made of. Shape in backend/app/services/safety.py.
+      tags:
+      - dashboard
+      x-story-ids:
+      - HACK-003
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /priorities:
     get:
       operationId: listPriorities
@@ -1743,6 +1795,914 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+  /disputes/{id}/transition:
+    post:
+      operationId: transitionDispute
+      summary: Assign, reassign or start investigating a dispute
+      tags:
+      - disputes
+      x-story-ids:
+      - HACK-003
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - to
+              properties:
+                to:
+                  type: string
+                  enum:
+                  - assigned
+                  - investigating
+                team:
+                  type: string
+                  enum:
+                  - billing
+                  - operations
+                  - sales
+                  - legal_contracts
+                  - collections
+                  nullable: true
+                note:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /follow-ups:
+    get:
+      operationId: listFollowUps
+      summary: Follow-up tasks for missed and partly kept promises
+      tags:
+      - promises
+      x-story-ids:
+      - HACK-003
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: filter[customer_id]
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: filter[status]
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /follow-ups/{id}/close:
+    post:
+      operationId: closeFollowUp
+      summary: Close a follow-up task as done or cancelled, with a note
+      tags:
+      - promises
+      x-story-ids:
+      - HACK-003
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - status
+              - note
+              properties:
+                status:
+                  type: string
+                  enum:
+                  - done
+                  - cancelled
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/memory:
+    get:
+      operationId: getCustomerMemory
+      summary: Interaction history from rows, the recall sentence and internal notes
+      tags:
+      - customers
+      x-story-ids:
+      - HACK-003
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/notes:
+    post:
+      operationId: addCustomerNote
+      summary: Add an internal note (never sent to the model or the portal)
+      tags:
+      - customers
+      x-story-ids:
+      - HACK-003
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - body
+              properties:
+                body:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/channels:
+    get:
+      operationId: getChannelPlan
+      summary: Preferred, last and next channel with the factors behind it
+      tags:
+      - customers
+      x-story-ids:
+      - HACK-003
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/contact-preferences:
+    put:
+      operationId: setContactPreferences
+      summary: Record the customer's preferred channel and consent
+      tags:
+      - customers
+      x-story-ids:
+      - HACK-003
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                preferred_channel:
+                  type: string
+                  enum:
+                  - email
+                  - whatsapp
+                  - sms
+                  - voice
+                  nullable: true
+                consent:
+                  type: object
+                  additionalProperties:
+                    type: boolean
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /calls:
+    post:
+      operationId: startCall
+      summary: Start an AI voice call (voice flag, kill switch, consent, undisputed balance)
+      tags:
+      - calls
+      x-story-ids:
+      - HACK-003
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - customer_id
+              properties:
+                customer_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: listCalls
+      summary: Calls with turns, outcome and summary
+      tags:
+      - calls
+      x-story-ids:
+      - HACK-003
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: filter[customer_id]
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /calls/{id}:
+    get:
+      operationId: getCall
+      summary: One call with its turns
+      tags:
+      - calls
+      x-story-ids:
+      - HACK-003
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /calls/{id}/turns:
+    post:
+      operationId: customerSays
+      summary: 'SIMULATED calls only: the customer''s words, typed by a collector'
+      tags:
+      - calls
+      x-story-ids:
+      - HACK-003
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - text
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /calls/{id}/end:
+    post:
+      operationId: endCall
+      summary: End a call; the summary is written from the call row
+      tags:
+      - calls
+      x-story-ids:
+      - HACK-003
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /webhooks/voice/{id}/turn:
+    post:
+      operationId: voiceTurnWebhook
+      summary: Twilio speech result; answers TwiML. X-Twilio-Signature required
+      tags:
+      - calls
+      x-story-ids:
+      - HACK-003
+      x-roles: public (signed)
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /webhooks/voice/{id}/status:
+    post:
+      operationId: voiceStatusWebhook
+      summary: Twilio call status callback. X-Twilio-Signature required
+      tags:
+      - calls
+      x-story-ids:
+      - HACK-003
+      x-roles: public (signed)
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/portal-link:
+    post:
+      operationId: createPortalLink
+      summary: Create a 7-day portal link for one customer; token shown once
+      tags:
+      - portal
+      x-story-ids:
+      - HACK-003
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/{id}/portal-links/revoke:
+    post:
+      operationId: revokePortalLinks
+      summary: Revoke every live portal link of a customer
+      tags:
+      - portal
+      x-story-ids:
+      - HACK-003
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /portal/{token}:
+    get:
+      operationId: portalView
+      summary: The customer's open invoices and promises; allow-listed fields only
+      tags:
+      - portal
+      x-story-ids:
+      - HACK-003
+      x-roles: public (token)
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 20
+          maxLength: 100
+          pattern: ^[A-Za-z0-9_-]+$
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /portal/{token}/promise:
+    post:
+      operationId: portalPromise
+      summary: Promise to pay up to the open balance within 60 days
+      tags:
+      - portal
+      x-story-ids:
+      - HACK-003
+      x-roles: public (token)
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 20
+          maxLength: 100
+          pattern: ^[A-Za-z0-9_-]+$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - amount_paise
+              - promised_date
+              properties:
+                amount_paise:
+                  type: integer
+                  minimum: 1
+                promised_date:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /portal/{token}/dispute:
+    post:
+      operationId: portalDispute
+      summary: Raise a dispute on one of this customer's invoices
+      tags:
+      - portal
+      x-story-ids:
+      - HACK-003
+      x-roles: public (token)
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 20
+          maxLength: 100
+          pattern: ^[A-Za-z0-9_-]+$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - invoice_number
+              - description
+              properties:
+                invoice_number:
+                  type: string
+                  pattern: ^INV-\d+$
+                description:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /portal/{token}/help:
+    post:
+      operationId: portalHelp
+      summary: Ask for help; a collector is notified
+      tags:
+      - portal
+      x-story-ids:
+      - HACK-003
+      x-roles: public (token)
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 20
+          maxLength: 100
+          pattern: ^[A-Za-z0-9_-]+$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - message
+              properties:
+                message:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /portal/{token}/pay:
+    post:
+      operationId: portalPay
+      summary: SIMULATED Pay Now for one of this customer's invoices
+      tags:
+      - portal
+      x-story-ids:
+      - HACK-003
+      x-roles: public (token)
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 20
+          maxLength: 100
+          pattern: ^[A-Za-z0-9_-]+$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - invoice_number
+              properties:
+                invoice_number:
+                  type: string
+                  pattern: ^INV-\d+$
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   securitySchemes:
     demoRole:
@@ -2188,12 +3148,35 @@ components:
             required:
             - code
             - text
+        factors:
+          type: array
+          description: Each scored input with the points it added (decision factors, not model reasoning).
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              label:
+                type: string
+              value:
+                type: string
+              points:
+                type: number
+              rule:
+                type: string
+            required:
+            - code
+            - label
+            - value
+            - points
+            - rule
       required:
       - customer_id
       - customer_name
       - score
       - band
       - reasons
+      - factors
       example:
         customer_id: 0192b1c2-7f3a-7c4e-9a1b-2c3d4e5f6a7b
         customer_name: ABC Distributors

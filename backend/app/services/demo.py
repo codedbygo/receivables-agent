@@ -22,7 +22,9 @@ from sqlalchemy import Engine, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import OperationalError
 
+from app.agent.classify import dispute_category
 from app.core.config import Settings
+from app.services.disputes import team_for
 
 DATA = Path(__file__).parents[1] / "seed" / "data"
 SCHEMA = Path(__file__).parents[1] / "db" / "schema.sql"
@@ -157,6 +159,7 @@ class Plan:
     promise_invoices: list[dict[str, object]] = field(default_factory=list)
     disputes: list[dict[str, object]] = field(default_factory=list)
     escalations: list[dict[str, object]] = field(default_factory=list)
+    follow_ups: list[dict[str, object]] = field(default_factory=list)
     timeline: list[dict[str, object]] = field(default_factory=list)
 
 
@@ -323,7 +326,9 @@ def _replies(plan: Plan, cid: dict[str, str], by_customer: dict[str, list[dict[s
                         "invoice_id": inv["id"],
                         "reply_id": row["id"],
                         "reason": r["input"]["text"][:120],
-                        "status": "open",
+                        "status": "assigned",  # routed by the same rule a live dispute gets (HACK-003 F7)
+                        "category": dispute_category(r["input"]["text"]),
+                        "assigned_team": team_for(dispute_category(r["input"]["text"])),
                     }
                 )
                 plan.escalations.append(
@@ -416,6 +421,29 @@ def _promise(
             f"Promise for {on:%d %b %Y} missed",
         )
     )
+    if status == "missed":  # the task the live path creates for a missed promise (HACK-003 F5)
+        plan.follow_ups.append(
+            {
+                "id": uid("follow_up", pid),
+                "customer_id": customer,
+                "promise_id": pid,
+                "kind": "missed_promise",
+                "due_on": on + timedelta(days=1),
+                "recommended_action": "Contact the customer today: the promised payment has not arrived.",
+            }
+        )
+        plan.timeline.append(
+            event(
+                customer,
+                on + timedelta(days=1),
+                "followup_created",
+                "system",
+                None,
+                "follow_up",
+                uid("follow_up", pid),
+                "Follow-up task: contact the customer about the missed promise",
+            )
+        )
 
 
 def event(
@@ -443,7 +471,13 @@ def event(
 
 
 def _tables() -> list[str]:
-    return re.findall(r"^CREATE TABLE (\w+) \(", SCHEMA.read_text(encoding="utf-8"), flags=re.M)
+    """Tables in creation order: the initial schema, then each later migration's upgrade file (HACK-003)."""
+    files = [SCHEMA, *sorted(SCHEMA.parent.glob("upgrade_*.sql"))]
+    return [
+        t
+        for f in files
+        for t in re.findall(r"^CREATE TABLE (\w+) \(", f.read_text(encoding="utf-8"), flags=re.M)
+    ]
 
 
 def _insert(conn: Connection, table: str, rows: list[dict[str, object]]) -> None:
@@ -454,18 +488,100 @@ def _insert(conn: Connection, table: str, rows: list[dict[str, object]]) -> None
         conn.execute(text(sql), rows)
 
 
+def _demo_extras(conn: Connection) -> None:
+    """HACK-003 demo data: channel preferences, an internal note, and one past SIMULATED call. Safety Center counts
+    are never seeded: they come only from real events."""
+    collector = uid("user", "collector@example.in")
+    kumar = uid("customer", "Kumar Electricals")
+    conn.execute(
+        text("UPDATE customers SET preferred_channel = 'whatsapp' WHERE id = CAST(:c AS uuid)"),
+        {"c": uid("customer", "Metro Wholesale")},
+    )
+    conn.execute(
+        text("UPDATE customers SET preferred_channel = 'sms' WHERE id = CAST(:c AS uuid)"),
+        {"c": uid("customer", "Ganesh Traders")},
+    )
+    conn.execute(
+        text("""INSERT INTO customer_notes (id, customer_id, author_id, body, created_at)
+        VALUES (CAST(:i AS uuid), CAST(:c AS uuid), CAST(:u AS uuid), :b, :t)"""),
+        {
+            "i": uid("note", "abc-1"),
+            "c": uid("customer", "ABC Distributors"),
+            "u": collector,
+            "b": "Accounts head is Mr Rao; prefers email before 11 am. Payments usually clear on Fridays.",
+            "t": ist(TODAY - timedelta(days=3), 10),
+        },
+    )
+    call = uid("call", "kumar-1")
+    on = TODAY - timedelta(days=6)
+    summary = (
+        "Call completed (SIMULATED). Outcome: unavailable. Next action: Call again on "
+        f"{on + timedelta(days=1):%d %b %Y}."
+    )
+    conn.execute(
+        text("""INSERT INTO calls (id, customer_id, requested_by, provider, simulated, status, state, outcome,
+        provider_call_id, summary, follow_up_on, started_at, ended_at) VALUES (CAST(:i AS uuid), CAST(:c AS uuid),
+        CAST(:u AS uuid), 'simulated', true, 'completed', 'ended', 'unavailable', :p, :s, :f, :t, :t)"""),
+        {
+            "i": call,
+            "c": kumar,
+            "u": collector,
+            "p": f"sim-call-{call}",
+            "s": summary,
+            "f": on + timedelta(days=1),
+            "t": ist(on, 15),
+        },
+    )
+    for seq, (who, said, intent) in enumerate(
+        [
+            (
+                "ai",
+                "Hello, this is the automated collections assistant calling from the accounts team. This call "
+                "is not recorded. Could you let us know when we can expect payment?",
+                None,
+            ),
+            ("customer", "He is not available, call later", "unavailable"),
+            ("ai", "No problem. We will call back another time. Goodbye.", None),
+        ],
+        1,
+    ):
+        conn.execute(
+            text("""INSERT INTO call_turns (call_id, seq, speaker, text, intent)
+            VALUES (CAST(:k AS uuid), :n, :w, :t, :i)"""),
+            {"k": call, "n": seq, "w": who, "t": said, "i": intent},
+        )
+    for kind, summary_ in (
+        ("call_requested", "Call requested (SIMULATED provider: no phone rings)"),
+        ("call_completed", summary),
+    ):
+        conn.execute(
+            text("""INSERT INTO timeline_events (customer_id, occurred_at, business_date, kind, actor, ref_type,
+            ref_id, summary) VALUES (CAST(:c AS uuid), :t, :d, :k, :a, 'call', CAST(:r AS uuid), :s)"""),
+            {
+                "c": kumar,
+                "t": ist(on, 15),
+                "d": on,
+                "k": kind,
+                "a": "human" if kind == "call_requested" else "ai",
+                "r": call,
+                "s": summary_,
+            },
+        )
+
+
 def _settings(conn: Connection, s: Settings) -> None:
     conn.execute(
         text("""
         INSERT INTO settings (id, demo_today, sending_enabled, autonomy_mode, llm_budget_micro_usd,
-                              feature_whatsapp, feature_voice, feature_payment_link, feature_trusted_mode)
-        VALUES (1, :d, :se, :am, :b, :fw, :fv, :fp, :ft)
+                              feature_whatsapp, feature_voice, feature_payment_link, feature_trusted_mode,
+                              feature_sms)
+        VALUES (1, :d, :se, :am, :b, :fw, :fv, :fp, :ft, :fs)
         ON CONFLICT (id) DO UPDATE SET demo_today = EXCLUDED.demo_today,
           sending_enabled = EXCLUDED.sending_enabled, autonomy_mode = EXCLUDED.autonomy_mode,
           llm_budget_micro_usd = EXCLUDED.llm_budget_micro_usd,
           feature_whatsapp = EXCLUDED.feature_whatsapp, feature_voice = EXCLUDED.feature_voice,
           feature_payment_link = EXCLUDED.feature_payment_link,
-          feature_trusted_mode = EXCLUDED.feature_trusted_mode,
+          feature_trusted_mode = EXCLUDED.feature_trusted_mode, feature_sms = EXCLUDED.feature_sms,
           updated_at = now()"""),
         {
             "d": date.fromisoformat(s.demo_today),
@@ -476,6 +592,7 @@ def _settings(conn: Connection, s: Settings) -> None:
             "fv": s.feature_voice,
             "fp": s.feature_payment_link,
             "ft": s.feature_trusted_mode,
+            "fs": s.feature_sms,
         },
     )
 
@@ -520,9 +637,16 @@ def _load(conn: Connection, s: Settings) -> None:
         ("promise_invoices", plan.promise_invoices),
         ("disputes", plan.disputes),
         ("escalations", plan.escalations),
+        ("follow_up_tasks", plan.follow_ups),
         ("timeline_events", plan.timeline),
     ]:
         _insert(conn, table, rows)
+    # Demo consent on every channel; a real customer's consent is recorded when given (HACK-003 F2).
+    conn.execute(
+        text("""UPDATE customers SET contact_consent =
+        '{"email": true, "whatsapp": true, "sms": true, "voice": true}'::jsonb""")
+    )
+    _demo_extras(conn)
 
 
 def reset_demo(engine: Engine, s: Settings) -> None:

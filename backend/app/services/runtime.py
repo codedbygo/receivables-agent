@@ -25,6 +25,7 @@ class RuntimeSettings(BaseModel):
     feature_voice: bool
     feature_payment_link: bool
     feature_trusted_mode: bool
+    feature_sms: bool
 
 
 class SettingsPatch(BaseModel):
@@ -37,6 +38,7 @@ class SettingsPatch(BaseModel):
     feature_voice: bool | None = None
     feature_payment_link: bool | None = None
     feature_trusted_mode: bool | None = None
+    feature_sms: bool | None = None
 
 
 def read(session: Session, llm_mode: str) -> RuntimeSettings:
@@ -44,7 +46,7 @@ def read(session: Session, llm_mode: str) -> RuntimeSettings:
         session.execute(
             text("""SELECT demo_today, sending_enabled, autonomy_mode, llm_budget_micro_usd,
         (SELECT COALESCE(SUM(cost_micro_usd), 0) FROM llm_calls) AS llm_spent_micro_usd, feature_whatsapp,
-        feature_voice, feature_payment_link, feature_trusted_mode FROM settings WHERE id = 1""")
+        feature_voice, feature_payment_link, feature_trusted_mode, feature_sms FROM settings WHERE id = 1""")
         )
         .mappings()
         .one()

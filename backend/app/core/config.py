@@ -14,6 +14,9 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://collections:collections@localhost:5432/collections"
     openrouter_api_key: str = ""
+    # HACK-003: "ollama" runs a free, open-source model on this machine (no key, no cost); "openrouter" is hosted.
+    llm_provider: Literal["openrouter", "ollama"] = "openrouter"
+    ollama_base_url: str = "http://localhost:11434"
     llm_model: str = "anthropic/claude-haiku-4.5"
     llm_mode: Literal["live", "replay", "record"] = "replay"
     llm_budget_usd: float = 2.00
@@ -48,6 +51,20 @@ class Settings(BaseSettings):
     feature_voice: bool = False
     feature_payment_link: bool = False
     feature_trusted_mode: bool = False
+    feature_sms: bool = False
+    # HACK-003 F1/F2: Twilio for SMS, WhatsApp and voice. Unset means the SIMULATED provider is used, and labelled.
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from_number: str = ""
+    twilio_whatsapp_from: str = ""
+    # Free SMS (HACK-003): the open-source Android SMS Gateway app on a phone with a SIM, local server mode.
+    # When set it is used for SMS before Twilio. Example: http://192.168.1.20:8080
+    sms_gateway_url: str = ""
+    sms_gateway_user: str = ""
+    sms_gateway_password: str = ""
+    # Public https base URL Twilio calls back for voice webhooks (e.g. https://demo.example.in). Voice is real only
+    # with this and the Twilio credentials and number; the signature on every webhook is checked against it.
+    voice_public_base_url: str = ""
     bank_webhook_secret: str = ""
     mcp_token: str = ""
     session_secret: str = ""

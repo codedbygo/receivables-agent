@@ -17,12 +17,19 @@ export const keys = {
   guardrails: ["guardrails"] as const,
   evals: ["evals"] as const,
   payments: ["payments"] as const,
+  executive: ["executive"] as const,
+  safety: ["safety"] as const,
+  followUps: ["follow-ups"] as const,
 };
 
 const Timeline = z.object({ data: z.array(S.TimelineEvent), next_action: z.string() });
 
 export const useMe = () => useQuery({ queryKey: keys.me, queryFn: () => api("/auth/me", S.User), retry: false });
 export const useDashboard = () => useQuery({ queryKey: keys.dashboard, queryFn: () => api("/dashboard", S.Dashboard) });
+export const useExecutive = () => useQuery({ queryKey: keys.executive, queryFn: () => api("/executive", S.Executive) });
+export const useSafety = () => useQuery({ queryKey: keys.safety, queryFn: () => api("/safety", S.Safety) });
+export const useFollowUps = () =>
+  useQuery({ queryKey: keys.followUps, queryFn: () => api("/follow-ups?filter[status]=open&limit=20", S.page(S.FollowUp)) });
 export const useCustomers = () =>
   useQuery({ queryKey: keys.customers, queryFn: () => api("/customers", S.page(S.Customer)) });
 export const usePriorities = () =>
@@ -32,7 +39,7 @@ export function useCustomer(id: string) {
   return useQuery({
     queryKey: keys.customer(id),
     queryFn: async () => {
-      const [customer, invoices, priority, timeline, runs, promises, disputes, messages] = await Promise.all([
+      const [customer, invoices, priority, timeline, runs, promises, disputes, messages, followUps] = await Promise.all([
         api(`/customers/${id}`, S.Customer),
         api(`/customers/${id}/invoices`, S.page(S.Invoice)),
         api(`/customers/${id}/priority`, S.Priority),
@@ -41,6 +48,7 @@ export function useCustomer(id: string) {
         api(`/promises?filter[customer_id]=${id}`, S.page(S.Promise_)),
         api(`/disputes?filter[customer_id]=${id}`, S.page(S.Dispute)),
         api(`/messages?filter[customer_id]=${id}`, S.page(S.Message)),
+        api(`/follow-ups?filter[customer_id]=${id}`, S.page(S.FollowUp)),
       ]);
       return {
         customer,
@@ -52,6 +60,7 @@ export function useCustomer(id: string) {
         promises: promises.data,
         disputes: disputes.data,
         messages: messages.data,
+        followUps: followUps.data,
       };
     },
   });

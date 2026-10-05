@@ -17,6 +17,8 @@ const SCREENS: { name: string; open: (page: Page) => Promise<void> }[] = [
   },
   { name: "Evaluation", open: async (page) => page.getByRole("link", { name: "Evaluation" }).click() },
   { name: "Admin", open: async (page) => page.getByRole("link", { name: "Admin" }).click() },
+  { name: "CFO view", open: async (page) => page.getByRole("link", { name: "CFO view" }).click() },
+  { name: "AI Safety", open: async (page) => page.getByRole("link", { name: "AI Safety" }).click() },
 ];
 
 test.beforeAll(async ({ request }) => {

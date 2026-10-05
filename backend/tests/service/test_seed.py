@@ -77,7 +77,7 @@ def test_every_profile_has_at_least_two_customers(seeded: Engine) -> None:
         "recently overdue": "SELECT count(DISTINCT customer_id) FROM invoices WHERE status <> 'paid' AND due_date BETWEEN DATE '2026-09-30' - 30 AND DATE '2026-09-29'",
         "fully paid": "SELECT count(*) FROM (SELECT customer_id FROM invoices GROUP BY 1 HAVING bool_and(status = 'paid')) t",
         "partially paid": "SELECT count(DISTINCT customer_id) FROM invoices WHERE status = 'partially_paid'",
-        "disputed": "SELECT count(DISTINCT customer_id) FROM disputes WHERE status = 'open'",
+        "disputed": "SELECT count(DISTINCT customer_id) FROM disputes WHERE status <> 'resolved'",
         "broken promise": "SELECT count(DISTINCT customer_id) FROM promises WHERE status = 'missed'",
         "clean": "SELECT count(*) FROM (SELECT customer_id FROM invoices GROUP BY 1 HAVING bool_and(status = 'paid' OR due_date >= DATE '2026-09-30')) t",
     }

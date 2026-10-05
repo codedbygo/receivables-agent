@@ -12,8 +12,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.agent.orchestrator import Orchestrator
 from app.api.deps import require
-from app.api.routers import admin, cron, ledger, messages, records
+from app.api.routers import admin, calls, cron, ledger, messages, portal, records
 from app.channels.email import check_email_config
+from app.channels.voice import voice_provider
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_sessionmaker, ping
 from app.core.errors import AppError, ErrorCode
@@ -50,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessions = make_sessionmaker(engine)
     app.state.check_db = lambda: ping(engine)
     gateway = Gateway(settings, engine)
+    app.state.voice = voice_provider(settings)  # Twilio when configured, else the labelled simulator
     app.state.orchestrator = Orchestrator(engine, gateway, build_registry(engine, gateway))
 
     @app.middleware("http")
@@ -102,7 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(body, status_code=200 if ok else 503)
 
     api.include_router(ledger.router, dependencies=[Depends(require("viewer", "collector", "admin"))])
-    for r in (messages.router, records.router, admin.router, cron.router):
+    for r in (messages.router, records.router, admin.router, cron.router, calls.router, portal.router):
         api.include_router(r)
     app.include_router(api)
     return app

@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import today
 from app.core.errors import AppError, ErrorCode
 from app.core.money import format_inr
+from app.services import followups
 from app.services.collections import escalate
 from app.services.timeline import record
 
@@ -300,6 +301,10 @@ def evaluate_promises(session: Session, customer_id: str) -> None:
             ref_type="promise",
             ref_id=p.id,
         )
+        if status != "fulfilled":  # HACK-003 F5: the follow-up task, and a draft outside Manual mode
+            followups.on_broken_promise(
+                session, customer_id, p.id, "missed_promise" if status == "missed" else "partial_promise"
+            )
 
 
 def check_promises(engine: Engine) -> None:

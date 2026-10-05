@@ -65,7 +65,9 @@ def replay_key(
     return f"{prompt.name}@v{prompt.version}:{hashlib.sha256(canonical.encode()).hexdigest()[:24]}"
 
 
-def cost(model: str, input_tokens: int, output_tokens: int) -> int:
+def cost(model: str, input_tokens: int, output_tokens: int, provider: str = "openrouter") -> int:
+    if provider == "ollama":  # a local open-source model: no per-token price
+        return 0
     per_in, per_out = PRICING.get(model, (1, 5))
     return input_tokens * per_in + output_tokens * per_out
 
@@ -103,7 +105,7 @@ class Gateway:
             )
             return result
         estimate = len(json.dumps(messages, ensure_ascii=False)) // 3 + 1
-        call_id = self._reserve(prompt, model, key, cost(model, estimate, cap), run_id)
+        call_id = self._reserve(prompt, model, key, cost(model, estimate, cap, self.s.llm_provider), run_id)
         try:
             body = self._post(
                 {
@@ -116,7 +118,7 @@ class Gateway:
         except AppError as e:
             self._settle(call_id, 0, 0, 0, e.code)
             raise
-        result = self._parse(body, key, model, self.s.llm_mode)
+        result = self._parse(body, key, model, self.s.llm_mode, self.s.llm_provider)
         self._settle(call_id, result.input_tokens, result.output_tokens, result.cost_micro_usd, None)
         if self.s.llm_mode == "record":
             self._write_fixture(key, body)
@@ -214,13 +216,17 @@ class Gateway:
 
     # --- transport ----------------------------------------------------------------------------------
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
-        headers = {"Authorization": f"Bearer {self.s.openrouter_api_key}", "X-Title": "Collections Agent"}
+        if self.s.llm_provider == "ollama":  # Ollama's OpenAI-compatible endpoint on this machine, no key
+            url, headers = f"{self.s.ollama_base_url.rstrip('/')}/v1/chat/completions", {}
+        else:
+            url = URL
+            headers = {"Authorization": f"Bearer {self.s.openrouter_api_key}", "X-Title": "Collections Agent"}
         last = AppError(ErrorCode.LLM_UPSTREAM, "Cannot reach the model provider.")
         for attempt in range(3):
             if attempt:
                 self.sleep(2 ** (attempt - 1) + random.random() * 0.25)  # noqa: S311  jitter, not security
             try:
-                r = self.http.post(URL, json=payload, headers=headers)
+                r = self.http.post(url, json=payload, headers=headers)
             except httpx.TimeoutException as e:
                 last = AppError(ErrorCode.LLM_TIMEOUT, "The model did not answer in time.")
                 last.__cause__ = e
@@ -238,7 +244,9 @@ class Gateway:
         raise last
 
     @staticmethod
-    def _parse(body: dict[str, Any], key: str, model: str, mode: str) -> LlmResult:
+    def _parse(
+        body: dict[str, Any], key: str, model: str, mode: str, provider: str = "openrouter"
+    ) -> LlmResult:
         try:
             msg = body["choices"][0]["message"]
             calls = [
@@ -253,7 +261,7 @@ class Gateway:
             raise AppError(ErrorCode.LLM_UPSTREAM, "The model returned an unreadable response.") from e
         usage = body.get("usage") or {}
         tin, tout = int(usage.get("prompt_tokens", 0)), int(usage.get("completion_tokens", 0))
-        c_ = 0 if mode == "replay" else cost(model, tin, tout)
+        c_ = 0 if mode == "replay" else cost(model, tin, tout, provider)
         return LlmResult(msg.get("content"), calls, tin, tout, c_, key, mode)
 
     # --- fixtures -----------------------------------------------------------------------------------

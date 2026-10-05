@@ -34,7 +34,7 @@ class MessageEdit(BaseModel):
     model_config = ConfigDict(extra="forbid")
     subject: str = Field(min_length=1, max_length=200)
     body: str = Field(min_length=1, max_length=5000)
-    channel: Literal["email", "whatsapp"] | None = None
+    channel: Literal["email", "whatsapp", "sms"] | None = None
 
 
 class Reject(BaseModel):

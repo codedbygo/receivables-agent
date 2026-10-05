@@ -231,3 +231,33 @@ def test_a_request_the_provider_refuses_is_not_retried(clean: Engine, tmp_path: 
         gw.complete(PROMPT, MSGS)
 
     assert e.value.code == ErrorCode.LLM_UPSTREAM and slept == []
+
+
+# HACK-003: the free, local Ollama provider through the same gateway (no key, zero cost, same guardrails).
+def test_ollama_goes_to_the_local_server_without_a_key_and_costs_nothing(
+    clean: Engine, tmp_path: Path
+) -> None:
+    seen: list[httpx.Request] = []
+
+    def local(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=ok_body())
+
+    settings = Settings(
+        llm_mode="live",
+        llm_provider="ollama",
+        llm_model="qwen2.5:7b",
+        ollama_base_url="http://127.0.0.1:11434",
+    )
+    gw = Gateway(
+        settings, clean, transport=httpx.MockTransport(local), sleep=lambda _: None, fixtures_dir=tmp_path
+    )
+    result = gw.complete(PROMPT, MSGS)
+
+    [r] = seen
+    assert str(r.url) == "http://127.0.0.1:11434/v1/chat/completions"
+    assert "authorization" not in r.headers
+    assert json.loads(r.content)["model"] == "qwen2.5:7b"
+    assert result.cost_micro_usd == 0
+    with clean.connect() as c:
+        assert c.execute(text("SELECT SUM(cost_micro_usd) FROM llm_calls")).scalar() == 0

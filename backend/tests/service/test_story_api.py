@@ -21,6 +21,7 @@ SECRET = "story-bank-secret"  # noqa: S105  test value
 
 class Inbox:
     name = "email"
+    simulated = False  # stands in for the real SMTP channel
 
     def __init__(self) -> None:
         self.sent: list[Outbound] = []

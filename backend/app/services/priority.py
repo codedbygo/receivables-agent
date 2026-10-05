@@ -22,6 +22,7 @@ class PriorityInput(BaseModel):
     open_disputes: int
     segment: str
     disputed_numbers: tuple[str, ...]
+    no_response: bool = False
 
 
 class Reason(BaseModel):
@@ -29,26 +30,111 @@ class Reason(BaseModel):
     text: str
 
 
+class Factor(BaseModel):
+    """One input to the score and the points it added: the "Why?" panel, never model reasoning."""
+
+    code: str
+    label: str
+    value: str
+    points: float
+    rule: str
+
+
 class Priority(BaseModel):
     score: int
     band: Band
     reasons: list[Reason]
+    factors: list[Factor] = []
 
 
 def band(value: int) -> Band:
     return "HIGH" if value >= 60 else "MEDIUM" if value >= 35 else "LOW"  # Q-002
 
 
+def factors(p: PriorityInput) -> list[Factor]:
+    """The terms of the score, in the formula's order; their points add up to the score before rounding."""
+    s = "" if p.missed_promises == 1 else "s"
+    out = [
+        Factor(
+            code="OUTSTANDING",
+            label="Overdue outstanding",
+            value=format_inr(p.overdue_paise),
+            points=round(35 * min(p.overdue_paise / 50_000_000, 1), 1),
+            rule="Up to 35 points, full at ₹5,00,000 overdue",
+        ),
+        Factor(
+            code="OLDEST_OVERDUE",
+            label="Oldest invoice overdue",
+            value=f"{p.oldest_days} days",
+            points=round(20 * min(p.oldest_days / 60, 1), 1),
+            rule="Up to 20 points, full at 60 days",
+        ),
+        Factor(
+            code="MISSED_PROMISES",
+            label="Missed payment promises",
+            value=f"{p.missed_promises} missed promise{s}",
+            points=round(20 * min(p.missed_promises / 2, 1), 1),
+            rule="Up to 20 points, full at 2 missed promises",
+        ),
+        Factor(
+            code="OVERDUE_COUNT",
+            label="Overdue invoices",
+            value=str(p.overdue_count),
+            points=round(10 * min(p.overdue_count / 4, 1), 1),
+            rule="Up to 10 points, full at 4 invoices",
+        ),
+        Factor(
+            code="SEGMENT",
+            label="Customer segment",
+            value=p.segment.replace("_", " "),
+            points=round(10 * SEGMENT.get(p.segment, 0.4), 1),
+            rule="Enterprise 10, mid-market 7, SME 4",
+        ),
+    ]
+    if p.open_disputes:
+        out.append(
+            Factor(
+                code="OPEN_DISPUTES",
+                label="Active disputes",
+                value=", ".join(p.disputed_numbers) or str(p.open_disputes),
+                points=-5 * p.open_disputes,
+                rule="Minus 5 per active dispute; disputed invoices are excluded from every figure",
+            )
+        )
+    else:
+        out.append(
+            Factor(
+                code="NO_ACTIVE_DISPUTE",
+                label="No active dispute",
+                value="none",
+                points=0,
+                rule="Nothing blocks collection",
+            )
+        )
+    if p.no_response:
+        out.append(
+            Factor(
+                code="NO_RESPONSE",
+                label="No response to last reminder",
+                value="no reply",
+                points=0,
+                rule="Context only; not scored",
+            )
+        )
+    return out
+
+
 def score(p: PriorityInput) -> Priority:
     if p.overdue_paise == 0:
         return Priority(score=0, band="LOW", reasons=[])
-    raw = (
+    raw = (  # the formula itself (LLD 3.2); factors() shows the same terms rounded for display
         35 * min(p.overdue_paise / 50_000_000, 1)
         + 20 * min(p.oldest_days / 60, 1)
         + 20 * min(p.missed_promises / 2, 1)
         + 10 * min(p.overdue_count / 4, 1)
         + 10 * SEGMENT.get(p.segment, 0.4)
     )
+    terms = factors(p)
     value = max(0, min(100, round(raw) - 5 * p.open_disputes))
     reasons: list[Reason] = []
     if p.overdue_paise >= 20_000_000:
@@ -66,7 +152,7 @@ def score(p: PriorityInput) -> Priority:
         reasons.append(Reason(code="KEY_ACCOUNT", text="Key account"))
     for number in p.disputed_numbers:
         reasons.append(Reason(code="OPEN_DISPUTE", text=f"Open dispute on {number} (excluded)"))
-    return Priority(score=value, band=band(value), reasons=reasons)
+    return Priority(score=value, band=band(value), reasons=reasons, factors=terms)
 
 
 # Overdue figures exclude invoices with an open dispute (LLD 3.2).
@@ -80,7 +166,10 @@ SELECT c.id, c.name, c.segment,
     AS n_overdue,
   (SELECT count(*) FROM promises p WHERE p.customer_id = c.id AND p.status = 'missed') AS missed,
   (SELECT array_agg(i2.number ORDER BY i2.number) FROM disputes d JOIN invoices i2 ON i2.id = d.invoice_id
-    WHERE d.customer_id = c.id AND d.status = 'open') AS disputed
+    WHERE d.customer_id = c.id AND d.status <> 'resolved') AS disputed,
+  COALESCE((SELECT max(m.sent_at) FROM messages m WHERE m.customer_id = c.id AND m.status = 'sent')
+    > COALESCE((SELECT max(r.received_at) FROM replies r WHERE r.customer_id = c.id), 'epoch'), false)
+    AS no_response
 FROM customers c
 LEFT JOIN invoices i ON i.customer_id = c.id
 LEFT JOIN invoice_balances b ON b.invoice_id = i.id
@@ -105,6 +194,7 @@ def priorities(
             open_disputes=len(disputed),
             segment=r.segment,
             disputed_numbers=disputed,
+            no_response=r.no_response,
         )
         scored.append((str(r.id), r.name, score(inp), r.overdue))
     scored.sort(key=lambda t: (-t[2].score, -t[3], t[1]))

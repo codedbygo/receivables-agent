@@ -247,7 +247,7 @@ def test_switching_trusted_mode_off_returns_autonomy_to_manual(api: TestClient) 
 def test_resolving_a_dispute_needs_a_note_a_known_id_and_happens_once(
     settings: Settings, engine: Engine, api: TestClient
 ) -> None:
-    did = one(engine, "SELECT id::text FROM disputes WHERE status = 'open' LIMIT 1")
+    did = one(engine, "SELECT id::text FROM disputes WHERE status <> 'resolved' LIMIT 1")
     url = f"/api/v1/disputes/{did}/resolve"
 
     blank = api.post(url, json={"note": "  "}, headers=COLLECTOR)
@@ -393,6 +393,8 @@ def test_the_send_gate_refuses_unverified_text_even_without_the_database_constra
 
 
 class Broken:
+    simulated = False
+
     def send(self, _out: Outbound) -> None:
         raise ChannelError("SMTP_DOWN", retryable=True)
 

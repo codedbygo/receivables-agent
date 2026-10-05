@@ -16,8 +16,12 @@ import {
   Table,
   td,
   tdNum,
+  WhyFactors,
 } from "../components/ui";
 import { api } from "../lib/api";
+import { CallsPanel } from "./Calls";
+import { ContactPanel, MemoryPanel } from "./Contact";
+import { FollowUpCard } from "./FollowUps";
 import { day, inr, stamp } from "../lib/format";
 import { useAction, useCustomer, useSettings } from "../lib/hooks";
 import * as S from "../lib/schemas";
@@ -43,6 +47,10 @@ const ICON: Record<string, string> = {
   promise_missed: "⚠",
   dispute_opened: "⚑",
   dispute_resolved: "✓",
+  dispute_assigned: "→",
+  dispute_investigating: "🔍",
+  followup_created: "⏰",
+  followup_closed: "✓",
   escalated: "⤴",
   escalation_resolved: "✓",
 };
@@ -64,7 +72,7 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
   );
   if (q.isPending) return <Loading what="the customer" />;
   if (q.error) return <ErrorLine error={q.error} />;
-  const { customer: c, invoices, priority, timeline, nextAction, runs, promises, disputes, messages } = q.data;
+  const { customer: c, invoices, priority, timeline, nextAction, runs, promises, disputes, messages, followUps } = q.data;
   const oldest = Math.max(0, ...invoices.filter((i) => i.remaining_paise > 0).map((i) => i.days_overdue));
   const canAct = role !== "viewer";
   const lastSent = messages.find((m) => m.status === "sent") ?? null;
@@ -121,15 +129,10 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
         <Figure label="Next action" value={<span className="text-title">{nextAction}</span>} />
       </div>
 
-      <Panel title="Why this priority">
-        <ul className="list-disc pl-5">
-          {priority.reasons.map((r) => (
-            <li key={r.code}>{r.text}</li>
-          ))}
-        </ul>
-        <p className="mt-2 text-label text-text-muted">
-          Computed by the scoring rules from the ledger, not by the model.
-        </p>
+      <ContactPanel customerId={id} canAct={canAct} />
+
+      <Panel title={`Why is this customer ${priority.band} priority?`}>
+        <WhyFactors factors={priority.factors} score={priority.score} />
       </Panel>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -189,6 +192,18 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
             </p>
           </Panel>
 
+          {followUps.some((f) => f.status === "open") && (
+            <Panel title="Follow-ups">
+              <div className="space-y-3">
+                {followUps
+                  .filter((f) => f.status === "open")
+                  .map((f) => (
+                    <FollowUpCard key={f.id} f={f} canAct={canAct} />
+                  ))}
+              </div>
+            </Panel>
+          )}
+
           <Panel title="Promises">
             {promises.length === 0 ? (
               <Empty>No promises recorded.</Empty>
@@ -219,25 +234,22 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
             ) : (
               <ul className="divide-y divide-border">
                 {disputes.map((d) => (
-                  <li key={d.id} className="py-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono">{d.invoice_number}</span>
-                      <Badge value={d.status} />
-                    </div>
-                    <p className="text-label whitespace-pre-line text-text-muted">{d.reason}</p>
-                    {d.resolution_note && <p className="text-label">Resolved: {d.resolution_note}</p>}
-                    {canAct && d.status === "open" && (
-                      <div className="mt-1">
-                        <Button onClick={() => setResolving({ id: d.id, invoice: d.invoice_number })}>Resolve</Button>
-                      </div>
-                    )}
-                  </li>
+                  <DisputeItem
+                    key={d.id}
+                    d={d}
+                    canAct={canAct}
+                    onResolve={() => setResolving({ id: d.id, invoice: d.invoice_number })}
+                  />
                 ))}
               </ul>
             )}
           </Panel>
         </div>
       </div>
+
+      <CallsPanel customerId={id} canAct={canAct} voiceOn={Boolean(flags?.feature_voice)} />
+
+      <MemoryPanel customerId={id} canAct={canAct} />
 
       <Panel title="Messages">
         {messages.length === 0 ? (
@@ -249,6 +261,11 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
                 <td className={td}>{m.subject}</td>
                 <td className={td}>
                   {m.kind.replaceAll("_", " ")} · {m.tone} · {m.channel}
+                  {m.status === "sent" && (
+                    <span className="ml-1">
+                      <Badge value={m.simulated ? "SIMULATED" : "REAL"} tone={m.simulated ? "wait" : "ok"} />
+                    </span>
+                  )}
                 </td>
                 <td className={td}>
                   <Badge value={m.status} />
@@ -372,6 +389,65 @@ function ReplyDialog({
         </form>
       )}
     </Dialog>
+  );
+}
+
+const STEPS = ["open", "assigned", "investigating", "resolved"] as const;
+const TEAM: Record<string, string> = {
+  billing: "Billing",
+  operations: "Operations",
+  sales: "Sales",
+  legal_contracts: "Legal and contracts",
+  collections: "Collections",
+};
+
+/** HACK-003 F7: category and team come from fixed rules; people move the dispute on and only people resolve it. */
+function DisputeItem({ d, canAct, onResolve }: { d: S.Dispute; canAct: boolean; onResolve: () => void }) {
+  const move = useAction((to: "assigned" | "investigating") =>
+    api(`/disputes/${d.id}/transition`, S.Dispute, { method: "POST", body: { to } }),
+  );
+  const at = STEPS.indexOf(d.status);
+  return (
+    <li className="py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-mono">{d.invoice_number}</span>
+        <span className="flex flex-wrap gap-1">
+          <Badge value={d.category.replaceAll("_", " ")} tone="info" />
+          {d.assigned_team && <Badge value={TEAM[d.assigned_team] ?? d.assigned_team} tone="plain" />}
+        </span>
+      </div>
+      <ol className="mt-1 flex flex-wrap gap-1 text-label" aria-label="Dispute status">
+        {STEPS.map((step, i) => (
+          <li
+            key={step}
+            aria-current={i === at ? "step" : undefined}
+            className={`rounded border px-2 ${i <= at ? "border-accent bg-accent-subtle font-semibold" : "border-border text-text-muted"}`}
+          >
+            {step.toUpperCase()}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-1 text-label whitespace-pre-line text-text-muted">{d.reason}</p>
+      <details className="text-label">
+        <summary className="cursor-pointer text-link">Why this team?</summary>
+        <p className="text-text-muted">
+          Category {d.category.replaceAll("_", " ")} from fixed rules over the customer&apos;s words; routed by the policy
+          table dispute_routing to {TEAM[d.assigned_team ?? "collections"]}. The AI never resolves a dispute.
+        </p>
+      </details>
+      {d.resolution_note && <p className="text-label">Resolved: {d.resolution_note}</p>}
+      {canAct && d.status !== "resolved" && (
+        <div className="mt-1 flex flex-wrap gap-2">
+          {d.status !== "investigating" && (
+            <Button onClick={() => move.mutate("investigating")} busy={move.isPending}>
+              Start investigation
+            </Button>
+          )}
+          <Button onClick={onResolve}>Resolve</Button>
+        </div>
+      )}
+      <ErrorLine error={move.error} />
+    </li>
   );
 }
 

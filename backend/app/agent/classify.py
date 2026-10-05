@@ -48,6 +48,35 @@ def dispute_reason(reply: str) -> str:
     return f"{kind}: {reply.strip()}"[:200]
 
 
+# HACK-003 F7: the eight dispute categories, most specific first. Rules over the customer's words, never the model's.
+DISPUTE_CATEGORIES = (
+    ("duplicate_invoice", re.compile(r"\b(duplicate|charged twice|billed twice|same order|twice)\b", re.I)),
+    (
+        "wrong_quantity",
+        re.compile(r"\b(units?|qty|quantity|pieces|pcs|received only|short supply|shortage)\b", re.I),
+    ),
+    ("wrong_price", re.compile(r"\b(rate|price|priced|overcharged|agreed \d|discount)\b", re.I)),
+    (
+        "missing_delivery",
+        re.compile(r"\b(never received|not received|not delivered|no delivery|consignment|shipment)\b", re.I),
+    ),
+    (
+        "service_issue",
+        re.compile(r"\b(service|technician|installation|support|damaged|broken|defective|quality)\b", re.I),
+    ),
+    ("contract_issue", re.compile(r"\b(contract|agreement|terms|po |purchase order)\b", re.I)),
+    (
+        "invoice_error",
+        re.compile(r"\b(gst|gstin|tax|address|wrong invoice|invoice is wrong|on the invoice|hsn)\b", re.I),
+    ),
+)
+
+
+def dispute_category(reply: str) -> str:
+    """One of the eight categories in policy dispute_routing; 'other' when no rule matches."""
+    return next((k for k, rx in DISPUTE_CATEGORIES if rx.search(reply)), "other")
+
+
 def as_class(value: str) -> Class:
     return cast(Class, value) if value in CLASSES else "NO_INTENT_UNCLEAR"
 

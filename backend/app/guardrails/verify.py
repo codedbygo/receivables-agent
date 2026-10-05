@@ -88,6 +88,9 @@ class Policy:
     legal_allow: tuple[str, ...]
     injection: tuple[str, ...]
     trusted: TrustedAllow
+    dispute_routing: dict[str, str]
+    dispute_auto_resolve: tuple[str, ...]
+    cadence: tuple[tuple[int, str], ...]
 
 
 @cache
@@ -106,6 +109,9 @@ def policy() -> Policy:
             no_open_dispute=bool(t["no_open_dispute"]),
             no_missed_promise=bool(t["no_missed_promise"]),
         ),
+        dispute_routing={str(k): str(v) for k, v in (raw.get("dispute_routing") or {}).items()},
+        dispute_auto_resolve=tuple(str(x) for x in raw.get("dispute_auto_resolve") or ()),
+        cadence=tuple(sorted((int(c["day"]), str(c["channel"])) for c in raw.get("cadence") or [])),
     )
 
 

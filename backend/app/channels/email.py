@@ -22,12 +22,14 @@ class ChannelError(Exception):
 
 class MessageChannel(Protocol):
     name: str
+    simulated: bool  # HACK-003: stored on the message and shown; a simulator never passes for a real provider
 
     def send(self, message: Outbound) -> str: ...
 
 
 class EmailChannel:
     name = "email"
+    simulated = False  # real SMTP (Mailpit, a test inbox, in the local demo)
 
     def __init__(
         self,
@@ -84,6 +86,7 @@ class WhatsAppChannel:
     """Simulated and provider-pluggable (REQ-060): records the send and returns a provider id."""
 
     name = "whatsapp"
+    simulated = True
 
     def send(self, message: Outbound) -> str:
         return f"sim-wa-{message.message_id}"

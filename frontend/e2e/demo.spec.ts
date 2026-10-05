@@ -32,7 +32,7 @@ test("ABC Distributors: reminder, approval, promise, payment, dispute", async ({
   // Selected with reasons, from the ledger.
   await openAbc(page);
   await expect(page.getByText("Total outstanding ₹7,50,000")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Why this priority" })).toContainText("missed promise");
+  await expect(page.getByRole("region", { name: "Why is this customer" })).toContainText("missed promise");
 
   // The bounded agent drafts; the trajectory is visible.
   await page.getByRole("button", { name: "Run agent now" }).click();

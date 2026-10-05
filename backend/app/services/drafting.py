@@ -14,7 +14,7 @@ from app.core.clock import today
 from app.core.errors import AppError, ErrorCode
 from app.core.money import format_inr
 from app.guardrails.verify import Check, InvoiceFact, VerifyContext, verify
-from app.services import ledger
+from app.services import ledger, memory
 from app.services.timeline import Actor, record
 
 Kind = Literal["reminder", "followup", "statement", "dispute_ack"]
@@ -54,13 +54,17 @@ def customer_state(session: Session, customer_id: str) -> tuple[tuple[str, ...],
     disputed: tuple[str, ...] = tuple(
         session.execute(
             text("""SELECT i.number FROM disputes x JOIN invoices i ON i.id = x.invoice_id
-        WHERE x.customer_id = CAST(:c AS uuid) AND x.status = 'open'"""),
+        WHERE x.customer_id = CAST(:c AS uuid) AND x.status <> 'resolved'"""),
             {"c": customer_id},
         ).scalars()
     )
     promises = list(
         session.execute(
-            text("SELECT amount_paise, promised_date FROM promises WHERE customer_id = CAST(:c AS uuid)"),
+            # The day each promise was made counts as a promise date too: a follow-up may say "On 20 Sep 2026
+            # you mentioned..." (HACK-003 F3). It is the business date of the promise_logged event.
+            text("""SELECT amount_paise, promised_date FROM promises WHERE customer_id = CAST(:c AS uuid)
+            UNION ALL SELECT p.amount_paise, t.business_date FROM promises p JOIN timeline_events t
+              ON t.ref_id = p.id AND t.kind = 'promise_logged' WHERE p.customer_id = CAST(:c AS uuid)"""),
             {"c": customer_id},
         ).all()
     )
@@ -108,12 +112,15 @@ def draft_message(
             )
 
     body = prose
+    if "{{promise_recall}}" in body:  # HACK-003 F3: the customer's own last promise, from the promise row
+        line = memory.latest_recall(session, customer_id)
+        body = body.replace("{{promise_recall}}", f"{line}\n\n" if line else "")
     if kind in NEEDS_TABLE and ("{{invoice_table}}" in prose and "{{total}}" in prose):
         table = "\n".join(
             f"{n} | {format_inr(facts[n].remaining_paise)} | due {facts[n].due:%d %b %Y}" for n in cited
         )
         total = format_inr(sum(facts[n].remaining_paise for n in cited))
-        body = prose.replace("{{invoice_table}}", table).replace("{{total}}", total)
+        body = body.replace("{{invoice_table}}", table).replace("{{total}}", total)
     report = verify(
         body,
         VerifyContext(

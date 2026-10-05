@@ -1,15 +1,17 @@
 /** S-02 Today: totals, ageing and "What needs my attention today?" (US-00-003, US-00-020, US-00-021). */
 import { href } from "../app/route";
-import { Badge, BandBadge, Button, Empty, ErrorLine, Figure, Loading, Panel } from "../components/ui";
+import { Badge, BandBadge, Button, Empty, ErrorLine, Figure, Loading, Panel, WhyFactors } from "../components/ui";
 import { api } from "../lib/api";
 import { day, inr } from "../lib/format";
-import { useAction, useDashboard } from "../lib/hooks";
+import { useAction, useDashboard, useFollowUps } from "../lib/hooks";
+import { FollowUpCard } from "./FollowUps";
 import * as S from "../lib/schemas";
 
 const link = (id: string | undefined) => (id ? href({ page: "customer", id }) : undefined);
 
 export function Today() {
   const q = useDashboard();
+  const followUps = useFollowUps();
   if (q.isPending) return <Loading what="today's figures" />;
   if (q.error) return <ErrorLine error={q.error} />;
   const d = q.data;
@@ -44,6 +46,15 @@ export function Today() {
         <Count label="Open escalations" n={d.open_escalations} />
       </div>
 
+      {(followUps.data?.data.length ?? 0) > 0 && (
+        <section aria-label="Follow-ups due" className="space-y-3">
+          <h2 className="font-display text-heading font-semibold">Follow-ups due</h2>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {followUps.data?.data.map((f) => <FollowUpCard key={f.id} f={f} canAct={false} showCustomer />)}
+          </div>
+        </section>
+      )}
+
       <h2 className="font-display text-heading font-semibold">What needs my attention today?</h2>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="High priority">
@@ -56,6 +67,12 @@ export function Today() {
                   <a href={link(p.customer_id)} className="font-semibold text-link underline">{p.customer_name}</a>{" "}
                   <BandBadge band={p.band} /> <span className="num text-text-muted">score {p.score}</span>
                   <p className="text-label text-text-muted">{p.reasons.map((r) => r.text).join(" · ")}</p>
+                  {p.factors.length > 0 && (
+                    <details className="mt-1 text-label">
+                      <summary className="cursor-pointer text-link">Why?</summary>
+                      <WhyFactors factors={p.factors} score={p.score} />
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>

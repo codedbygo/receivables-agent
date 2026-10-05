@@ -206,3 +206,56 @@ export function Table({ head, children, numeric = [] }: { head: string[]; childr
 
 export const td = "border-b border-border px-2 py-2 align-top";
 export const tdNum = "num border-b border-border px-2 py-2 text-right align-top";
+
+type FactorRow = { code: string; label: string; value: string; points: number; rule: string };
+
+/** "Why?" for a score: each factor, its value from the ledger, the rule and the points it added. */
+export function WhyFactors({ factors, score }: { factors: FactorRow[]; score: number }) {
+  const max = Math.max(1, ...factors.map((f) => Math.abs(f.points)));
+  return (
+    <div>
+      <ul className="divide-y divide-border">
+        {factors.map((f) => (
+          <li key={f.code} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 py-2">
+            <span>
+              <span className="font-semibold">{f.label}</span> <span className="num text-text-muted">{f.value}</span>
+            </span>
+            <span className={`num text-right font-semibold ${f.points < 0 ? "text-success" : ""}`}>
+              {f.points > 0 ? "+" : ""}
+              {f.points}
+            </span>
+            <span className="text-label text-text-muted">{f.rule}</span>
+            <span aria-hidden className="h-1.5 w-24 rounded bg-bg-subtle">
+              <span
+                className={`block h-full rounded ${f.points < 0 ? "bg-success" : "bg-accent"}`}
+                style={{ width: `${(Math.abs(f.points) / max) * 100}%` }}
+              />
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-label text-text-muted">
+        Score {score}: the points above, rounded. Decision factors and rules computed from the ledger, not model reasoning.
+      </p>
+    </div>
+  );
+}
+
+/** Horizontal bars for a small labelled series; values are shown as text too, so the bar is decoration. */
+export function BarList({ data, format }: { data: { label: string; value: number }[]; format: (v: number) => string }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  if (data.length === 0) return <Empty>No data yet.</Empty>;
+  return (
+    <ul className="space-y-2">
+      {data.map((d) => (
+        <li key={d.label} className="grid grid-cols-[7rem_1fr_7rem] items-center gap-3">
+          <span className="truncate text-text-muted">{d.label.replaceAll("_", " ")}</span>
+          <span className="h-3 rounded bg-bg-subtle" aria-hidden>
+            <span className="block h-3 rounded bg-accent" style={{ width: `${(d.value / max) * 100}%` }} />
+          </span>
+          <span className="num text-right">{format(d.value)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}

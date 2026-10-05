@@ -57,6 +57,22 @@ story (demo date 30 Sep 2026). Sign in as **Admin** (on a hosted demo, enter the
 | 7:30 | Timeline | Every step in order: drafted, guardrail passed, approved, sent, reply, promise, payment, promise fulfilled, dispute, escalation | |
 | 8:00 | Admin, Pause all sending | The kill switch: nothing can send, analysis continues | |
 
+**Collections employee features (HACK-003), about 6 more minutes.** Turn on Voice calls and Payment links in Admin first.
+
+| Click | What the audience sees |
+| --- | --- |
+| ABC Distributors, "Why is this customer HIGH priority?" | Each factor with its value, the rule and the points it added; they add up to the score |
+| ABC Distributors, Contact | Preferred and last channel, response status, next recommended channel and why (cadence day, consent, flags) |
+| ABC Distributors, Customer memory | The history from rows, and the sentence the AI will use to recall the missed promise |
+| Voice calls, Call with AI | A SIMULATED call (badge says no phone rang): the opening line states ₹7,50,000 from the ledger |
+| Type "We can pay ₹2 lakh this Friday." then "Yes please" | Promise ₹2,00,000 for Friday recorded; statement draft waits in Approvals; summary with the next action |
+| Admin, Advance the clock past Friday with no payment | Follow-up due on Today: promised, date, received ₹0, MISSED, "Contact the customer today", Why? |
+| Admin, autonomy Assisted, then advance again on a new promise | A follow-up draft that recalls the promise waits for approval; Trusted mode never auto-sends it |
+| Record a reply: "INV-1047 was billed for 50 units but we received only 40." | Dispute category wrong quantity, routed to Operations; Start investigation, then Resolve with a note |
+| Contact, Customer portal, Create link; open it in a private window | The customer sees only their invoices; Promise to pay, Raise a dispute, Request help, Pay now (simulated) |
+| CFO view | Receivables, overdue, collected this month, at risk, promises, collection rate, charts, attention list with Why? |
+| AI Safety | Live counts: messages checked, amounts blocked (try the ₹5,00,000 edit), prompt attacks, approvals, automatic sends 0, kill switch |
+
 Evaluation page: the numbers from the last `make eval`.
 
 ## 3. What is real and what is simulated
@@ -64,13 +80,18 @@ Evaluation page: the numbers from the last `make eval`.
 | Part | Status |
 | --- | --- |
 | PostgreSQL ledger, money as integer paise | Real |
-| MCP server (13 tools, stdio and streamable HTTP) | Real |
+| Priority score and its factor points, follow-up rules, dispute categories and routing, channel cadence | Real (deterministic code and policy/guardrails.yaml) |
+| Customer memory, CFO dashboard, AI Safety Center counts | Real (computed from rows; nothing estimated or seeded in the Safety Center) |
+| MCP server (14 tools, stdio and streamable HTTP) | Real |
 | Bounded agent (at most 4 tool calls per customer per run, every step logged) | Real |
-| Guardrails (amounts, invoices, totals, customer, dates, tone, send gate, kill switch) | Real |
-| OpenRouter, Claude Haiku 4.5 | Real in `LLM_MODE=live`; replay fixtures or deterministic fallbacks otherwise |
+| Guardrails (amounts, invoices, totals, customer, dates, tone, send gate, kill switch, consent) | Real; every AI call line is verified too |
+| Language model | OpenRouter (Claude Haiku 4.5) or a free local open-source model through Ollama (`LLM_PROVIDER=ollama`), in `LLM_MODE=live`; replay fixtures or deterministic fallbacks otherwise |
 | Email | Real SMTP into Mailpit, a test inbox; nothing leaves the machine |
-| Bank feed | Simulated: signed credits through the real webhook handler |
-| WhatsApp, payment link, voice call prep | Simulated or not built (behind feature flags, off) |
+| SMS | Real and free through the open-source Android SMS Gateway app on your own phone (`SMS_GATEWAY_*`), or through Twilio; otherwise SIMULATED, labelled on every message |
+| WhatsApp | Real through Twilio only (no free, compliant open-source route); otherwise SIMULATED |
+| Voice calls | Real phone calls through Twilio when `TWILIO_*` and `VOICE_PUBLIC_BASE_URL` are set; otherwise SIMULATED (no phone rings). On a simulated call the browser's free Web Speech API can speak the AI lines and listen for the customer's side (Chrome, Edge). Never recorded |
+| Customer portal | Real signed links, promises, disputes and help requests; Pay Now is SIMULATED (no payment processor) |
+| Bank feed, payment link | Simulated: signed credits through the real webhook handler |
 
 ## 4. Architecture
 
@@ -138,7 +159,13 @@ with `LLM_MODE=record` and a key to measure the model itself.
 | `COLLECTOR_TOKEN` | empty | api | secret; access code for the collector role |
 | `VIEWER_TOKEN` | empty | api | secret; access code for the viewer role |
 | `DEMO_OPEN_ROLES` | `false` (compose: `true`) | api | `true` lets the role picker sign in with no code; your own machine only. The API refuses to start with it on when `ALLOWED_HOSTS` names a public host |
-| `FEATURE_WHATSAPP` / `FEATURE_VOICE` / `FEATURE_PAYMENT_LINK` / `FEATURE_TRUSTED_MODE` | `false` | seeds settings | |
+| `FEATURE_WHATSAPP` / `FEATURE_VOICE` / `FEATURE_PAYMENT_LINK` / `FEATURE_TRUSTED_MODE` / `FEATURE_SMS` | `false` | seeds settings | |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | empty | api, worker | secret (token); empty means SIMULATED SMS, WhatsApp and voice |
+| `TWILIO_FROM_NUMBER` / `TWILIO_WHATSAPP_FROM` | empty | api, worker | E.164 sender numbers |
+| `VOICE_PUBLIC_BASE_URL` | empty | api | public https URL Twilio calls back; webhook signatures are checked against it |
+| `LLM_PROVIDER` | `openrouter` | gateway | `ollama` for a free local open-source model (no key, zero cost) |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | gateway | where Ollama listens |
+| `SMS_GATEWAY_URL` / `SMS_GATEWAY_USER` / `SMS_GATEWAY_PASSWORD` | empty | worker | free SMS through the open-source Android SMS Gateway app; password is a secret |
 | `BANK_WEBHOOK_SECRET` | empty | api | secret; when empty the api uses a random one per process, so only the admin simulator can post credits |
 | `MCP_TOKEN` | empty | mcp | secret; required for the HTTP transport |
 | `SESSION_SECRET` | empty | api | reserved for payment-link tokens |

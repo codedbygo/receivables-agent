@@ -7,7 +7,8 @@ from typing import Any
 from sqlalchemy import Engine, text
 
 from app.agent.orchestrator import Orchestrator
-from app.channels.email import EmailChannel, MessageChannel, WhatsAppChannel
+from app.channels.email import EmailChannel, MessageChannel
+from app.channels.messaging import messaging_channels
 from app.core.config import Settings
 from app.llm.gateway import Gateway
 from app.services import approval
@@ -29,7 +30,7 @@ def channels(settings: Settings) -> dict[str, MessageChannel]:
             from_addr=settings.smtp_from,
             redirect_to=settings.email_redirect_to,
         ),
-        "whatsapp": WhatsAppChannel(),
+        **messaging_channels(settings),
     }
 
 

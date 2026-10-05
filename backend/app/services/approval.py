@@ -19,6 +19,7 @@ from app.services.timeline import record
 from app.worker.jobs import Defer, enqueue
 
 MAX_SEND_ATTEMPTS = 5
+LABEL = {"email": "Email", "whatsapp": "WhatsApp", "sms": "SMS", "voice": "Voice"}
 
 
 class Message(BaseModel):
@@ -40,6 +41,7 @@ class Message(BaseModel):
     sent_at: str | None
     last_error: str | None
     created_at: str
+    simulated: bool = False
 
 
 _SELECT = """SELECT m.id::text, m.customer_id::text, c.name AS customer_name, m.agent_run_id::text, m.kind, m.channel,
@@ -47,7 +49,7 @@ _SELECT = """SELECT m.id::text, m.customer_id::text, c.name AS customer_name, m.
   COALESCE(m.guardrail_report, '[]'::jsonb) AS guardrail_report,
   COALESCE((SELECT array_agg(i.number ORDER BY i.due_date) FROM message_invoices mi JOIN invoices i ON i.id = mi.invoice_id
             WHERE mi.message_id = m.id), '{}') AS invoice_numbers,
-  m.rejected_reason, m.sent_at::text, m.last_error, m.created_at::text
+  m.rejected_reason, m.sent_at::text, m.last_error, m.created_at::text, m.simulated
 FROM messages m JOIN customers c ON c.id = m.customer_id"""
 
 
@@ -156,16 +158,15 @@ def edit(
     body: str,
     if_match: int | None,
     user_id: str | None,
-    channel: Literal["email", "whatsapp"] | None = None,
+    channel: Literal["email", "whatsapp", "sms"] | None = None,
 ) -> Message:
     """Edited text is verified again before it is saved (REQ-057); a failing edit changes nothing.
     A collector may move a draft to simulated WhatsApp while that flag is on (US-00-024)."""
     row = _lock(session, message_id, if_match)
-    if (
-        channel == "whatsapp"
-        and not session.execute(text("SELECT feature_whatsapp FROM settings WHERE id = 1")).scalar()
-    ):
-        raise AppError(ErrorCode.FEATURE_DISABLED, "WhatsApp is switched off.")
+    if channel in ("whatsapp", "sms"):
+        flags = session.execute(text("SELECT feature_whatsapp, feature_sms FROM settings WHERE id = 1")).one()
+        if not (flags.feature_whatsapp if channel == "whatsapp" else flags.feature_sms):
+            raise AppError(ErrorCode.FEATURE_DISABLED, f"{LABEL[channel]} is switched off.")
     if row.status != "pending_approval":
         raise AppError(ErrorCode.NOT_APPROVED, f"A {row.status} message cannot be edited.")
     msg = get_message(session, message_id)
@@ -187,6 +188,8 @@ def edit(
     )
     if not report.ok:
         bad = [c for c in report.checks if not c.ok]
+        for c in bad:  # a refused edit is a blocked figure too: the Safety Center counts it (HACK-003)
+            _log_refusal(session, c.code or "VALIDATION_ERROR", row.customer_id, message_id, c.check)
         first = bad[0]
         hint = f" (ledger: {first.expected})" if first.expected else ""
         raise AppError(
@@ -219,15 +222,22 @@ def edit(
     return get_message(session, message_id)
 
 
-def _log_refusal(session: Session, code: ErrorCode, customer_id: str, message_id: str) -> None:
-    """A refusal is logged in its own transaction: the caller's transaction rolls back on the error."""
+def _log_refusal(
+    session: Session, code: str, customer_id: str, message_id: str, check_name: str = "send_gate"
+) -> None:
+    """A refusal is logged in its own transaction: the caller's transaction rolls back on the error.
+
+    A refused human edit holds FOR UPDATE on the message, which blocks the key-share lock a foreign key to it would
+    need from this second connection (a self-deadlock). So an edit refusal names the message in detail instead."""
     bind = session.get_bind()
     engine: Engine = bind.engine if isinstance(bind, Connection) else bind
+    gate = check_name == "send_gate"  # the send gate locks FOR NO KEY UPDATE, which the foreign key allows
+    detail = "{}" if gate else json.dumps({"source": "human_edit", "message_id": message_id})
     with engine.begin() as c:
         c.execute(
             text("""INSERT INTO guardrail_events (check_name, code, customer_id, message_id, detail)
-            VALUES ('send_gate', :c, CAST(:cu AS uuid), CAST(:m AS uuid), '{}'::jsonb)"""),
-            {"c": code, "cu": customer_id, "m": message_id},
+            VALUES (:n, :c, CAST(:cu AS uuid), CAST(:m AS uuid), CAST(:d AS jsonb))"""),
+            {"n": check_name, "c": code, "cu": customer_id, "m": message_id if gate else None, "d": detail},
         )
 
 
@@ -235,13 +245,16 @@ def send_gate(session: Session, message_id: str) -> Any:
     """The only yes to a send: approved, current text verified, sending on, channel on, nothing disputed."""
     m = session.execute(
         text("""SELECT m.id::text, m.customer_id::text, m.status, m.version, m.verified_version,
-        m.channel, m.subject, m.body, m.kind, m.last_error, m.send_attempts, c.email
+        m.channel, m.subject, m.body, m.kind, m.last_error, m.send_attempts, c.email, c.phone,
+        COALESCE((c.contact_consent ->> m.channel)::boolean, false) AS consented
         FROM messages m JOIN customers c ON c.id = m.customer_id WHERE m.id = CAST(:m AS uuid) FOR NO KEY UPDATE OF m"""),
         {"m": message_id},
     ).first()
     if m is None:
         raise AppError(ErrorCode.NOT_FOUND, "Message not found.")
-    s = session.execute(text("SELECT sending_enabled, feature_whatsapp FROM settings WHERE id = 1")).one()
+    s = session.execute(
+        text("SELECT sending_enabled, feature_whatsapp, feature_sms FROM settings WHERE id = 1")
+    ).one()
     reason: tuple[ErrorCode, str] | None = None
     if m.status != "approved":
         reason = (ErrorCode.NOT_APPROVED, f"Message is {m.status}, not approved.")
@@ -251,11 +264,15 @@ def send_gate(session: Session, message_id: str) -> Any:
         reason = (ErrorCode.SENDING_DISABLED, "Sending is paused by the kill switch.")
     elif m.channel == "whatsapp" and not s.feature_whatsapp:
         reason = (ErrorCode.FEATURE_DISABLED, "WhatsApp is switched off.")
+    elif m.channel == "sms" and not s.feature_sms:
+        reason = (ErrorCode.FEATURE_DISABLED, "SMS is switched off.")
+    elif not m.consented:  # HACK-003 F2: no message on a channel the customer has not agreed to
+        reason = (ErrorCode.FEATURE_DISABLED, f"The customer has not agreed to {m.channel} messages.")
     elif (
         m.kind != "dispute_ack"
         and session.execute(
             text("""SELECT 1 FROM message_invoices mi JOIN disputes d
-            ON d.invoice_id = mi.invoice_id AND d.status = 'open' WHERE mi.message_id = CAST(:m AS uuid)"""),
+            ON d.invoice_id = mi.invoice_id AND d.status <> 'resolved' WHERE mi.message_id = CAST(:m AS uuid)"""),
             {"m": message_id},
         ).scalar()
     ):
@@ -309,7 +326,8 @@ def deliver(engine: Engine, message_id: str, channels: dict[str, MessageChannel]
             WHERE id = CAST(:m AS uuid)"""),
             {"m": message_id},
         )
-        out = Outbound(message_id, g.email, g.subject, g.body)
+        out = Outbound(message_id, g.email if g.channel == "email" else g.phone, g.subject, g.body)
+        simulated = channels[g.channel].simulated  # read before sending: nothing may fail after the send
         customer_id, attempts = g.customer_id, g.send_attempts + 1
     try:
         channels[g.channel].send(out)
@@ -334,16 +352,17 @@ def deliver(engine: Engine, message_id: str, channels: dict[str, MessageChannel]
         raise
     with engine.begin() as c, Session(bind=c) as s:
         s.execute(
-            text("""UPDATE messages SET status = 'sent', sent_at = now(), last_error = NULL, updated_at = now()
-            WHERE id = CAST(:m AS uuid)"""),
-            {"m": message_id},
+            text("""UPDATE messages SET status = 'sent', sent_at = now(), last_error = NULL, updated_at = now(),
+            simulated = :sim WHERE id = CAST(:m AS uuid)"""),
+            {"m": message_id, "sim": simulated},
         )
         record(
             s,
             customer_id,
             "sent",
             "system",
-            f"{g.channel.capitalize()} sent to {g.email}",
+            f"{LABEL.get(g.channel, g.channel)} sent to {out.to}"
+            + (" (SIMULATED provider, nothing left the system)" if simulated else ""),
             ref_type="message",
             ref_id=message_id,
         )
@@ -387,7 +406,7 @@ def trusted_approve(session: Session, message_id: str) -> bool:
         text("""SELECT m.customer_id::text, m.kind, m.tone, m.channel, m.status, (m.verified_version = m.version) AS ok,
         (SELECT COALESCE(SUM(b.remaining_paise), 0) FROM message_invoices mi JOIN invoice_balances b
           ON b.invoice_id = mi.invoice_id WHERE mi.message_id = m.id) AS total,
-        EXISTS (SELECT 1 FROM disputes d WHERE d.customer_id = m.customer_id AND d.status = 'open') AS disputed,
+        EXISTS (SELECT 1 FROM disputes d WHERE d.customer_id = m.customer_id AND d.status <> 'resolved') AS disputed,
         EXISTS (SELECT 1 FROM promises p WHERE p.customer_id = m.customer_id AND p.status = 'missed') AS missed
         FROM messages m WHERE m.id = CAST(:m AS uuid)"""),
         {"m": message_id},

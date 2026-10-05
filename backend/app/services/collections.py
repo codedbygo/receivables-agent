@@ -7,10 +7,11 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.agent.classify import dispute_category
 from app.core.clock import today
 from app.core.errors import AppError, ErrorCode
 from app.core.money import format_inr
-from app.services import ledger
+from app.services import disputes, ledger
 from app.services.timeline import Actor, record
 
 EscalationKind = Literal[
@@ -33,6 +34,8 @@ class DisputeOut(BaseModel):
     invoice_number: str
     reason: str
     status: str
+    category: str = "other"
+    assigned_team: str | None = None
 
 
 class EscalationOut(BaseModel):
@@ -184,13 +187,23 @@ def log_dispute(
     [(inv_id, _)] = _invoices_of(session, customer_id, [invoice_number])
     _owned(session, customer_id, reply_id=reply_id)
     if session.execute(
-        text("SELECT 1 FROM disputes WHERE invoice_id = CAST(:i AS uuid) AND status = 'open'"), {"i": inv_id}
+        text("SELECT 1 FROM disputes WHERE invoice_id = CAST(:i AS uuid) AND status <> 'resolved'"),
+        {"i": inv_id},
     ).scalar():
         raise AppError(ErrorCode.DISPUTE_EXISTS, f"{invoice_number} already has an open dispute.")
+    routing = disputes.route(dispute_category(reason))  # rules, then the fixed routing table (HACK-003 F7)
     did: str = session.execute(
-        text("""INSERT INTO disputes (customer_id, invoice_id, reply_id, reason)
-        VALUES (CAST(:c AS uuid), CAST(:i AS uuid), CAST(:r AS uuid), :reason) RETURNING id::text"""),
-        {"c": customer_id, "i": inv_id, "r": reply_id, "reason": reason},
+        text("""INSERT INTO disputes (customer_id, invoice_id, reply_id, reason, category, assigned_team, status)
+        VALUES (CAST(:c AS uuid), CAST(:i AS uuid), CAST(:r AS uuid), :reason, :cat, :team, 'assigned')
+        RETURNING id::text"""),
+        {
+            "c": customer_id,
+            "i": inv_id,
+            "r": reply_id,
+            "reason": reason,
+            "cat": routing.category,
+            "team": routing.team,
+        },
     ).scalar_one()
     session.execute(
         text("UPDATE invoices SET status = 'disputed', updated_at = now() WHERE id = CAST(:i AS uuid)"),
@@ -205,8 +218,23 @@ def log_dispute(
         ref_type="dispute",
         ref_id=did,
     )
+    record(
+        session,
+        customer_id,
+        "dispute_assigned",
+        "system",
+        f"Routed to {disputes.TEAM_LABEL[routing.team]} ({routing.rule})",
+        ref_type="dispute",
+        ref_id=did,
+    )
     return DisputeOut(
-        id=did, customer_id=customer_id, invoice_number=invoice_number, reason=reason, status="open"
+        id=did,
+        customer_id=customer_id,
+        invoice_number=invoice_number,
+        reason=reason,
+        status="assigned",
+        category=routing.category,
+        assigned_team=routing.team,
     )
 
 

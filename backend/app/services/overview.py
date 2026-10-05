@@ -67,7 +67,7 @@ def next_action(session: Session, customer_id: str, today: date) -> str:
     """Rules, not the model (AC-US-00-004-2, -3)."""
     q = session.execute(
         text("""SELECT
-        EXISTS (SELECT 1 FROM disputes WHERE customer_id = CAST(:c AS uuid) AND status = 'open') AS dispute,
+        EXISTS (SELECT 1 FROM disputes WHERE customer_id = CAST(:c AS uuid) AND status <> 'resolved') AS dispute,
         EXISTS (SELECT 1 FROM messages WHERE customer_id = CAST(:c AS uuid) AND status = 'pending_approval') AS draft,
         EXISTS (SELECT 1 FROM messages WHERE customer_id = CAST(:c AS uuid) AND status = 'approved') AS approved,
         (SELECT min(promised_date) FROM promises WHERE customer_id = CAST(:c AS uuid) AND status = 'pending') AS pending,
@@ -142,7 +142,7 @@ def dashboard(session: Session, today: date) -> dict[str, Any]:
         text("""SELECT
         (SELECT count(*) FROM promises WHERE status = 'pending' AND promised_date = :d) AS todays,
         (SELECT count(*) FROM promises WHERE status = 'missed') AS missed,
-        (SELECT count(*) FROM disputes WHERE status = 'open') AS disputes,
+        (SELECT count(*) FROM disputes WHERE status <> 'resolved') AS disputes,
         (SELECT count(*) FROM messages WHERE status = 'pending_approval') AS pending,
         (SELECT count(*) FROM escalations WHERE status = 'open') AS escalations"""),
         {"d": today},
@@ -155,6 +155,7 @@ def dashboard(session: Session, today: date) -> dict[str, Any]:
             "score": p.score,
             "band": p.band,
             "reasons": [r.model_dump() for r in p.reasons],
+            "factors": [f.model_dump() for f in p.factors],
         }
         for cid, name, p in ranked
         if p.band == "HIGH"
@@ -187,7 +188,7 @@ def dashboard(session: Session, today: date) -> dict[str, Any]:
                 WHERE p.status = 'missed' ORDER BY p.promised_date DESC LIMIT 10"""),
             "disputes": listing("""SELECT d.id::text, d.customer_id::text, c.name AS customer_name, i.number AS invoice_number,
                 d.reason, d.status FROM disputes d JOIN customers c ON c.id = d.customer_id
-                JOIN invoices i ON i.id = d.invoice_id WHERE d.status = 'open' ORDER BY d.created_at DESC LIMIT 10"""),
+                JOIN invoices i ON i.id = d.invoice_id WHERE d.status <> 'resolved' ORDER BY d.created_at DESC LIMIT 10"""),
             "approved_ready": listing("""SELECT m.id::text, m.customer_id::text, c.name AS customer_name, m.subject
                 FROM messages m JOIN customers c ON c.id = m.customer_id WHERE m.status = 'approved' LIMIT 10"""),
             "needs_verification": listing("""SELECT id::text, amount_paise, reference, received_on FROM payments
@@ -221,6 +222,9 @@ class DisputeRow(BaseModel):
     reason: str
     status: str
     resolution_note: str | None
+    category: str
+    assigned_team: str | None
+    created_at: datetime
 
 
 class EscalationRow(BaseModel):
@@ -291,7 +295,8 @@ def list_disputes(
 ) -> list[DisputeRow]:
     rows = session.execute(
         text("""SELECT d.id::text, d.customer_id::text, c.name AS customer_name,
-        d.invoice_id::text, i.number AS invoice_number, d.reason, d.status, d.resolution_note
+        d.invoice_id::text, i.number AS invoice_number, d.reason, d.status, d.resolution_note,
+        d.category, d.assigned_team, d.created_at
         FROM disputes d JOIN customers c ON c.id = d.customer_id JOIN invoices i ON i.id = d.invoice_id
         WHERE (CAST(:s AS text) IS NULL OR d.status = :s) AND (CAST(:c AS uuid) IS NULL OR d.customer_id = CAST(:c AS uuid))
         ORDER BY d.created_at DESC, d.id LIMIT :l"""),

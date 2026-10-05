@@ -47,14 +47,15 @@ const Envelope = z.object({
   error: z.object({ code: z.string(), message: z.string(), request_id: z.string().optional() }),
 });
 
-type Init = { method?: "GET" | "POST" | "PATCH"; body?: unknown; headers?: Record<string, string> };
+/** anonymous: a public page (the customer portal) never sends a staff member's stored credentials. */
+type Init = { method?: "GET" | "POST" | "PATCH" | "PUT"; body?: unknown; headers?: Record<string, string>; anonymous?: boolean };
 
 export async function api<T extends z.ZodTypeAny>(path: string, schema: T, init: Init = {}): Promise<z.infer<T>> {
   const role = storedRole();
   const res = await fetch(`/api/v1${path}`, {
     method: init.method ?? "GET",
     headers: {
-      ...authHeaders(role, storedCode()),
+      ...(init.anonymous ? {} : authHeaders(role, storedCode())),
       ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...init.headers,
     },

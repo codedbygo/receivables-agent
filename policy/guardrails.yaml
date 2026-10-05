@@ -50,7 +50,24 @@ trusted_mode_allow:                # Q-008; all must hold for an auto-send
   no_missed_promise: true
 
 tools:                             # tier per tool; MCP clients act as collector
-  read: [list_overdue, get_customer_history, get_invoice, get_customer, check_promise_status]
+  read: [list_overdue, get_customer_history, get_customer_memory, get_invoice, get_customer, check_promise_status]
   write: [draft_message, log_promise, log_dispute, escalate, create_followup, classify_reply]
   gated: [send_message, record_payment]   # send gate / ledger evidence required
   forbidden_input_fields: [sql, query, raw]   # DIRECT_DB_ATTEMPT
+
+dispute_routing:                   # HACK-003 F7; category -> team. Every category in disputes.category needs a row.
+  invoice_error: billing
+  wrong_price: billing
+  duplicate_invoice: billing
+  wrong_quantity: operations
+  missing_delivery: operations
+  service_issue: operations
+  contract_issue: legal_contracts
+  other: collections
+dispute_auto_resolve: []           # deterministic rules allowed to resolve a dispute without a human; none configured
+
+cadence:                           # HACK-003 F2; day N counts from the first message of the current cycle
+  - {day: 1, channel: email}
+  - {day: 3, channel: whatsapp}
+  - {day: 7, channel: voice}
+  - {day: 10, channel: human}

@@ -27,6 +27,7 @@ PROSE = (
 
 class FakeChannel:
     name = "email"
+    simulated = False  # stands in for the real SMTP channel
 
     def __init__(self, fail: int = 0) -> None:
         self.sent: list[Outbound] = []

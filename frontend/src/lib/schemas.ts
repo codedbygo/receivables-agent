@@ -9,6 +9,8 @@ export const User = z.object({ id: z.string(), email: z.string(), display_name: 
 
 export const Band = z.enum(["HIGH", "MEDIUM", "LOW"]);
 export const Reason = z.object({ code: z.string(), text: z.string() });
+/** One scored input and the points it added (HACK-003 F4): decision factors, never model reasoning. */
+export const Factor = z.object({ code: z.string(), label: z.string(), value: z.string(), points: z.number(), rule: z.string() });
 
 export const Customer = z.object({
   id: z.string(),
@@ -42,6 +44,7 @@ export const Priority = z.object({
   score: z.number(),
   band: Band,
   reasons: z.array(Reason),
+  factors: z.array(Factor).default([]),
 });
 
 export const Check = z.object({
@@ -72,6 +75,7 @@ export const Message = z.object({
   sent_at: nstr,
   last_error: nstr,
   created_at: z.string(),
+  simulated: z.boolean().default(false),
 });
 
 export const Step = z.object({
@@ -138,8 +142,27 @@ export const Dispute = z.object({
   invoice_id: z.string(),
   invoice_number: z.string(),
   reason: z.string(),
-  status: z.string(),
+  status: z.enum(["open", "assigned", "investigating", "resolved"]),
   resolution_note: nstr,
+  category: z.string().default("other"),
+  assigned_team: nstr.default(null),
+});
+
+/** HACK-003 F5: a follow-up task for a missed or partly kept promise; every figure from the ledger. */
+export const FollowUp = z.object({
+  id: z.string(),
+  customer_id: z.string(),
+  customer_name: z.string(),
+  promise_id: z.string(),
+  kind: z.enum(["missed_promise", "partial_promise"]),
+  status: z.enum(["open", "done", "cancelled"]),
+  due_on: z.string(),
+  recommended_action: z.string(),
+  promised_paise: paise,
+  promised_date: z.string(),
+  received_paise: paise,
+  promise_status: z.string(),
+  message_id: nstr,
 });
 
 export const Escalation = z.object({
@@ -191,7 +214,7 @@ export const Dashboard = z.object({
   ageing: z.object({ d0_30_paise: paise, d31_60_paise: paise, d61_90_paise: paise, d90_plus_paise: paise }),
   attention: z.object({
     high_priority: z.array(
-      z.object({ customer_id: z.string(), customer_name: z.string(), score: z.number(), band: Band, reasons: z.array(Reason) }),
+      z.object({ customer_id: z.string(), customer_name: z.string(), score: z.number(), band: Band, reasons: z.array(Reason), factors: z.array(Factor).default([]) }),
     ),
     missed_promises: z.array(Row.extend({ amount_paise: paise, promised_date: z.string() })),
     disputes: z.array(Row.extend({ invoice_number: z.string(), reason: z.string() })),
@@ -213,6 +236,7 @@ export const Settings = z.object({
   feature_voice: z.boolean(),
   feature_payment_link: z.boolean(),
   feature_trusted_mode: z.boolean(),
+  feature_sms: z.boolean().default(false),
 });
 
 export const GuardrailEvent = z.object({
@@ -291,3 +315,134 @@ export type TimelineEvent = z.infer<typeof TimelineEvent>;
 export type Dashboard = z.infer<typeof Dashboard>;
 export type Settings = z.infer<typeof Settings>;
 export type EvalReport = z.infer<typeof EvalReport>;
+export type Dispute = z.infer<typeof Dispute>;
+export type FollowUp = z.infer<typeof FollowUp>;
+
+/** HACK-003 F8: CFO dashboard. Every figure is computed by the API from the ledger. */
+const Point = z.object({ label: z.string(), value: z.number().int() });
+export const Executive = z.object({
+  today: z.string(),
+  kpis: z.object({
+    total_receivables_paise: paise,
+    overdue_paise: paise,
+    collected_this_month_paise: paise,
+    at_risk_paise: paise,
+    promises_due_today_paise: paise,
+    missed_promises_paise: paise,
+    collection_rate_pct: z.number().int().nullable(),
+  }),
+  definitions: z.record(z.string(), z.string()),
+  ageing: z.array(Point),
+  collections_by_week: z.array(Point),
+  overdue_trend: z.array(Point),
+  promise_outcomes: z.array(Point),
+  risk_distribution: z.array(Point),
+  collections_by_channel: z.array(Point),
+  disputes_by_status: z.array(Point),
+  expected_collections: z.array(Point),
+  attention: z.array(
+    z.object({
+      customer_id: z.string(),
+      customer_name: z.string(),
+      severity: z.enum(["red", "amber"]),
+      score: z.number().int(),
+      headline: z.string(),
+      factors: z.array(Factor),
+    }),
+  ),
+});
+
+/** HACK-003 AI Safety Center: counts of real events, with what each count is made of. */
+export const Safety = z.object({
+  messages_checked: z.number().int(),
+  messages_passed: z.number().int(),
+  guardrail_failures: z.number().int(),
+  incorrect_amounts_blocked: z.number().int(),
+  prompt_attacks_blocked: z.number().int(),
+  human_approvals: z.number().int(),
+  human_rejections: z.number().int(),
+  automatic_approvals: z.number().int(),
+  automatic_sends: z.number().int(),
+  send_gate_refusals: z.number().int(),
+  tool_calls_refused: z.number().int(),
+  kill_switch: z.string(),
+  autonomy_mode: z.string(),
+  llm_spent_micro_usd: z.number().int(),
+  llm_budget_micro_usd: z.number().int(),
+  by_code: z.array(z.object({ check_name: z.string(), code: z.string(), count: z.number().int() })),
+  sources: z.record(z.string(), z.string()),
+});
+
+/** HACK-003 F2: which channel next, and the factors behind it. */
+export const ChannelPlan = z.object({
+  preferred_channel: nstr,
+  last_channel: nstr,
+  last_contact_on: nstr,
+  response_status: z.enum(["never contacted", "no response", "replied"]),
+  cadence_day: z.number().int(),
+  recommended_channel: z.string(),
+  draft_channel: z.enum(["email", "whatsapp", "sms"]),
+  next_step_channel: nstr,
+  next_step_on: nstr,
+  factors: z.array(z.string()),
+});
+
+/** HACK-003 F3: interaction history from rows; notes are internal and never reach the model or the portal. */
+export const Memory = z.object({
+  customer_id: z.string(),
+  items: z.array(
+    z.object({
+      on: z.string(),
+      kind: z.string(),
+      source: z.string(),
+      summary: z.string(),
+      amount_paise: paise.nullable(),
+      channel: nstr,
+    }),
+  ),
+  promise_recall: nstr,
+  notes: z.array(z.object({ id: z.string(), body: z.string(), author: nstr, created_at: z.string() })),
+});
+export const Note = z.object({ id: z.string(), body: z.string(), author: nstr, created_at: z.string() });
+export type ChannelPlan = z.infer<typeof ChannelPlan>;
+
+/** HACK-003 F1: an AI voice call. `simulated` comes from the provider: no phone rang when it is true. */
+export const Call = z.object({
+  id: z.string(),
+  customer_id: z.string(),
+  customer_name: z.string(),
+  provider: z.string(),
+  simulated: z.boolean(),
+  status: z.enum(["requested", "in_progress", "completed", "failed", "no_answer", "wrong_number"]),
+  state: z.string(),
+  outcome: nstr,
+  summary: nstr,
+  follow_up_on: nstr,
+  promise_id: nstr,
+  dispute_id: nstr,
+  started_at: z.string(),
+  ended_at: nstr,
+  turns: z.array(z.object({ seq: z.number().int(), speaker: z.enum(["ai", "customer"]), text: z.string(), intent: nstr })),
+});
+export type Call = z.infer<typeof Call>;
+
+/** HACK-003 F6: the public portal. Only these fields exist on the API side too (allow-listed). */
+export const PortalView = z.object({
+  customer_name: z.string(),
+  outstanding_paise: paise,
+  invoices: z.array(
+    z.object({
+      number: z.string(),
+      invoice_date: z.string(),
+      due_date: z.string(),
+      remaining_paise: paise,
+      status: z.enum(["open", "overdue", "under review"]),
+    }),
+  ),
+  promises: z.array(z.object({ amount_paise: paise, promised_date: z.string() })),
+  pay_now_available: z.boolean(),
+  payment_simulated: z.boolean(),
+  expires_at: z.string(),
+});
+export const PortalAck = z.object({ ok: z.boolean(), message: z.string() });
+export const PortalLink = z.object({ token: z.string(), path: z.string(), expires_at: z.string() });

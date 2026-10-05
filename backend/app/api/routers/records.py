@@ -3,7 +3,7 @@ US-00-013 to US-00-020, US-01-004, US-01-007)."""
 
 import uuid
 from datetime import date
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Header, Path, Query, Request
 from fastapi.concurrency import run_in_threadpool
@@ -13,7 +13,19 @@ from app.api.deps import AppSettings, Collector, Reader, SessionDep, Today
 from app.core.db import transaction
 from app.core.errors import AppError, ErrorCode
 from app.evaluation.harness import latest
-from app.services import callprep, collections, overview, paylink, payments
+from app.services import (
+    callprep,
+    collections,
+    communication,
+    disputes,
+    executive,
+    followups,
+    memory,
+    overview,
+    paylink,
+    payments,
+    safety,
+)
 from app.services.auth import User
 
 router = APIRouter()
@@ -130,6 +142,18 @@ def dashboard(session: SessionDep, _: Reader, today: Today) -> dict[str, Any]:
     return overview.dashboard(session, today)
 
 
+@router.get("/executive", response_model=executive.Executive)
+def executive_dashboard(session: SessionDep, _: Reader, today: Today) -> executive.Executive:
+    """CFO view (HACK-003 F8): every figure from the ledger, with its definition."""
+    return executive.executive(session, today)
+
+
+@router.get("/safety", response_model=safety.Safety)
+def safety_center(session: SessionDep, _: Reader) -> safety.Safety:
+    """AI Safety Center: counts of real guardrail, approval and send events."""
+    return safety.safety(session)
+
+
 @router.get("/customers/{id}/timeline", response_model=TimelinePage)
 def timeline(
     session: SessionDep, _: Reader, today: Today, id: Id, limit: Annotated[int, Query(ge=1, le=500)] = 200
@@ -138,6 +162,43 @@ def timeline(
     return TimelinePage(
         data=overview.timeline(session, cid, limit), next_action=overview.next_action(session, cid, today)
     )
+
+
+class NoteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    body: str = Field(min_length=1, max_length=2000)
+
+
+class ContactPreferences(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    preferred_channel: Literal["email", "whatsapp", "sms", "voice"] | None = None
+    consent: dict[Literal["whatsapp", "sms", "voice"], bool] = Field(default_factory=dict)
+
+
+@router.get("/customers/{id}/memory", response_model=memory.Memory)
+def customer_memory(session: SessionDep, _: Reader, id: Id) -> memory.Memory:
+    """HACK-003 F3: interaction history from rows, plus internal notes (signed-in roles only)."""
+    return memory.full(session, str(id))
+
+
+@router.post("/customers/{id}/notes", response_model=memory.Note)
+def add_note(session: SessionDep, user: Collector, id: Id, body: NoteIn) -> memory.Note:
+    return memory.add_note(session, str(id), body.body, user.id)
+
+
+@router.get("/customers/{id}/channels", response_model=communication.ChannelPlan)
+def channel_plan(session: SessionDep, _: Reader, today: Today, id: Id) -> communication.ChannelPlan:
+    """HACK-003 F2: preferred, last and next channel, with the factors behind the recommendation."""
+    return communication.plan(session, str(id), today)
+
+
+@router.put("/customers/{id}/contact-preferences", response_model=communication.ChannelPlan)
+def set_contact_preferences(
+    session: SessionDep, user: Collector, today: Today, id: Id, body: ContactPreferences
+) -> communication.ChannelPlan:
+    consent = {str(k): v for k, v in body.consent.items()}
+    communication.set_preferences(session, str(id), body.preferred_channel, consent, user.id)
+    return communication.plan(session, str(id), today)
 
 
 @router.get("/customers/{id}/runs", response_model=RunsPage)
@@ -177,9 +238,51 @@ def list_disputes(
     return DisputesPage(data=overview.list_disputes(session, status, _cid(customer_id), limit))
 
 
+class DisputeMove(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    to: Literal["assigned", "investigating"]
+    team: Literal["billing", "operations", "sales", "legal_contracts", "collections"] | None = None
+    note: str | None = Field(None, max_length=500)
+
+
+@router.post("/disputes/{id}/transition", response_model=overview.DisputeRow)
+def move_dispute(session: SessionDep, user: Collector, id: Id, body: DisputeMove) -> overview.DisputeRow:
+    """Assign, reassign or start investigating (HACK-003 F7). Resolving is /resolve, which needs a note."""
+    cid = disputes.transition(session, str(id), body.to, user.id, body.note, body.team)
+    return next(d for d in overview.list_disputes(session, None, cid) if d.id == str(id))
+
+
 @router.post("/disputes/{id}/resolve", response_model=collections.DisputeOut)
 def resolve_dispute(session: SessionDep, user: Collector, id: Id, body: Resolve) -> collections.DisputeOut:
     return collections.resolve_dispute(session, str(id), body.note, user.id)
+
+
+class FollowUpsPage(BaseModel):
+    data: list[followups.FollowUp]
+    page: Page = Page()
+
+
+class FollowUpClose(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["done", "cancelled"]
+    note: str = Field(min_length=1, max_length=500)
+
+
+@router.get("/follow-ups", response_model=FollowUpsPage)
+def list_followups(
+    session: SessionDep,
+    _: Reader,
+    customer_id: CustomerFilter = None,
+    status: Annotated[Literal["open", "done", "cancelled"] | None, Query(alias="filter[status]")] = None,
+    limit: Limit = 100,
+) -> FollowUpsPage:
+    """Missed and partly kept promises waiting for a collector (HACK-003 F5)."""
+    return FollowUpsPage(data=followups.list_followups(session, status, _cid(customer_id), limit))
+
+
+@router.post("/follow-ups/{id}/close", response_model=followups.FollowUp)
+def close_followup(session: SessionDep, user: Collector, id: Id, body: FollowUpClose) -> followups.FollowUp:
+    return followups.close(session, str(id), body.status, body.note, user.id)
 
 
 @router.get("/escalations", response_model=EscalationsPage)

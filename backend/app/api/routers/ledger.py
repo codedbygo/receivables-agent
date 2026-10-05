@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_session, get_today
 from app.services import ledger
-from app.services.priority import Priority, Reason, priorities, top
+from app.services.priority import Factor, Priority, Reason, priorities, top
 
 router = APIRouter()
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -30,6 +30,7 @@ class PriorityOut(BaseModel):
     score: int
     band: Literal["HIGH", "MEDIUM", "LOW"]
     reasons: list[Reason]
+    factors: list[Factor]
 
 
 class CustomersPage(BaseModel):
@@ -48,7 +49,9 @@ class PrioritiesPage(BaseModel):
 
 
 def _out(cid: str, name: str, p: Priority) -> PriorityOut:
-    return PriorityOut(customer_id=cid, customer_name=name, score=p.score, band=p.band, reasons=p.reasons)
+    return PriorityOut(
+        customer_id=cid, customer_name=name, score=p.score, band=p.band, reasons=p.reasons, factors=p.factors
+    )
 
 
 # ponytail: pages are one fetch up to limit (50 customers, <= 12 invoices each);

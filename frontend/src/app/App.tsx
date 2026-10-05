@@ -6,7 +6,10 @@ import { Approvals } from "../features/Approvals";
 import { CustomerPage } from "../features/Customer";
 import { Customers } from "../features/Customers";
 import { Evaluation } from "../features/Evaluation";
+import { Executive } from "../features/Executive";
+import { SafetyCenter } from "../features/Safety";
 import { Pay } from "../features/Pay";
+import { Portal } from "../features/Portal";
 import { Today } from "../features/Today";
 import { storedRole, storeCode, storeRole } from "../lib/api";
 import { useMe } from "../lib/hooks";
@@ -67,8 +70,10 @@ function SignIn({ onPick }: { onPick: (r: Role, code: string) => void }) {
 
 const NAV: { route: Route; label: string; adminOnly?: boolean }[] = [
   { route: { page: "today" }, label: "Today" },
+  { route: { page: "executive" }, label: "CFO view" },
   { route: { page: "approvals" }, label: "Approvals" },
   { route: { page: "customers" }, label: "Customers" },
+  { route: { page: "safety" }, label: "AI Safety" },
   { route: { page: "evals" }, label: "Evaluation" },
   { route: { page: "admin" }, label: "Admin", adminOnly: true },
 ];
@@ -83,7 +88,8 @@ function Shell() {
     setRole(r);
     qc.clear();
   };
-  if (route.page === "pay") return <Pay token={route.token} />;  // public: the customer has no role
+  if (route.page === "pay") return <Pay token={route.token} />; // public: the customer has no role
+  if (route.page === "portal") return <Portal token={route.token} />; // public: the link is the credential
   if (!role) return <SignIn onPick={pick} />;
   return <Console role={role} onSignOut={() => pick(null)} />;
 }
@@ -134,6 +140,8 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
         {route.page === "customer" && <CustomerPage key={route.id} id={route.id} role={role} />}
         {route.page === "admin" && (role === "admin" ? <Admin /> : <p>Admin is for the admin role.</p>)}
         {route.page === "evals" && <Evaluation />}
+        {route.page === "executive" && <Executive />}
+        {route.page === "safety" && <SafetyCenter />}
       </main>
     </div>
   );

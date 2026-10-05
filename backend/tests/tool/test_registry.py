@@ -137,7 +137,7 @@ def test_log_dispute_marks_invoice_and_refuses_a_second_open_one(reg, engine: En
     first = reg.invoke("log_dispute", args, ctx())
     second = reg.invoke("log_dispute", args, ctx())
 
-    assert first["ok"] and first["data"]["status"] == "open"
+    assert first["ok"] and first["data"]["status"] == "assigned"  # routed on creation (HACK-003 F7)
     assert scalar(engine, "SELECT status FROM invoices WHERE number = 'INV-1047'") == "disputed"
     assert second["error"]["code"] == "DISPUTE_EXISTS"
 

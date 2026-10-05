@@ -16,6 +16,18 @@ describe("parse", () => {
     expect(parse("#/pay/INV-1034.0123456789abcdef0123456789abcdef")).toEqual({ page: "today" }); // no expiry segment
   });
 
+  it("reads the CFO view and the AI Safety Center (HACK-003)", () => {
+    expect(parse("#/executive")).toEqual({ page: "executive" });
+    expect(parse("#/safety")).toEqual({ page: "safety" });
+  });
+
+  it("reads a portal token and refuses a malformed one (HACK-003)", () => {
+    const token = "Abc_def-1234567890abcdef1234567890ABCDEF12";
+    expect(parse(`#/portal/${token}`)).toEqual({ page: "portal", token });
+    expect(parse("#/portal/short")).toEqual({ page: "today" });
+    expect(parse("#/portal/bad%20token%20with%20spaces%20xxxxxxx")).toEqual({ page: "today" });
+  });
+
   it("falls back to Today for anything unknown or malformed", () => {
     expect(parse("#/customers/not-a-uuid")).toEqual({ page: "customers" });
     expect(parse("#/nowhere")).toEqual({ page: "today" });
