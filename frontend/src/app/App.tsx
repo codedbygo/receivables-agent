@@ -9,8 +9,6 @@ import {
   LogOut,
   Monitor,
   Moon,
-  PanelLeftClose,
-  PanelLeftOpen,
   Settings2,
   ShieldCheck,
   Sun,
@@ -19,7 +17,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { Button, ErrorLine, Loading } from "@/components/kit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -125,6 +123,9 @@ function SignIn({ onPick }: { onPick: (r: Role, code: string) => void }) {
   );
 }
 
+/** Sidebar widths in px: icons only, the drag range, the default, and the width below which it snaps shut. */
+const SIDE = { collapsed: 64, min: 200, open: 240, max: 400, snap: 140 };
+
 const NAV: { route: Route; label: string; icon: LucideIcon; adminOnly?: boolean }[] = [
   { route: { page: "today" }, label: "Today", icon: LayoutDashboard },
   { route: { page: "executive" }, label: "CFO view", icon: IndianRupee },
@@ -155,10 +156,25 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
   const route = useRoute();
   const me = useMe();
   const current = route.page === "customer" ? "customers" : route.page;
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("ca.sidebar") === "collapsed");
-  const toggle = () => {
-    localStorage.setItem("ca.sidebar", collapsed ? "expanded" : "collapsed");
-    setCollapsed(!collapsed);
+  const [width, setWidth] = useState(() => Number(localStorage.getItem("ca.sidebar-width")) || SIDE.open);
+  const collapsed = width === SIDE.collapsed;
+  const resize = (w: number) => {
+    // Like VS Code: dragged narrow enough, the sidebar snaps to icons only.
+    const next = w < SIDE.snap ? SIDE.collapsed : Math.min(SIDE.max, Math.max(SIDE.min, w));
+    localStorage.setItem("ca.sidebar-width", String(next));
+    setWidth(next);
+  };
+  const drag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const move = (m: PointerEvent) => resize(m.clientX);
+    const up = () => {
+      document.body.classList.remove("cursor-col-resize", "select-none");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    document.body.classList.add("cursor-col-resize", "select-none");
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   };
   if (me.isPending) {
     return (
@@ -190,23 +206,30 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
       <nav
         aria-label="Main"
         data-collapsed={collapsed || undefined}
-        className="group/side flex shrink-0 flex-row items-center gap-1 overflow-x-auto border-b border-sidebar-border bg-sidebar p-2 text-sidebar-foreground md:border-r md:border-b-0 md:sticky md:top-0 md:h-screen md:w-60 md:flex-col md:data-collapsed:w-16 md:data-collapsed:p-2 md:items-stretch md:gap-0 md:overflow-visible md:p-3"
+        style={{ "--side-w": `${width}px` } as CSSProperties}
+        className="group/side flex shrink-0 flex-row items-center gap-1 overflow-x-auto border-b border-sidebar-border bg-sidebar p-2 text-sidebar-foreground md:border-r md:border-b-0 md:sticky md:top-0 md:h-screen md:w-(--side-w) md:flex-col md:data-collapsed:p-2 md:items-stretch md:gap-0 md:overflow-visible md:p-3"
       >
-        <div className="hidden items-center justify-between gap-1 md:mb-4 md:flex md:group-data-collapsed/side:flex-col">
-          <a href={href({ page: "today" })} className="rounded-lg px-2 py-3 text-sidebar-strong">
-            <Brand />
-          </a>
-          <button
-            type="button"
-            onClick={toggle}
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="grid size-9 shrink-0 place-items-center rounded-lg text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-strong"
-          >
-            {collapsed ? <PanelLeftOpen aria-hidden className="size-4" /> : <PanelLeftClose aria-hidden className="size-4" />}
-          </button>
-        </div>
+        <a href={href({ page: "today" })} className="hidden rounded-lg px-2 py-3 text-sidebar-strong md:mb-4 md:block">
+          <Brand />
+        </a>
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          aria-valuenow={width}
+          aria-valuemin={SIDE.collapsed}
+          aria-valuemax={SIDE.max}
+          tabIndex={0}
+          title="Drag to resize, double-click to collapse or expand"
+          onPointerDown={drag}
+          onDoubleClick={() => resize(collapsed ? SIDE.open : SIDE.collapsed)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft") resize(width - 24);
+            else if (e.key === "ArrowRight") resize(collapsed ? SIDE.min : width + 24);
+            else if (e.key === "Enter") resize(collapsed ? SIDE.open : SIDE.collapsed);
+          }}
+          className="absolute inset-y-0 -right-1 z-10 hidden w-2 cursor-col-resize outline-none after:absolute after:inset-y-0 after:left-1/2 after:w-px focus-visible:after:bg-ring md:block"
+        />
         <p className="hidden px-3 pb-2 text-xs font-medium tracking-wider text-sidebar-muted uppercase md:block md:group-data-collapsed/side:hidden">Workspace</p>
         {NAV.filter((n) => !n.adminOnly || role === "admin").map((n) => (
           <a
