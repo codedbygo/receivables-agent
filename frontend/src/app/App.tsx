@@ -9,6 +9,8 @@ import {
   LogOut,
   Monitor,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings2,
   ShieldCheck,
   Sun,
@@ -62,7 +64,7 @@ function Brand({ className }: { className?: string }) {
       <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground shadow-sm">
         <Wallet aria-hidden className="size-4" />
       </span>
-      Collections Agent
+      <span className={"md:group-data-collapsed/side:sr-only"}>Collections Agent</span>
     </span>
   );
 }
@@ -153,6 +155,11 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
   const route = useRoute();
   const me = useMe();
   const current = route.page === "customer" ? "customers" : route.page;
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("ca.sidebar") === "collapsed");
+  const toggle = () => {
+    localStorage.setItem("ca.sidebar", collapsed ? "expanded" : "collapsed");
+    setCollapsed(!collapsed);
+  };
   if (me.isPending) {
     return (
       <main className="grid min-h-screen place-items-center">
@@ -182,16 +189,30 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
     <div className="flex min-h-screen flex-col md:flex-row">
       <nav
         aria-label="Main"
-        className="flex shrink-0 flex-row items-center gap-1 overflow-x-auto border-b border-sidebar-border bg-sidebar p-2 text-sidebar-foreground md:border-r md:border-b-0 md:sticky md:top-0 md:h-screen md:w-60 md:flex-col md:items-stretch md:gap-0 md:overflow-visible md:p-3"
+        data-collapsed={collapsed || undefined}
+        className="group/side flex shrink-0 flex-row items-center gap-1 overflow-x-auto border-b border-sidebar-border bg-sidebar p-2 text-sidebar-foreground md:border-r md:border-b-0 md:sticky md:top-0 md:h-screen md:w-60 md:flex-col md:data-collapsed:w-16 md:data-collapsed:p-2 md:items-stretch md:gap-0 md:overflow-visible md:p-3"
       >
-        <a href={href({ page: "today" })} className="hidden rounded-lg px-2 py-3 text-sidebar-strong md:mb-4 md:block">
-          <Brand />
-        </a>
-        <p className="hidden px-3 pb-2 text-xs font-medium tracking-wider text-sidebar-muted uppercase md:block">Workspace</p>
+        <div className="hidden items-center justify-between gap-1 md:mb-4 md:flex md:group-data-collapsed/side:flex-col">
+          <a href={href({ page: "today" })} className="rounded-lg px-2 py-3 text-sidebar-strong">
+            <Brand />
+          </a>
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="grid size-9 shrink-0 place-items-center rounded-lg text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-strong"
+          >
+            {collapsed ? <PanelLeftOpen aria-hidden className="size-4" /> : <PanelLeftClose aria-hidden className="size-4" />}
+          </button>
+        </div>
+        <p className="hidden px-3 pb-2 text-xs font-medium tracking-wider text-sidebar-muted uppercase md:block md:group-data-collapsed/side:hidden">Workspace</p>
         {NAV.filter((n) => !n.adminOnly || role === "admin").map((n) => (
           <a
             key={n.label}
             href={href(n.route)}
+            title={collapsed ? n.label : undefined}
             aria-current={current === n.route.page ? "page" : undefined}
             className="flex min-h-10 shrink-0 items-center gap-3 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors hover:bg-sidebar-active hover:text-sidebar-strong aria-[current=page]:bg-sidebar-active aria-[current=page]:text-sidebar-strong md:mb-0.5"
           >
@@ -199,12 +220,12 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
               aria-hidden
               className={cn("size-4", current === n.route.page ? "text-sidebar-primary" : "text-sidebar-muted")}
             />
-            {n.label}
+            <span className="md:group-data-collapsed/side:sr-only">{n.label}</span>
           </a>
         ))}
         <div className="ml-auto flex items-center gap-1 md:mt-auto md:ml-0 md:flex-col md:items-stretch md:gap-2 md:border-t md:border-sidebar-border md:pt-3">
           <ThemeToggle />
-          <div className="hidden items-center gap-3 rounded-lg px-2 py-2 md:flex">
+          <div className="hidden items-center gap-3 rounded-lg px-2 py-2 md:flex md:group-data-collapsed/side:hidden">
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-sidebar-active text-xs font-semibold text-sidebar-strong">
               {initials}
             </span>
@@ -219,7 +240,7 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
             className="flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm whitespace-nowrap hover:bg-sidebar-active hover:text-sidebar-strong"
           >
             <LogOut aria-hidden className="size-4 text-sidebar-muted" />
-            Switch role
+            <span className="md:group-data-collapsed/side:sr-only">Switch role</span>
           </button>
         </div>
       </nav>
@@ -261,7 +282,7 @@ function ThemeToggle() {
       className="flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm whitespace-nowrap hover:bg-sidebar-active hover:text-sidebar-strong"
     >
       <Icon aria-hidden className="size-4 text-sidebar-muted" />
-      <span className="hidden capitalize md:inline">Theme: {theme}</span>
+      <span className="hidden capitalize md:inline md:group-data-collapsed/side:hidden">Theme: {theme}</span>
     </button>
   );
 }
