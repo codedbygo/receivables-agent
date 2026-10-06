@@ -261,12 +261,13 @@ def evaluate_promises(session: Session, customer_id: str) -> None:
     a promise whose date has passed is partially fulfilled or missed (Q-004, no grace days)."""
     d = today(session)
     promises = session.execute(
-        text("""SELECT id::text, amount_paise, promised_date, created_at FROM promises
-        WHERE customer_id = CAST(:c AS uuid) AND status = 'pending' ORDER BY promised_date, created_at FOR UPDATE"""),
+        text("""SELECT id::text, amount_paise, promised_date, created_at, status FROM promises
+        WHERE customer_id = CAST(:c AS uuid) ORDER BY promised_date, created_at FOR UPDATE"""),
         {"c": customer_id},
     ).all()
-    # ponytail: earlier promises consume payments first, within this evaluation only; a credit that settled a
-    # promise in an earlier evaluation is excluded by created_at. Per-payment allocation to promises if that leaks.
+    # Every promise is replayed in order so earlier ones consume payments first, settled ones included: one credit
+    # never settles two promises across evaluations (HACK-004). Only pending promises are written.
+    # ponytail: consumption is customer-wide, not per payment; per-payment allocation to promises if windows clash.
     used = 0
     for p in promises:
         paid: int = session.execute(
@@ -276,7 +277,11 @@ def evaluate_promises(session: Session, customer_id: str) -> None:
             {"c": customer_id, "pd": p.promised_date, "made": p.created_at},
         ).scalar_one()
         paid = max(paid - used, 0)
+        if p.status == "missed":  # it settled nothing, so it holds no payment back from later promises
+            continue
         used += min(paid, p.amount_paise)
+        if p.status != "pending":
+            continue
         if paid >= p.amount_paise:
             status, kind = "fulfilled", "promise_fulfilled"
         elif d > p.promised_date:
