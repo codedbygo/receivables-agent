@@ -34,7 +34,7 @@ export function Portal({ token }: { token: string }) {
   if (view.isError)
     return (
       <Shell>
-        <ErrorLine error={view.error} />
+        <ErrorLine error={view.error} plain />
       </Shell>
     );
   const v = view.data;
@@ -90,7 +90,7 @@ export function Portal({ token }: { token: string }) {
         </Button>
         <Button onClick={() => setOpen("help")}>Request help</Button>
       </div>
-      <ErrorLine error={act.error} />
+      <ErrorLine error={act.error} plain />
 
       {open === "promise" && (
         <PromiseForm max={v.outstanding_paise} busy={act.isPending} onCancel={() => setOpen(null)} onSubmit={(body) => act.mutate({ path: "promise", body })} />

@@ -108,7 +108,7 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-display font-semibold tracking-tight">{c.name}</h1>
-          <p className="mt-1 text-muted-foreground capitalize">
+          <p className="mt-1 text-muted-foreground">
             {c.segment.replaceAll("_", " ")} · {c.credit_terms_days}-day terms · {c.email} · {c.phone}
           </p>
         </div>
@@ -148,7 +148,7 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
           label="Priority"
           value={
             <>
-              {priority.score} <BandBadge band={priority.band} />
+              {priority.score === 0 ? "Not prioritised" : <>{priority.score} <BandBadge band={priority.band} /></>}
             </>
           }
         />
@@ -157,7 +157,7 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
 
       <ContactPanel customerId={id} canAct={canAct} />
 
-      <Panel title={`Why is this customer ${priority.band} priority?`}>
+      <Panel title={priority.score === 0 ? "Why is this customer not prioritised?" : `Why is this customer ${priority.band} priority?`}>
         <WhyFactors factors={priority.factors} score={priority.score} />
       </Panel>
 

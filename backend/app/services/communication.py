@@ -81,8 +81,8 @@ def choose(
         preferred_channel=preferred,
         last_channel=last_channel,
         last_contact_on=last_contact_on,
-        response_status="never contacted"
-        if first_contact is None
+        response_status="never contacted"  # no send in any cycle, not only since the last payment (HACK-004)
+        if first_contact is None and last_contact_on is None
         else "replied"
         if replied
         else "no response",

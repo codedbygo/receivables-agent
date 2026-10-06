@@ -10,9 +10,10 @@ from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
 from app.channels.email import ChannelError, EmailChannel, Outbound
+from app.core import clock
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
-from app.services import approval
+from app.services import approval, ledger
 from app.services.demo import reset_demo, uid
 from app.tools.registry import ToolContext, build_registry
 from app.worker.jobs import reap, run_once
@@ -313,3 +314,13 @@ def test_payment_after_approval_returns_the_draft_for_review(engine: Engine, dra
     assert (m.status, m.verified, m.last_error) == ("pending_approval", False, "TOTAL_MISMATCH")
     assert one(engine, f"SELECT status FROM jobs WHERE dedupe_key = '{draft_id}'") == "done"
     assert one(engine, f"SELECT count(*) FROM guardrail_events WHERE message_id = '{draft_id}'") == 1
+
+
+# HACK-004 (QA ISSUE-002): the list showed the wall-clock send time, the customer page the demo business date.
+def test_last_contact_in_the_list_is_the_business_date_of_the_send(engine: Engine, draft_id: str) -> None:
+    approve(engine, draft_id)
+    worker(engine, FakeChannel())
+
+    with tx(engine) as s:
+        row = ledger.list_customers(s, clock.today(s), customer_id=ABC)[0]
+        assert str(row.last_contact_at) == str(clock.today(s)) == "2026-09-30"

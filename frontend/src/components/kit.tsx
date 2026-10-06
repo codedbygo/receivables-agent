@@ -195,7 +195,8 @@ export function Loading({ what }: { what: string }) {
   );
 }
 
-export function ErrorLine({ error }: { error: unknown }) {
+/** `plain` hides the error code and request id: the customer portal shows people the message only (HACK-004). */
+export function ErrorLine({ error, plain = false }: { error: unknown; plain?: boolean }) {
   if (!error) return null;
   const e = error instanceof ApiError ? error : null;
   return (
@@ -204,8 +205,9 @@ export function ErrorLine({ error }: { error: unknown }) {
       <span>
         {e ? (
           <>
-            <span className="font-mono font-semibold">{e.code}</span>: {e.message}
-            {e.requestId && <span className="font-mono text-xs opacity-80"> (request {e.requestId})</span>}
+            {!plain && <span className="font-mono font-semibold">{e.code}: </span>}
+            {e.message}
+            {!plain && e.requestId && <span className="font-mono text-xs opacity-80"> (request {e.requestId})</span>}
           </>
         ) : (
           "Error: something went wrong. Reload and try again."

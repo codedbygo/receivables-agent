@@ -138,3 +138,13 @@ def test_the_reply_is_delimited_as_data_and_the_classifier_has_no_tools() -> Non
     gateway.complete.return_value = SimpleNamespace(text='{"class": "OTHER_NOISE", "confidence": 0.9}')
     classify(reply, TODAY, [], gateway)
     assert gateway.complete.call_args.kwargs.get("tools") is None
+
+
+# HACK-004 (QA ISSUE-008): "per unit" sent a rate dispute to the quantity rule.
+def test_a_rate_dispute_that_mentions_units_is_a_price_dispute() -> None:
+    from app.agent.classify import dispute_category, dispute_reason
+
+    said = "Invoice INV-1034 charges 450 per unit but our agreed rate is 410 per unit."
+
+    assert dispute_category(said) == "wrong_price"
+    assert dispute_reason(said).startswith("price mismatch: ")

@@ -35,8 +35,8 @@ CLASSES: set[str] = {
 
 
 DISPUTE_KINDS = (
-    ("quantity mismatch", re.compile(r"\b(units?|qty|quantity|pieces|pcs|received only|short)\b", re.I)),
     ("price mismatch", re.compile(r"\b(rate|price|priced|agreed \d)", re.I)),
+    ("quantity mismatch", re.compile(r"\b(units?|qty|quantity|pieces|pcs|received only|short)\b", re.I)),
     ("damaged goods", re.compile(r"\b(damaged|broken|defective)\b", re.I)),
     ("not delivered", re.compile(r"\b(never received|not received|not delivered|no delivery)\b", re.I)),
 )
@@ -48,14 +48,15 @@ def dispute_reason(reply: str) -> str:
     return f"{kind}: {reply.strip()}"[:200]
 
 
-# HACK-003 F7: the eight dispute categories, most specific first. Rules over the customer's words, never the model's.
+# HACK-003 F7: the eight dispute categories, most specific first; price before quantity, since a rate is quoted
+# "per unit" (HACK-004). Rules over the customer's words, never the model's.
 DISPUTE_CATEGORIES = (
     ("duplicate_invoice", re.compile(r"\b(duplicate|charged twice|billed twice|same order|twice)\b", re.I)),
+    ("wrong_price", re.compile(r"\b(rate|price|priced|overcharged|agreed \d|discount)\b", re.I)),
     (
         "wrong_quantity",
         re.compile(r"\b(units?|qty|quantity|pieces|pcs|received only|short supply|shortage)\b", re.I),
     ),
-    ("wrong_price", re.compile(r"\b(rate|price|priced|overcharged|agreed \d|discount)\b", re.I)),
     (
         "missing_delivery",
         re.compile(r"\b(never received|not received|not delivered|no delivery|consignment|shipment)\b", re.I),

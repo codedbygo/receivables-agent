@@ -36,7 +36,7 @@ export function ContactPanel({ customerId, canAct }: { customerId: string; canAc
           label="Last contact"
           value={<span className="text-title">{p.last_contact_on ? day(p.last_contact_on) : "Never"}</span>}
         />
-        <Figure label="Response" value={<span className="text-title capitalize">{p.response_status}</span>} />
+        <Figure label="Response" value={<span className="block text-title first-letter:uppercase">{p.response_status}</span>} />
         <Figure
           label="Next recommended"
           value={<span className="text-title">{label(p.recommended_channel)}</span>}

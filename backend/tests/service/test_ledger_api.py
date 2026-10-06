@@ -95,3 +95,11 @@ def test_unknown_customer_is_404_with_the_envelope(client: TestClient) -> None:
 
 def test_customers_list_has_all_50(client: TestClient) -> None:
     assert len(client.get("/api/v1/customers").json()["data"]) == 50
+
+
+# HACK-004 (QA ISSUE-001): the list hard-coded next_action None while the customer page showed the real one.
+def test_the_list_shows_the_same_next_action_as_the_customer_page(client: TestClient) -> None:
+    row = next(c for c in client.get("/api/v1/customers").json()["data"] if c["id"] == ABC)
+    page = client.get(f"/api/v1/customers/{ABC}/timeline").json()
+
+    assert row["next_action"] == page["next_action"] == "Send follow-up on missed promise"

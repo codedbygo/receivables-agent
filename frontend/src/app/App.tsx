@@ -227,6 +227,8 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
             if (e.key === "ArrowLeft") resize(width - 24);
             else if (e.key === "ArrowRight") resize(collapsed ? SIDE.min : width + 24);
             else if (e.key === "Enter") resize(collapsed ? SIDE.open : SIDE.collapsed);
+            else if (e.key === "Home") resize(SIDE.collapsed); // the separator pattern: Home and End go to min and max
+            else if (e.key === "End") resize(SIDE.max);
           }}
           className="absolute inset-y-0 -right-1 z-10 hidden w-2 cursor-col-resize outline-none after:absolute after:inset-y-0 after:left-1/2 after:w-px focus-visible:after:bg-ring md:block"
         />
