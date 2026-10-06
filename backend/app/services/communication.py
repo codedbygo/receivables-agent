@@ -33,6 +33,7 @@ class ChannelPlan(BaseModel):
     next_step_channel: str | None
     next_step_on: date | None
     factors: list[str]
+    consent: dict[str, bool]  # what the customer agreed to beyond email (always on), for the preferences form
 
 
 def choose(
@@ -91,6 +92,7 @@ def choose(
         next_step_channel=nxt[1] if nxt else None,
         next_step_on=first_contact + timedelta(days=nxt[0] - 1) if nxt and first_contact else None,
         factors=factors,
+        consent={ch: consent.get(ch, False) for ch in ("whatsapp", "sms", "voice")},
     )
 
 

@@ -71,3 +71,10 @@ def test_response_status_and_the_next_step() -> None:
     assert (p.next_step_channel, p.next_step_on) == ("voice", date(2026, 10, 14))
     assert plan(None).response_status == "never contacted"
     assert plan(date(2026, 10, 8), replied=True).response_status == "replied"
+
+
+# HACK-004 (QA ISSUE-014): the plan never returned consent, so the dialog reset it to "not agreed" on every save.
+def test_the_plan_returns_what_the_customer_agreed_to() -> None:
+    p = plan(None, consent={"email": True, "whatsapp": True})
+
+    assert p.consent == {"whatsapp": True, "sms": False, "voice": False}

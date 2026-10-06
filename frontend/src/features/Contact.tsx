@@ -60,7 +60,7 @@ export function ContactPanel({ customerId, canAct }: { customerId: string; canAc
 
 function PreferencesDialog({ customerId, plan, onClose }: { customerId: string; plan: S.ChannelPlan; onClose: () => void }) {
   const [preferred, setPreferred] = useState(plan.preferred_channel ?? "email");
-  const [consent, setConsent] = useState({ whatsapp: false, sms: false, voice: false });
+  const [consent, setConsent] = useState(plan.consent); // what is stored, so a save changes only what was ticked
   const save = useAction(() =>
     api(`/customers/${customerId}/contact-preferences`, S.ChannelPlan, {
       method: "PUT",
