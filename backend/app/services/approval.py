@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.channels.email import ChannelError, MessageChannel, Outbound
 from app.core.clock import today
 from app.core.errors import AppError, ErrorCode
-from app.guardrails.verify import VerifyContext, policy, verify
+from app.guardrails.verify import Report, VerifyContext, policy, verify
 from app.services.drafting import _facts, customer_state
 from app.services.priority import priorities
 from app.services.timeline import record
@@ -102,6 +102,12 @@ def approve(session: Session, message_id: str, if_match: int | None, user_id: st
         raise AppError(ErrorCode.NOT_APPROVED, f"A {row.status} message cannot be approved.")
     if row.verified_version != row.version:
         raise AppError(ErrorCode.NOT_VERIFIED, "The current text has not passed the guardrails.")
+    msg = get_message(session, message_id)
+    report = _check_ledger(session, msg, msg.subject, msg.body)
+    if not report.ok:  # HACK-004: the ledger moved since the draft was verified
+        _refuse(
+            session, report, row.customer_id, message_id, "approval", "Edit the draft or run the agent again."
+        )
     session.execute(
         text("""UPDATE messages SET status = 'approved', approved_by = CAST(:u AS uuid), approved_at = now(),
         updated_at = now() WHERE id = CAST(:m AS uuid)"""),
@@ -170,33 +176,9 @@ def edit(
     if row.status != "pending_approval":
         raise AppError(ErrorCode.NOT_APPROVED, f"A {row.status} message cannot be edited.")
     msg = get_message(session, message_id)
-    facts, names = _facts(session)
-    disputed, promises = customer_state(session, msg.customer_id)
-    report = verify(  # the subject goes out too, so it is checked with the body
-        f"{subject}\n{body}",
-        VerifyContext(
-            customer=msg.customer_name,
-            cited=tuple(msg.invoice_numbers),
-            invoices=facts,
-            customer_names=names,
-            today=today(session),
-            kind=msg.kind,
-            promise_amounts=tuple(p.amount_paise for p in promises),
-            promise_dates=tuple(p.promised_date for p in promises),
-            disputed=disputed,
-        ),
-    )
+    report = _check_ledger(session, msg, subject, body)
     if not report.ok:
-        bad = [c for c in report.checks if not c.ok]
-        for c in bad:  # a refused edit is a blocked figure too: the Safety Center counts it (HACK-003)
-            _log_refusal(session, c.code or "VALIDATION_ERROR", row.customer_id, message_id, c.check)
-        first = bad[0]
-        hint = f" (ledger: {first.expected})" if first.expected else ""
-        raise AppError(
-            ErrorCode(first.code or "VALIDATION_ERROR"),
-            f"{first.token} does not match the ledger{hint}. Fix it or cancel.",
-            [{"field": c.check, "reason": f"{c.code}: {c.token}"} for c in bad],
-        )
+        _refuse(session, report, row.customer_id, message_id, "human_edit", "Fix it or cancel.")
     session.execute(
         text("""UPDATE messages SET subject = :s, body = :b, version = version + 1,
         verified_version = version + 1, guardrail_report = CAST(:rep AS jsonb), updated_at = now(),
@@ -222,8 +204,53 @@ def edit(
     return get_message(session, message_id)
 
 
+class StaleFigures(AppError):
+    """The text no longer matches the ledger (a payment, an allocation or a new promise since it was verified)."""
+
+
+def _check_ledger(session: Session, msg: Message, subject: str, body: str) -> Report:
+    """The verifier against the ledger as it is now; the subject goes out too, so it is checked with the body."""
+    facts, names = _facts(session)
+    disputed, promises = customer_state(session, msg.customer_id)
+    return verify(
+        f"{subject}\n{body}",
+        VerifyContext(
+            customer=msg.customer_name,
+            cited=tuple(msg.invoice_numbers),
+            invoices=facts,
+            customer_names=names,
+            today=today(session),
+            kind=msg.kind,
+            promise_amounts=tuple(p.amount_paise for p in promises),
+            promise_dates=tuple(p.promised_date for p in promises),
+            disputed=disputed,
+        ),
+    )
+
+
+def _refuse(
+    session: Session, report: Report, customer_id: str, message_id: str, source: str, ask: str
+) -> None:
+    """Log every failed check (the Safety Center counts them, HACK-003) and raise the first one."""
+    bad = [c for c in report.checks if not c.ok]
+    for c in bad:
+        _log_refusal(session, c.code or "VALIDATION_ERROR", customer_id, message_id, c.check, source)
+    first = bad[0]
+    hint = f" (ledger: {first.expected})" if first.expected else ""
+    raise StaleFigures(
+        ErrorCode(first.code or "VALIDATION_ERROR"),
+        f"{first.token} does not match the ledger{hint}. {ask}",
+        [{"field": c.check, "reason": f"{c.code}: {c.token}"} for c in bad],
+    )
+
+
 def _log_refusal(
-    session: Session, code: str, customer_id: str, message_id: str, check_name: str = "send_gate"
+    session: Session,
+    code: str,
+    customer_id: str,
+    message_id: str,
+    check_name: str = "send_gate",
+    source: str = "human_edit",
 ) -> None:
     """A refusal is logged in its own transaction: the caller's transaction rolls back on the error.
 
@@ -232,7 +259,7 @@ def _log_refusal(
     bind = session.get_bind()
     engine: Engine = bind.engine if isinstance(bind, Connection) else bind
     gate = check_name == "send_gate"  # the send gate locks FOR NO KEY UPDATE, which the foreign key allows
-    detail = "{}" if gate else json.dumps({"source": "human_edit", "message_id": message_id})
+    detail = "{}" if gate else json.dumps({"source": source, "message_id": message_id})
     with engine.begin() as c:
         c.execute(
             text("""INSERT INTO guardrail_events (check_name, code, customer_id, message_id, detail)
@@ -280,6 +307,11 @@ def send_gate(session: Session, message_id: str) -> Any:
     if reason:
         _log_refusal(session, reason[0], m.customer_id, message_id)
         raise AppError(*reason)
+    report = _check_ledger(session, get_message(session, message_id), m.subject, m.body)
+    if not report.ok:  # HACK-004: verified at one version of the ledger, never sent at another
+        code = ErrorCode(next(c.code for c in report.checks if not c.ok) or "VALIDATION_ERROR")
+        _log_refusal(session, code, m.customer_id, message_id)
+        raise StaleFigures(code, "The figures changed since this message was verified.")
     return m
 
 
@@ -293,7 +325,8 @@ def deliver(engine: Engine, message_id: str, channels: dict[str, MessageChannel]
     """The send worker. The claim (IN_FLIGHT) commits before delivery, so a crash can never cause a second one."""
     with engine.begin() as c, Session(bind=c) as s:
         m = s.execute(
-            text("SELECT status, last_error FROM messages WHERE id = CAST(:m AS uuid) FOR NO KEY UPDATE"),
+            text("""SELECT status, last_error, customer_id::text FROM messages WHERE id = CAST(:m AS uuid)
+            FOR NO KEY UPDATE"""),
             {"m": message_id},
         ).one()
         if m.status == "sent":
@@ -313,6 +346,23 @@ def deliver(engine: Engine, message_id: str, channels: dict[str, MessageChannel]
                 raise Defer from e
             if m.status != "approved":
                 raise
+            if isinstance(e, StaleFigures):  # back to the queue unverified: an edit or a new run re-checks it
+                s.execute(
+                    text("""UPDATE messages SET status = 'pending_approval', verified_version = NULL,
+                    approved_by = NULL, approved_at = NULL, last_error = :e, updated_at = now()
+                    WHERE id = CAST(:m AS uuid)"""),
+                    {"e": str(e.code), "m": message_id},
+                )
+                record(
+                    s,
+                    m.customer_id,
+                    "guardrail_failed",
+                    "system",
+                    "Figures changed after approval; returned for review",
+                    ref_type="message",
+                    ref_id=message_id,
+                )
+                return
             # A refusal after approval (a dispute, a flag turned off) is final for this approval: fail the
             # message so a collector can fix the cause and resend it. Anything not approved still raises.
             s.execute(

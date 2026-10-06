@@ -274,3 +274,42 @@ def test_gate_refusal_fails_the_message_so_it_can_be_resent(engine: Engine, draf
         "failed/INVOICE_DISPUTED"
     )
     assert one(engine, f"SELECT status FROM jobs WHERE dedupe_key = '{draft_id}'") == "done"
+
+
+def pay_inv_1021(engine: Engine, paise: int = 20000000) -> None:
+    """A matched bank credit against INV-1021, posted after the draft was verified."""
+    with engine.begin() as c:
+        c.execute(
+            text(f"""WITH p AS (INSERT INTO payments (customer_id, amount_paise, received_on, reference, source, bank_event_id,
+            match_status) VALUES ('{ABC}', {paise}, DATE '2026-09-30', 'UTR-STALE', 'bank_feed', 'evt-stale', 'matched')
+            RETURNING id)
+            INSERT INTO payment_allocations (payment_id, invoice_id, amount_paise)
+            SELECT p.id, i.id, {paise} FROM p, invoices i WHERE i.number = 'INV-1021'""")
+        )
+
+
+# HACK-004 (QA ISSUE-011): a statement verified at ₹7,50,000 was sent after a ₹2,00,000 credit.
+def test_payment_after_drafting_refuses_the_approval(engine: Engine, draft_id: str) -> None:
+    pay_inv_1021(engine)
+
+    with pytest.raises(AppError) as e:
+        approve(engine, draft_id)
+
+    assert e.value.code == ErrorCode.TOTAL_MISMATCH
+    assert "₹5,50,000" in e.value.message
+    assert one(engine, f"SELECT status FROM messages WHERE id = '{draft_id}'") == "pending_approval"
+
+
+def test_payment_after_approval_returns_the_draft_for_review(engine: Engine, draft_id: str) -> None:
+    ch = FakeChannel()
+    approve(engine, draft_id)
+    pay_inv_1021(engine)
+
+    worker(engine, ch)
+
+    assert not ch.sent
+    with tx(engine) as s:
+        m = approval.get_message(s, draft_id)
+    assert (m.status, m.verified, m.last_error) == ("pending_approval", False, "TOTAL_MISMATCH")
+    assert one(engine, f"SELECT status FROM jobs WHERE dedupe_key = '{draft_id}'") == "done"
+    assert one(engine, f"SELECT count(*) FROM guardrail_events WHERE message_id = '{draft_id}'") == 1
