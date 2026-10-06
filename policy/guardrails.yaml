@@ -35,6 +35,7 @@ injection:                         # REQ-068; replies only, after NFKC normalisa
   action: escalate                 # reply is stored, classified with no tools, and escalated
   patterns:
     - "ignore (all |the )?(previous|above|prior) (instructions|messages)"
+    - "(ignore|forget|disregard|override) (all |any |the |your )*((previous|above|prior|earlier|system) )?(instructions|rules|guidelines|prompts?)\\b"  # HACK-004
     - "(system|developer) (mode|prompt)"
     - "you are now"
     - "disregard (the )?(above|previous)"
