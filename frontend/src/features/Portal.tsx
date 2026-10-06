@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Badge, Button, ErrorLine, Field, inputClass, Loading, Table, td, tdNum } from "@/components/kit";
 import { api } from "../lib/api";
-import { day, inr } from "../lib/format";
+import { day, inr, rupeesToPaise } from "../lib/format";
 import * as S from "../lib/schemas";
 
 type Action = "promise" | "dispute" | "help" | null;
@@ -130,6 +130,12 @@ function Shell({ children }: { children: ReactNode }) {
   );
 }
 
+/** The promised amount in paise, or null when it is not a positive amount within the outstanding balance. */
+export function promisePaise(text: string, max: number): number | null {
+  const paise = rupeesToPaise(text);
+  return paise !== null && paise <= max ? paise : null;
+}
+
 function PromiseForm({
   max,
   busy,
@@ -143,20 +149,23 @@ function PromiseForm({
 }) {
   const [rupees, setRupees] = useState("");
   const [on, setOn] = useState("");
-  const paise = Math.round(Number(rupees) * 100); // whole rupees typed; the API takes integer paise
-  const valid = Number.isFinite(paise) && paise > 0 && paise <= max && on !== "";
+  const paise = promisePaise(rupees, max);
+  const valid = paise !== null && on !== "";
   return (
     <form
       className="mt-4 space-y-3 rounded border border-border bg-surface p-4"
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid) onSubmit({ amount_paise: paise, promised_date: on });
+        if (paise !== null && on !== "") onSubmit({ amount_paise: paise, promised_date: on });
       }}
     >
       <h2 className="font-semibold">Promise to pay</h2>
       <Field label={`Amount in rupees (up to ${inr(max)})`}>
-        <input className={inputClass} inputMode="numeric" value={rupees} onChange={(e) => setRupees(e.target.value.replace(/[^\d]/g, ""))} required />
+        <input className={inputClass} inputMode="decimal" value={rupees} onChange={(e) => setRupees(e.target.value)} required />
       </Field>
+      {rupees && paise === null && (
+        <p className="text-danger">Error: enter rupees up to {inr(max)}, with at most two decimals.</p>
+      )}
       <Field label="Payment date">
         <input className={inputClass} type="date" value={on} onChange={(e) => setOn(e.target.value)} required />
       </Field>

@@ -32,3 +32,12 @@ export function stamp(iso: string): string {
   const ist = new Date(t.getTime() + 330 * 60_000).toISOString();
   return `${day(ist)}, ${ist.slice(11, 16)}`;
 }
+
+/** Rupees a person typed become integer paise here, the only place the console and portal make an amount. */
+export function rupeesToPaise(text: string): number | null {
+  const t = text.replaceAll(",", "").trim();
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  const [r = "0", p = ""] = t.split(".");
+  const paise = Number(r) * 100 + Number(p.padEnd(2, "0"));
+  return Number.isSafeInteger(paise) && paise > 0 ? paise : null;
+}
