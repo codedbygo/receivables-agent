@@ -121,10 +121,10 @@ def test_reminder_with_every_open_invoice_disputed_is_refused(reg) -> None:  # t
 
 def test_reminder_cites_only_invoices_past_due(reg, engine: Engine) -> None:  # type: ignore[no-untyped-def]
     # HACK-001: reminders said "past their due date" while citing invoices due in October and November.
-    venk = uid("customer", "Venkateswara Hardware Mart")
-    prose = PROSE.replace("ABC Distributors", "Venkateswara Hardware Mart")
+    shree = uid("customer", "Shree Ram Textiles")
+    prose = PROSE.replace("ABC Distributors", "Shree Ram Textiles")
 
-    out = draft(reg, prose, customer_id=venk)
+    out = draft(reg, prose, customer_id=shree)
 
     cited = out["data"]["invoice_numbers"]  # type: ignore[index]
     dues = [one(engine, f"SELECT due_date FROM invoices WHERE number = '{n}'") for n in cited]

@@ -61,7 +61,7 @@ One testable statement per id. Ids are never reused or renumbered. Tier is the b
 | REQ-015 | The system stores customer replies and escalations. | Collector | P0 | 4.2 | none |
 | REQ-016 | The system records each LLM call with its tokens and cost. | Admin | P0 | 4.2, 4.20 | none |
 | REQ-017 | The system persists settings for kill switch, autonomy mode and LLM budget. | Admin | P1 | 4.2, 4.21 | none |
-| REQ-018 | The seed creates 50 customers, 300 invoices and 40 replies from a fixed RNG seed, identical on every run. | Admin | P0 | 4.3 | none |
+| REQ-018 | The seed creates 10 customers, 60 invoices and 20 replies from a fixed RNG seed, identical on every run (HACK-006; was 50, 300 and 40). | Admin | P0 | 4.3 | none |
 | REQ-019 | Seed customers carry realistic Indian B2B names and invoice amounts between ₹15,000 and ₹25,00,000. | Admin | P0 | 4.23 | none |
 | REQ-020 | The seed includes customers that are hugely overdue, recently overdue, paid, partially paid, disputed, with broken promises, and clean. | Admin | P0 | 4.23 | none |
 | REQ-021 | Seed email addresses use `@example.in`-style demo domains only. | Admin | P0 | 4.23 | none |

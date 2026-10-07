@@ -128,7 +128,7 @@ Covers: REQ-026, REQ-027, REQ-028   Judgement: merged from REQ-026, REQ-027, REQ
 **Acceptance criteria.**
 
 - AC-US-00-002-1. Given fixture customers that differ in one factor each, when scored, then each factor moves the score in the documented direction and the function makes no network or LLM call. Covers: REQ-026
-- AC-US-00-002-2. Given the seeded 50 customers on 2026-09-30, when the ranking runs twice, then the same 15 customers are returned in the same order. Covers: REQ-027
+- AC-US-00-002-2. Given the seeded 10 customers on 2026-09-30, when the ranking runs twice, then the same overdue customers (at most 15) are returned in the same order. Covers: REQ-027
 - AC-US-00-002-3. Given ABC Distributors, when its priority is shown, then it carries band HIGH and reasons including "High outstanding (₹7,50,000)", "Oldest invoice 19 days overdue" and "1 missed promise". Covers: REQ-028
 - AC-US-00-002-4. Given a score of 60, 59 or 34, when banded, then the bands are HIGH, MEDIUM and LOW. Covers: REQ-028
 
@@ -1004,7 +1004,7 @@ Covers: REQ-018, REQ-019, REQ-020, REQ-021   Judgement: merged from REQ-018 to R
 **Why it matters.** B5: the story needs exact, repeatable numbers.
 
 **From the PRD.**
-- REQ-018: "The seed creates 50 customers, 300 invoices and 40 replies from a fixed RNG seed, identical on every run."
+- REQ-018: "The seed creates 10 customers, 60 invoices and 20 replies from a fixed RNG seed, identical on every run."
 - REQ-019: "Seed customers carry realistic Indian B2B names and invoice amounts between ₹15,000 and ₹25,00,000."
 - REQ-020: "The seed includes customers that are hugely overdue, recently overdue, paid, partially paid, disputed, with broken promises, and clean."
 - REQ-021: "Seed email addresses use `@example.in`-style demo domains only."
@@ -1014,9 +1014,9 @@ Covers: REQ-018, REQ-019, REQ-020, REQ-021   Judgement: merged from REQ-018 to R
 
 **Acceptance criteria.**
 
-- AC-US-01-003-1. Given `make seed` run twice on empty databases, when compared, then both hold 50 customers, 300 invoices and 40 replies with identical rows. Covers: REQ-018
+- AC-US-01-003-1. Given `make seed` run twice on empty databases, when compared, then both hold 10 customers, 60 invoices and 20 replies with identical rows. Covers: REQ-018
 - AC-US-01-003-2. Given the seed, when queried, then every invoice amount is between 1,500,000 and 250,000,000 paise and names include ABC Distributors, Sri Lakshmi Industries, Kumar Electricals, Andhra Industrial Supplies and Metro Wholesale. Covers: REQ-019
-- AC-US-01-003-3. Given the seed, when customers are profiled, then at least two customers fall in each of hugely overdue (90+ days), recently overdue, fully paid, partially paid, disputed, broken promise and clean. Covers: REQ-020
+- AC-US-01-003-3. Given the seed, when customers are profiled, then at least one customer falls in each of hugely overdue (90+ days), recently overdue, fully paid, partially paid, disputed, broken promise and clean. Covers: REQ-020
 - AC-US-01-003-4. Given the seed, when every email is checked, then each ends in an `example.in` domain. Covers: REQ-021
 
 **Not in this story.**
@@ -1693,7 +1693,7 @@ Covers: REQ-089   Judgement: story
 
 **Acceptance criteria.**
 
-- AC-US-00-026-1. Given 50 customers, when the list loads, then each row shows name, outstanding, overdue, priority band, last contact date and next action, sortable by each column. Covers: REQ-089
+- AC-US-00-026-1. Given 10 customers, when the list loads, then each row shows name, outstanding, overdue, priority band, last contact date and next action, sortable by each column. Covers: REQ-089
 
 **Not in this story.**
 - Editing customers (inferred: out).

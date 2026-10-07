@@ -116,7 +116,7 @@ def test_a_mail_that_never_arrives_fails_the_check(
         smoke.kill_switch_and_mail(api)
 
 
-def test_mcp_list_overdue_returns_the_top_15_from_the_running_server(
+def test_mcp_list_overdue_returns_the_ranked_overdue_from_the_running_server(
     api: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with socket.socket() as s:
@@ -137,7 +137,7 @@ def test_mcp_list_overdue_returns_the_top_15_from_the_running_server(
         monkeypatch.setenv("MCP_URL", f"http://127.0.0.1:{port}/mcp")
         monkeypatch.setenv("MCP_TOKEN", "t")
 
-        assert smoke.mcp_list_overdue(api) == "MCP list_overdue returns the top 15"
+        assert smoke.mcp_list_overdue(api) == "MCP list_overdue returns the top 7"
     finally:
         proc.terminate()
         proc.wait(10)

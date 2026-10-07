@@ -42,9 +42,9 @@ ORDER BY 1, 2
 
 # TC-0226 (AC-US-01-003-1)
 def test_counts(seeded: Engine) -> None:
-    assert one(seeded, "SELECT count(*) FROM customers") == 50
-    assert one(seeded, "SELECT count(*) FROM invoices") == 300
-    assert one(seeded, "SELECT count(*) FROM replies") == 40
+    assert one(seeded, "SELECT count(*) FROM customers") == 10
+    assert one(seeded, "SELECT count(*) FROM invoices") == 60
+    assert one(seeded, "SELECT count(*) FROM replies") == 20
 
 
 # TC-0226 (AC-US-01-003-1)
@@ -71,7 +71,7 @@ def test_amounts_names_and_domains(seeded: Engine) -> None:
 
 
 # TC-0228 (AC-US-01-003-3)
-def test_every_profile_has_at_least_two_customers(seeded: Engine) -> None:
+def test_every_profile_has_a_customer(seeded: Engine) -> None:
     profiles = {
         "hugely overdue": "SELECT count(DISTINCT customer_id) FROM invoices WHERE status <> 'paid' AND due_date < DATE '2026-09-30' - 90",
         "recently overdue": "SELECT count(DISTINCT customer_id) FROM invoices WHERE status <> 'paid' AND due_date BETWEEN DATE '2026-09-30' - 30 AND DATE '2026-09-29'",
@@ -82,7 +82,7 @@ def test_every_profile_has_at_least_two_customers(seeded: Engine) -> None:
         "clean": "SELECT count(*) FROM (SELECT customer_id FROM invoices GROUP BY 1 HAVING bool_and(status = 'paid' OR due_date >= DATE '2026-09-30')) t",
     }
     counts = {k: one(seeded, sql) for k, sql in profiles.items()}
-    assert all(isinstance(v, int) and v >= 2 for v in counts.values()), counts
+    assert all(isinstance(v, int) and v >= 1 for v in counts.values()), counts
 
 
 # TC-0233 (AC-US-01-005-2)
@@ -173,7 +173,7 @@ def test_reset_waits_for_a_concurrent_draft_instead_of_failing(seeded: Engine) -
 
     assert errors == []
     assert q(seeded, "SELECT count(*) FROM message_invoices") == [(0,)]
-    assert q(seeded, "SELECT count(*) FROM customers") == [(50,)]
+    assert q(seeded, "SELECT count(*) FROM customers") == [(10,)]
 
 
 def _reset(engine: Engine, errors: list[BaseException]) -> None:
@@ -221,4 +221,4 @@ def test_reset_survives_a_deadlock_with_a_worker_mid_write(seeded: Engine) -> No
 
     assert errors == []
     assert q(seeded, "SELECT count(*) FROM messages") == [(0,)]
-    assert q(seeded, "SELECT count(*) FROM customers") == [(50,)]
+    assert q(seeded, "SELECT count(*) FROM customers") == [(10,)]

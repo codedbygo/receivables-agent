@@ -253,7 +253,7 @@ def test_turns_are_refused_on_an_ended_call_and_empty_or_long_speech(api: TestCl
 
 def test_calls_are_refused_for_an_unknown_customer_or_nothing_to_collect(api: TestClient) -> None:
     nobody = api.post("/api/v1/calls", json={"customer_id": uid("customer", "nobody")}, headers=COLLECTOR)
-    zero = uid("customer", "Annapurna Provision Stores")
+    zero = uid("customer", "Deccan Polymers")
     api.put(
         f"/api/v1/customers/{zero}/contact-preferences",
         json={"preferred_channel": "email", "consent": {"voice": True}},

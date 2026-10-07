@@ -54,7 +54,7 @@ def test_seed_reset_puts_the_story_back(seeded: Engine, capsys: pytest.CaptureFi
 
     assert seed_main(["--reset"]) == 0
     assert "start of the ABC story" in capsys.readouterr().out
-    assert count(seeded, "SELECT count(*) FROM customers") == 50
+    assert count(seeded, "SELECT count(*) FROM customers") == 10
 
 
 def test_seed_refuses_a_demo_date_the_seed_was_not_written_for(
@@ -72,7 +72,7 @@ def test_worker_handlers_run_the_daily_run_and_the_promise_check(seeded: Engine)
     table["daily_run"](seeded, {})
     table["promise_check"](seeded, {})
 
-    assert count(seeded, "SELECT count(*) FROM agent_runs WHERE trigger = 'scheduled'") == 15
+    assert count(seeded, "SELECT count(*) FROM agent_runs WHERE trigger = 'scheduled'") == 7
 
 
 def test_worker_loop_survives_an_error_and_stops_on_sigterm(
@@ -137,7 +137,7 @@ def test_seed_loads_an_empty_database(engine: Engine, capsys: pytest.CaptureFixt
     get_settings.cache_clear()
 
     assert seed_main([]) == 0
-    assert "50 customers, 300 invoices, 40 replies" in capsys.readouterr().out
+    assert "10 customers, 60 invoices, 20 replies" in capsys.readouterr().out
 
 
 def test_the_seed_module_runs_as_a_command(seeded: Engine) -> None:

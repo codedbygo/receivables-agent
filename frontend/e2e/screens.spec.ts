@@ -32,7 +32,7 @@ test("an empty attention group shows its empty state", async ({ page }) => {
 // TC-0169 (AC-US-00-004-1): a customer with no history still shows every section, each with an empty state.
 test("a customer with no history shows every section with empty states", async ({ page }) => {
   await signIn(page, "Viewer");
-  await openCustomer(page, "Chennai Auto Components");
+  await openCustomer(page, "Ganesh Traders");
   for (const label of ["Outstanding", "Oldest overdue", "Priority", "Next action"]) {
     await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
   }
