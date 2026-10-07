@@ -1,18 +1,16 @@
-# Progress: HACK-004 Fixes from the manual end-to-end QA
+# Progress: HACK-004 Fix the 15 issues from the manual end-to-end QA of 2026-10-06, then make CI pass
 
 - Task: HACK-004
 - Title: Fix the 15 issues from the manual end-to-end QA of 2026-10-06, then make CI pass
 - Branch: fix-amount-issue (created by the engineer from main at d09d865)
-- Status: all 15 issues fixed and verified; CI jobs pass locally; last changes uncommitted
+- Status: in review
 - Owner: Savitha Sista
 - Started: 2026-10-06
 - Updated: 2026-10-07
-- QA report: .scratch/qa-reports/qa-report-e2e-manual-2026-10-06.md (local, not committed)
+- Acceptance criteria: none
 
 ## Next
-- Engineer: commit the CI fix and these docs, then push and confirm the four CI jobs on the runner
-- Decide how the six earlier `feat:` commits without `[HACK-004]` reach the trunk (reword before push, or a squash commit with a `fix:` subject)
-- bearing:merge-request to prepare the MR into develop
+- address review comments
 
 ## Done
 - High: drafts are re-checked against the ledger at approval and in the send gate; a draft made stale by a payment goes back to the queue unverified (ISSUE-011, tenet 4 updated)
@@ -23,3 +21,10 @@
 
 ## Blockers
 - none (pushing, merging and history rewrites are the engineer's)
+
+## Decisions
+- none
+
+## Links
+- MR: none
+- Ticket: none
