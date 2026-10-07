@@ -83,7 +83,7 @@ export function Today() {
         <Count label="Open escalations" n={d.open_escalations} icon={Gavel} alert={d.open_escalations > 0} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Panel title="Ageing of overdue amounts">
           <ColumnChart
             data={ageing}
@@ -121,7 +121,7 @@ export function Today() {
       {(followUps.data?.data.length ?? 0) > 0 && (
         <section aria-label="Follow-ups due" className="space-y-4">
           <h2 className="text-heading font-semibold tracking-tight">Follow-ups due</h2>
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {followUps.data?.data.map((f) => <FollowUpCard key={f.id} f={f} canAct={false} showCustomer />)}
           </div>
         </section>
@@ -129,7 +129,7 @@ export function Today() {
 
       <section className="space-y-4">
         <h2 className="text-heading font-semibold tracking-tight">What needs my attention today?</h2>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Panel title="High priority" action={<Badge value={`${a.high_priority.length} customers`} tone="HIGH" />}>
             {a.high_priority.length === 0 ? (
               <Empty>No customer is in the HIGH band.</Empty>

@@ -386,6 +386,7 @@ export const ChannelPlan = z.object({
   next_step_channel: nstr,
   next_step_on: nstr,
   factors: z.array(z.string()),
+  consent: z.object({ whatsapp: z.boolean(), sms: z.boolean(), voice: z.boolean() }),
 });
 
 /** HACK-003 F3: interaction history from rows; notes are internal and never reach the model or the portal. */

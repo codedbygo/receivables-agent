@@ -1,6 +1,7 @@
 """US-03-001, US-00-012 to US-00-020, US-01-004: replies become promises and disputes; credits settle promises."""
 
 import os
+import threading
 from datetime import date
 from pathlib import Path
 
@@ -237,6 +238,26 @@ def test_one_credit_does_not_fulfil_two_promises(engine: Engine, o: Orchestrator
     ) == ("pending")
 
 
+# HACK-004 (QA ISSUE-009): a later evaluation forgot the credit had settled the first promise.
+def test_a_credit_spent_on_one_promise_is_not_reused_by_a_later_check(
+    engine: Engine, o: Orchestrator
+) -> None:
+    with engine.begin() as c:
+        c.execute(text(f"DELETE FROM promises WHERE customer_id = '{ABC}' AND status = 'pending'"))
+        c.execute(
+            text(f"""INSERT INTO promises (customer_id, amount_paise, promised_date) VALUES
+            ('{ABC}', 5000000, DATE '2026-10-10'), ('{ABC}', 3000000, DATE '2026-10-20')""")
+        )
+    credit(engine, 5_000_000, "ABC DISTRIBUTORS UTR 5500")
+
+    with Session(bind=engine) as s, s.begin():
+        payments.advance_clock(s, 21)
+
+    assert one(
+        engine, f"SELECT status FROM promises WHERE customer_id = '{ABC}' AND amount_paise = 3000000"
+    ) == ("missed")
+
+
 def test_same_event_in_a_second_transaction_returns_the_first_payment(engine: Engine) -> None:
     # Replay path only; the ON CONFLICT race path needs two connections and is not covered here.
     first = credit(engine, 1_000_000, "ABC DISTRIBUTORS UTR 7001", event="evt-dup")
@@ -283,3 +304,25 @@ def test_an_exact_payment_marks_the_invoice_paid(engine: Engine, o: Orchestrator
         )
         == 0
     )
+
+
+# HACK-004 (CI e2e flake): a reply that arrived while the scheduled run held the customer was refused with a 422.
+def test_a_reply_during_a_running_agent_run_waits_for_it(engine: Engine, o: Orchestrator) -> None:
+    mid = message_for(engine)
+    with engine.begin() as c:
+        run: str = c.execute(
+            text(f"""INSERT INTO agent_runs (customer_id, run_date, trigger)
+            VALUES ('{ABC}', DATE '2026-09-30', 'manual') RETURNING id::text""")
+        ).scalar_one()
+
+    def finish() -> None:
+        with engine.begin() as c:
+            c.execute(
+                text(f"""UPDATE agent_runs SET status = 'finished', outcome = 'NO_ACTION', finished_at = now()
+                WHERE id = '{run}'""")
+            )
+
+    threading.Timer(0.5, finish).start()
+    result = reply(o, mid, "We can pay ₹3 lakh on October 5.")
+
+    assert result.classification.klass == "PROMISE"

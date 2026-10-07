@@ -1,6 +1,7 @@
 """HACK-003 F2: SMS and WhatsApp providers. Twilio is real only with credentials; otherwise a labelled simulator."""
 
 import json
+from collections.abc import Callable
 
 import httpx
 import pytest
@@ -12,6 +13,7 @@ from app.channels.messaging import (
     TwilioMessagingChannel,
     messaging_channels,
 )
+from app.channels.voice import TwilioVoice
 from app.core.config import Settings
 
 OUT = Outbound("m-1", "+91-9800000001", "Overdue invoices", "Dear ABC, ...")
@@ -107,3 +109,79 @@ def test_the_free_gateway_is_preferred_over_twilio_for_sms() -> None:
         twilio_from_number="+15550001111",
     )
     assert isinstance(messaging_channels(s)["sms"], AndroidSmsGatewayChannel)
+
+
+# HACK-004 (CI coverage): every way a provider can fail is retryable or final, never silent.
+def unreachable(_: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("no route to host")
+
+
+def test_twilio_unreachable_is_retryable() -> None:
+    with pytest.raises(ChannelError) as e:
+        twilio(httpx.MockTransport(unreachable)).send(OUT)
+
+    assert (e.value.code, e.value.retryable) == ("PROVIDER_UNAVAILABLE", True)
+
+
+def gateway(handler: httpx.MockTransport) -> AndroidSmsGatewayChannel:
+    return AndroidSmsGatewayChannel(
+        "http://192.168.1.20:8080", "sms", "pw", client=httpx.Client(transport=handler)
+    )
+
+
+@pytest.mark.parametrize(
+    ("respond", "code", "retryable"),
+    [
+        (unreachable, "PROVIDER_UNAVAILABLE", True),  # the phone is off or off the network
+        (lambda _: httpx.Response(503), "PROVIDER_UNAVAILABLE", True),
+        (lambda _: httpx.Response(401), "PROVIDER_REJECTED_401", False),
+    ],
+)
+def test_the_android_gateway_failures_are_retryable_or_final(
+    respond: Callable[[httpx.Request], httpx.Response], code: str, retryable: bool
+) -> None:
+    with pytest.raises(ChannelError) as e:
+        gateway(httpx.MockTransport(respond)).send(OUT)
+
+    assert (e.value.code, e.value.retryable) == (code, retryable)
+
+
+def twilio_voice(handler: httpx.MockTransport) -> TwilioVoice:
+    s = Settings(
+        twilio_account_sid="AC1",
+        twilio_auth_token="t",
+        twilio_from_number="+15550001111",
+        voice_public_base_url="https://demo.example.in/",
+    )
+    return TwilioVoice(s, client=httpx.Client(transport=handler))
+
+
+def test_twilio_voice_places_the_call_with_signed_webhook_urls() -> None:
+    seen: list[httpx.Request] = []
+
+    def ok(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(201, json={"sid": "CA9"})
+
+    assert twilio_voice(httpx.MockTransport(ok)).place("call-1", "+91-9800000001") == "CA9"
+    form = dict(httpx.QueryParams(seen[0].content.decode()))
+    assert form["To"] == "+919800000001"
+    assert form["Url"] == "https://demo.example.in/api/v1/webhooks/voice/call-1/turn"
+    assert form["StatusCallback"] == "https://demo.example.in/api/v1/webhooks/voice/call-1/status"
+
+
+@pytest.mark.parametrize(
+    ("respond", "code", "retryable"),
+    [
+        (unreachable, "PROVIDER_UNAVAILABLE", True),
+        (lambda _: httpx.Response(500), "PROVIDER_REJECTED_500", True),
+        (lambda _: httpx.Response(400), "PROVIDER_REJECTED_400", False),
+    ],
+)
+def test_twilio_voice_failures_are_retryable_or_final(
+    respond: Callable[[httpx.Request], httpx.Response], code: str, retryable: bool
+) -> None:
+    with pytest.raises(ChannelError) as e:
+        twilio_voice(httpx.MockTransport(respond)).place("call-1", "+91-9800000001")
+
+    assert (e.value.code, e.value.retryable) == (code, retryable)

@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { day, inr, stamp } from "@/lib/format";
+import { day, inr, rupeesToPaise, stamp } from "@/lib/format";
 import { useAction, useCustomers, useGuardrailEvents, usePayments, useRuns, useSettings } from "@/lib/hooks";
 import * as S from "@/lib/schemas";
 import { RunDialog } from "./RunDialog";
@@ -287,15 +287,6 @@ function ClockDialog({ onClose, today }: { onClose: () => void; today: string })
       </form>
     </Dialog>
   );
-}
-
-/** Rupees typed by the admin become integer paise here, the only place the console makes an amount. */
-export function rupeesToPaise(text: string): number | null {
-  const t = text.replaceAll(",", "").trim();
-  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
-  const [r = "0", p = ""] = t.split(".");
-  const paise = Number(r) * 100 + Number(p.padEnd(2, "0"));
-  return Number.isSafeInteger(paise) && paise > 0 ? paise : null;
 }
 
 function CreditDialog({ onClose }: { onClose: () => void }) {

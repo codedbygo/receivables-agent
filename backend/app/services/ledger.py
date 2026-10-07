@@ -1,6 +1,6 @@
 """Ledger reads (US-00-001): balances come from invoice_balances, dates from the demo clock."""
 
-from datetime import date, datetime
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError, ErrorCode
+from app.services import overview
 from app.services.priority import priorities
 
 InvoiceStatus = Literal["unpaid", "partially_paid", "paid", "disputed"]
@@ -23,7 +24,7 @@ class Customer(BaseModel):
     outstanding_paise: int
     overdue_paise: int
     band: Literal["HIGH", "MEDIUM", "LOW"] | None
-    last_contact_at: datetime | None
+    last_contact_at: date | None
     next_action: str | None
 
 
@@ -43,7 +44,8 @@ _CUSTOMERS = text("""
 SELECT c.id::text AS id, c.name, c.email, c.phone, c.segment, c.credit_terms_days,
   COALESCE(SUM(b.remaining_paise), 0) AS outstanding,
   COALESCE(SUM(b.remaining_paise) FILTER (WHERE i.due_date < :today), 0) AS overdue,
-  (SELECT max(m.sent_at) FROM messages m WHERE m.customer_id = c.id) AS last_contact_at
+  (SELECT max(t.business_date) FROM timeline_events t WHERE t.customer_id = c.id AND t.kind = 'sent')
+    AS last_contact_at  -- the demo clock's date, as on the customer page (tenet 5, HACK-004)
 FROM customers c
 LEFT JOIN invoices i ON i.customer_id = c.id
 LEFT JOIN invoice_balances b ON b.invoice_id = i.id
@@ -78,8 +80,8 @@ def list_customers(
             outstanding_paise=r["outstanding"],
             overdue_paise=r["overdue"],
             band=bands.get(r["id"]),
-            next_action=None,
-        )  # next action rules land with the customer page (US-00-004)
+            next_action=overview.next_action(session, r["id"], today),
+        )  # ponytail: one rules query per row (list capped at limit); one set-based query if the list grows
         for r in rows
     ]
 

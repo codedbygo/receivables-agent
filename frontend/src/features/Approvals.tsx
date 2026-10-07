@@ -15,6 +15,7 @@ export function Approvals({ role }: { role: S.Role }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [dialog, setDialog] = useState<"edit" | "reject" | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  const [confirmBatch, setConfirmBatch] = useState(false); // HACK-004: a batch sends to many customers at once
   const queue = q.data?.data ?? [];
   const current = queue.find((m) => m.id === picked) ?? queue[0] ?? null;
   const canAct = role !== "viewer";
@@ -56,11 +57,36 @@ export function Approvals({ role }: { role: S.Role }) {
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-display font-semibold">Approvals</h1>
         {assisted && canAct && queue.length > 0 && (
-          <Button onClick={() => batch.mutate(queue.filter((m) => m.verified))} busy={batch.isPending}>
+          <Button onClick={() => setConfirmBatch(true)} busy={batch.isPending}>
             Approve all verified ({queue.filter((m) => m.verified).length})
           </Button>
         )}
       </header>
+      <Dialog title="Approve and send these drafts?" open={confirmBatch} onClose={() => setConfirmBatch(false)}>
+        <p>Each draft below goes to its customer as soon as sending is on. This cannot be undone.</p>
+        <ul className="my-3 list-disc pl-5">
+          {queue
+            .filter((m) => m.verified)
+            .map((m) => (
+              <li key={m.id}>
+                {m.customer_name}: {m.subject} ({m.channel})
+              </li>
+            ))}
+        </ul>
+        <div className="flex justify-end gap-2">
+          <Button onClick={() => setConfirmBatch(false)}>Cancel</Button>
+          <Button
+            variant="primary"
+            busy={batch.isPending}
+            onClick={() => {
+              setConfirmBatch(false);
+              batch.mutate(queue.filter((m) => m.verified));
+            }}
+          >
+            Approve and send {queue.filter((m) => m.verified).length}
+          </Button>
+        </div>
+      </Dialog>
       <ErrorLine error={approve.error ?? batch.error} />
       {settings.data && !settings.data.sending_enabled && (
         <p role="status" className="rounded border border-warning bg-warning-subtle px-3 py-2 text-warning">

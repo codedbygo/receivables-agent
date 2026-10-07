@@ -4,6 +4,7 @@ The model reads the reply with no tools. Code validates what it returns and runs
 sequence per class; nothing the customer writes can choose a tool (REQ-068, eng review A10)."""
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -66,6 +67,10 @@ def ingest(session: Session, message_id: str, body: str, customer_id: str | None
     return rid, owner
 
 
+# ponytail: a bounded poll for the customer's running run; a queued reply job if runs ever take minutes.
+RUN_WAIT_S = 15
+
+
 def understand(o: Orchestrator, reply_id: str) -> ReplyResult:
     with o.sessions() as s:
         r = s.execute(
@@ -82,6 +87,10 @@ def understand(o: Orchestrator, reply_id: str) -> ReplyResult:
             ).scalars()
         )
     started = o._start(r.customer_id, "reply")
+    deadline = time.monotonic() + RUN_WAIT_S
+    while started is None and time.monotonic() < deadline:  # HACK-004: a scheduled run finishes in seconds
+        time.sleep(0.25)
+        started = o._start(r.customer_id, "reply")
     if started is None:
         raise AppError(
             ErrorCode.VALIDATION_ERROR, "A run for this customer is already in progress. Try again shortly."

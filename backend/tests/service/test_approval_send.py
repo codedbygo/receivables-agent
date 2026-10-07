@@ -10,9 +10,10 @@ from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
 from app.channels.email import ChannelError, EmailChannel, Outbound
+from app.core import clock
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
-from app.services import approval
+from app.services import approval, ledger
 from app.services.demo import reset_demo, uid
 from app.tools.registry import ToolContext, build_registry
 from app.worker.jobs import reap, run_once
@@ -274,3 +275,91 @@ def test_gate_refusal_fails_the_message_so_it_can_be_resent(engine: Engine, draf
         "failed/INVOICE_DISPUTED"
     )
     assert one(engine, f"SELECT status FROM jobs WHERE dedupe_key = '{draft_id}'") == "done"
+
+
+def pay_inv_1021(engine: Engine, paise: int = 20000000) -> None:
+    """A matched bank credit against INV-1021, posted after the draft was verified."""
+    with engine.begin() as c:
+        c.execute(
+            text(f"""WITH p AS (INSERT INTO payments (customer_id, amount_paise, received_on, reference, source, bank_event_id,
+            match_status) VALUES ('{ABC}', {paise}, DATE '2026-09-30', 'UTR-STALE', 'bank_feed', 'evt-stale', 'matched')
+            RETURNING id)
+            INSERT INTO payment_allocations (payment_id, invoice_id, amount_paise)
+            SELECT p.id, i.id, {paise} FROM p, invoices i WHERE i.number = 'INV-1021'""")
+        )
+
+
+# HACK-004 (QA ISSUE-011): a statement verified at ₹7,50,000 was sent after a ₹2,00,000 credit.
+def test_payment_after_drafting_refuses_the_approval(engine: Engine, draft_id: str) -> None:
+    pay_inv_1021(engine)
+
+    with pytest.raises(AppError) as e:
+        approve(engine, draft_id)
+
+    assert e.value.code == ErrorCode.TOTAL_MISMATCH
+    assert "₹5,50,000" in e.value.message
+    assert one(engine, f"SELECT status FROM messages WHERE id = '{draft_id}'") == "pending_approval"
+
+
+def test_payment_after_approval_returns_the_draft_for_review(engine: Engine, draft_id: str) -> None:
+    ch = FakeChannel()
+    approve(engine, draft_id)
+    pay_inv_1021(engine)
+
+    worker(engine, ch)
+
+    assert not ch.sent
+    with tx(engine) as s:
+        m = approval.get_message(s, draft_id)
+    assert (m.status, m.verified, m.last_error) == ("pending_approval", False, "TOTAL_MISMATCH")
+    assert one(engine, f"SELECT status FROM jobs WHERE dedupe_key = '{draft_id}'") == "done"
+    assert one(engine, f"SELECT count(*) FROM guardrail_events WHERE message_id = '{draft_id}'") == 1
+
+
+# HACK-004 (QA ISSUE-002): the list showed the wall-clock send time, the customer page the demo business date.
+def test_last_contact_in_the_list_is_the_business_date_of_the_send(engine: Engine, draft_id: str) -> None:
+    approve(engine, draft_id)
+    worker(engine, FakeChannel())
+
+    with tx(engine) as s:
+        row = ledger.list_customers(s, clock.today(s), customer_id=ABC)[0]
+        assert str(row.last_contact_at) == str(clock.today(s)) == "2026-09-30"
+
+
+# HACK-004 (CI coverage): the send gate's channel checks, after a collector moved a draft to SMS.
+def approve_as_sms(engine: Engine, draft_id: str) -> None:
+    with engine.begin() as c:
+        c.execute(text("UPDATE settings SET feature_sms = true WHERE id = 1"))
+        c.execute(
+            text(
+                f"""UPDATE customers SET contact_consent = '{{"email": true, "sms": true}}' WHERE id = '{ABC}'"""
+            )
+        )
+    with tx(engine) as s, s.begin():
+        m = approval.get_message(s, draft_id)
+        approval.edit(s, draft_id, m.subject, m.body, 1, None, channel="sms")
+    approve(engine, draft_id, 2)
+
+
+def test_sms_switched_off_after_approval_fails_the_send(engine: Engine, draft_id: str) -> None:
+    approve_as_sms(engine, draft_id)
+    with engine.begin() as c:
+        c.execute(text("UPDATE settings SET feature_sms = false WHERE id = 1"))
+
+    worker(engine, FakeChannel())
+
+    assert one(engine, f"SELECT status || '/' || last_error FROM messages WHERE id = '{draft_id}'") == (
+        "failed/FEATURE_DISABLED"
+    )
+
+
+def test_sms_to_a_customer_who_withdrew_consent_fails_the_send(engine: Engine, draft_id: str) -> None:
+    approve_as_sms(engine, draft_id)
+    with engine.begin() as c:
+        c.execute(text(f"""UPDATE customers SET contact_consent = '{{"email": true}}' WHERE id = '{ABC}'"""))
+
+    worker(engine, FakeChannel())
+
+    assert one(engine, f"SELECT status || '/' || last_error FROM messages WHERE id = '{draft_id}'") == (
+        "failed/FEATURE_DISABLED"
+    )

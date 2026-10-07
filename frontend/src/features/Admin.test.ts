@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rupeesToPaise } from "./Admin";
+import { rupeesToPaise } from "../lib/format";
 
 describe("rupeesToPaise", () => {
   it("turns typed rupees into integer paise without floating point", () => {

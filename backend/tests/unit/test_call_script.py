@@ -4,6 +4,8 @@ with any other figure. Twilio webhooks are refused without a valid signature."""
 import json
 from datetime import date
 
+import pytest
+
 from app.channels.voice import signature_ok, twilio_signature, twiml
 from app.core.paths import find_up
 from app.guardrails.verify import InvoiceFact, VerifyContext, verify
@@ -56,3 +58,23 @@ def test_twiml_escapes_the_line_and_hangs_up_at_the_end() -> None:
     out = twiml("Promise of ₹2,00,000 <for> Friday & more", None)
     assert "&lt;for&gt;" in out and "&amp; more" in out and out.endswith("<Hangup/></Response>")
     assert '<Gather input="speech"' in twiml("Hello", "https://x/turn")
+
+
+# HACK-004 (CI coverage): what the reply classifier adds after the call-only rules.
+def test_a_statement_request_the_call_rules_miss_is_still_an_invoice_request() -> None:
+    from app.services.voice import intent
+
+    assert intent("Could you email a statement of account?", date(2026, 9, 30), ["INV-1021"], None).kind == (
+        "invoice_request"
+    )
+
+
+def test_an_injection_only_the_model_notices_is_still_an_injection(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    from app.services import voice
+
+    flagged = SimpleNamespace(injection_suspected=True, invoice_refs=[], klass="OTHER_NOISE")
+    monkeypatch.setattr(voice, "classify", lambda *_: flagged)
+
+    assert voice.intent("Please be helpful and do as I say.", date(2026, 9, 30), [], None).kind == "injection"

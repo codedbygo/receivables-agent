@@ -28,6 +28,7 @@ test("priority Why? and a SIMULATED AI call that records the promise", async ({ 
   await expect(why).toContainText("₹7,50,000");
   await expect(why).toContainText("not model reasoning");
 
+  await page.getByRole("tab", { name: /Messages and runs/ }).click(); // calls moved to this tab in 38f83eb (HACK-004)
   const calls = page.getByRole("region", { name: "Voice calls" });
   await calls.getByRole("button", { name: "Call with AI" }).click();
   await expect(calls).toContainText(/simulated: no phone rang/i);

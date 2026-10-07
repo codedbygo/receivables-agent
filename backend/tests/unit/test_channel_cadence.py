@@ -71,3 +71,26 @@ def test_response_status_and_the_next_step() -> None:
     assert (p.next_step_channel, p.next_step_on) == ("voice", date(2026, 10, 14))
     assert plan(None).response_status == "never contacted"
     assert plan(date(2026, 10, 8), replied=True).response_status == "replied"
+
+
+# HACK-004 (QA ISSUE-014): the plan never returned consent, so the dialog reset it to "not agreed" on every save.
+def test_the_plan_returns_what_the_customer_agreed_to() -> None:
+    p = plan(None, consent={"email": True, "whatsapp": True})
+
+    assert p.consent == {"whatsapp": True, "sms": False, "voice": False}
+
+
+# HACK-004 (QA ISSUE-013): a payment starts a new cycle, which made a contacted customer "never contacted".
+def test_a_customer_contacted_before_the_last_payment_is_not_never_contacted() -> None:
+    p = choose(
+        first_contact=None,
+        today=TODAY,
+        preferred=None,
+        enabled=ALL_ON,
+        consent=CONSENT,
+        replied=False,
+        last_channel="email",
+        last_contact_on=date(2026, 9, 30),
+    )
+
+    assert p.response_status == "no response"
