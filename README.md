@@ -75,6 +75,24 @@ story (demo date 30 Sep 2026). Sign in as **Admin** (on a hosted demo, enter the
 
 Evaluation page: the numbers from the last `make eval`.
 
+## Managing distributors (HACK-007)
+
+Collectors and admins add a distributor with **Customers, Add distributor**, change one with **Edit details** on its
+page and add an unpaid invoice with **Add invoice**. **Upload CSV** adds many at once, one row per invoice:
+
+```
+customer_name,email,phone,segment,credit_terms_days,invoice_number,invoice_date,due_date,amount_rupees
+Riya Traders,riya@example.com,+919800000000,sme,30,INV-5001,2026-09-01,2026-09-20,125000
+```
+
+A new name creates the distributor; a known name (any case) gets the invoice and keeps its details. Dates are
+YYYY-MM-DD, segment is sme, mid_market or enterprise, and amounts are rupees (up to 2 decimals). Any bad row saves
+nothing and the errors name the row; at most 500 rows and 1 MB. Only an admin can **Delete** a distributor, which
+removes everything recorded about it. A demo reset brings back the 10 seeded distributors and drops the rest.
+
+To receive a real reminder, give a test distributor your own address and list it in `EMAIL_ALLOW_REAL`; every other
+address still goes to the `EMAIL_REDIRECT_TO` inbox.
+
 ## 3. What is real and what is simulated
 
 | Part | Status |
@@ -150,6 +168,7 @@ with `LLM_MODE=record` and a key to measure the model itself.
 | `LLM_MAX_TOKENS` | `500` | gateway | capped at 500 |
 | `LLM_TIMEOUT_S` | `20` | gateway | |
 | `SMTP_HOST` / `SMTP_PORT` | `mailhog` / `1025` | email channel | |
+| `EMAIL_ALLOW_REAL` | empty | email channel | comma-separated addresses mailed for real even when `EMAIL_REDIRECT_TO` redirects everything else; only your own test inboxes (HACK-007) |
 | `MAILHOG_UI_URL` | `http://localhost:8025` | links | |
 | `DEMO_TODAY` | `2026-09-30` | seeds settings | runtime value in the settings row |
 | `TZ` | `Asia/Kolkata` | all | |

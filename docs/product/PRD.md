@@ -164,6 +164,11 @@ One testable statement per id. Ids are never reused or renumbered. Tier is the b
 | REQ-118 | A missed promise produces a recommended follow-up. | Collector | P1 | 4.1 | none |
 | REQ-119 | A statement request produces a recommended action to send a statement of open invoices. | Collector | P1 | 4.1, 4.13 | inferred: Q-019 |
 | REQ-120 | The system counts `OPENROUTER_API_KEY` as a secret: it is never committed and `.env.example` lists every variable. | Admin | P0 | 0.5, Phase 7 | none |
+| REQ-121 | A collector or admin creates a distributor (name, email, phone, segment, credit terms) and edits those details; names are unique ignoring case and each change is on the timeline (HACK-007). | Collector | P1 | HACK-007 | none |
+| REQ-122 | A collector or admin adds an unpaid invoice (unique INV- number, invoice and due dates, amount above zero) to a distributor (HACK-007). | Collector | P1 | HACK-007 | none |
+| REQ-123 | A collector or admin uploads a CSV of distributors and invoices; any bad row saves nothing and the errors name the row; at most 500 rows and 1 MB (HACK-007). | Collector | P1 | HACK-007 | none |
+| REQ-124 | Only an admin deletes a distributor, which removes every row recorded about it in one transaction (HACK-007). | Admin | P1 | HACK-007 | none |
+| REQ-125 | With real SMTP, an address listed in EMAIL_ALLOW_REAL receives its mail; every other address still goes to the demo inbox (HACK-007). | Admin | P1 | HACK-007 | none |
 
 ## 6. Constraints
 

@@ -287,6 +287,121 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createCustomer
+      summary: Create a distributor (starts with nothing owed)
+      tags:
+      - customers
+      x-story-ids:
+      - HACK-007
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - name
+              - email
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                phone:
+                  type: string
+                  maxLength: 30
+                segment:
+                  type: string
+                  enum:
+                  - enterprise
+                  - mid_market
+                  - sme
+                credit_terms_days:
+                  type: integer
+                  minimum: 0
+                  maximum: 365
+      responses:
+        '201':
+          description: Created
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /customers/import:
+    post:
+      operationId: importCustomers
+      summary: CSV upload of distributors and invoices, all or nothing
+      tags:
+      - customers
+      x-story-ids:
+      - HACK-007
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      description: One row per invoice with the columns customer_name, email, phone, segment, credit_terms_days,
+        invoice_number, invoice_date, due_date, amount_rupees. A new name creates the customer; a known name
+        (any case) gets the invoice and keeps its details. Any bad row saves nothing and the errors name the row.
+        At most 500 rows and 1 MB.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - csv
+              properties:
+                csv:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000000
+      responses:
+        '201':
+          description: Created
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - customers_created
+                - invoices_added
+                properties:
+                  customers_created:
+                    type: integer
+                  invoices_added:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /customers/{id}:
     get:
       operationId: getCustomer
@@ -316,6 +431,114 @@ paths:
                 $ref: '#/components/schemas/Customer'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: updateCustomer
+      summary: Edit a distributor's details; fields left out keep their value
+      tags:
+      - customers
+      x-story-ids:
+      - HACK-007
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                phone:
+                  type: string
+                  maxLength: 30
+                segment:
+                  type: string
+                  enum:
+                  - enterprise
+                  - mid_market
+                  - sme
+                credit_terms_days:
+                  type: integer
+                  minimum: 0
+                  maximum: 365
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: deleteCustomer
+      summary: Delete a distributor and every row recorded about them
+      tags:
+      - customers
+      x-story-ids:
+      - HACK-007
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - id
+                - name
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -373,6 +596,68 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: addCustomerInvoice
+      summary: Add an unpaid invoice to a distributor
+      tags:
+      - customers
+      x-story-ids:
+      - HACK-007
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - number
+              - invoice_date
+              - due_date
+              - amount_paise
+              properties:
+                number:
+                  type: string
+                  pattern: ^INV-[0-9]{1,12}$
+                invoice_date:
+                  type: string
+                  format: date
+                due_date:
+                  type: string
+                  format: date
+                  description: On or after invoice_date.
+                amount_paise:
+                  type: integer
+                  minimum: 1
+      responses:
+        '201':
+          description: Created
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
         '500':
           $ref: '#/components/responses/InternalError'
   /customers/{id}/priority:

@@ -43,6 +43,22 @@ Rollback in one sentence: redeploy the previous tag with the same compose comman
 - Model unavailable or budget spent: set `LLM_MODE=replay` in the host `.env` and rerun the deploy command.
 - Mailpit down: messages show Failed; Resend once it is back (docs/runbooks/demo-day.md).
 
+## Vercel and Neon: migrate before every deploy
+
+Vercel runs no migrations, so the engineer upgrades the Neon database before deploying code that needs a newer
+schema. On 7 Oct 2026 Neon sat at `0001` while the code needed `0007`, and reset failed with a 500. Use Neon's
+direct (non-pooled) connection string:
+
+```bash
+cd backend
+DATABASE_URL='<neon direct url>' uv run alembic upgrade head
+DATABASE_URL='<neon direct url>' uv run alembic current   # expect the newest revision, marked (head)
+cd ..
+```
+
+Then deploy as usual. Every migration so far only adds tables, columns or allowed values, so upgrading first is
+safe for the code already running.
+
 ## Console on Vercel (optional, ADR-0015)
 
 The backend runs on the prod compose host above; Vercel serves only the console and forwards `/api/*` to it.

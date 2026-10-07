@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     smtp_from: str = ""
     # With real SMTP every message goes to this inbox, never to the seeded customers (startup refuses without).
     email_redirect_to: str = ""
+    # HACK-007: comma-separated addresses that may receive real mail despite the redirect (your own test inboxes).
+    email_allow_real: str = ""
     # Serverless (ADR-0015): send right after approval instead of waiting for a worker; a cron tick runs jobs.
     send_inline: bool = False
     cron_secret: str = ""

@@ -78,6 +78,30 @@ def test_real_smtp_logs_in_over_tls_and_mails_only_the_demo_inbox(monkeypatch: p
     assert sent["Subject"] == "[demo to accounts@abc-distributors.example.in] Overdue invoices"
 
 
+# HACK-007: an address on EMAIL_ALLOW_REAL is mailed for real; every other customer still goes to the demo inbox.
+@pytest.mark.parametrize(
+    ("to", "expected"),
+    [
+        ("Riya@Gmail.com", "Riya@Gmail.com"),
+        ("accounts@abc-distributors.example.in", "inbox@gmail.com"),
+    ],
+)
+def test_only_allow_listed_addresses_get_real_mail(
+    monkeypatch: pytest.MonkeyPatch, to: str, expected: str
+) -> None:
+    RecordingSMTP.calls = []
+    monkeypatch.setattr(smtplib, "SMTP", RecordingSMTP)
+    channel = EmailChannel(
+        "smtp.gmail.com", 587, redirect_to="inbox@gmail.com", allow_real=" riya@gmail.com , me@gmail.com"
+    )
+
+    channel.send(Outbound("m1", to, "Overdue invoices", "Body"))
+
+    sent = RecordingSMTP.calls[-1][1]
+    assert isinstance(sent, EmailMessage)
+    assert sent["To"] == expected
+
+
 def test_a_real_smtp_account_without_a_demo_inbox_refuses_to_start() -> None:
     settings = Settings(
         database_url="postgresql+psycopg://x:x@nowhere:1/x", smtp_user="me@gmail.com", email_redirect_to=""

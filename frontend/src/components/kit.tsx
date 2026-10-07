@@ -208,6 +208,15 @@ export function ErrorLine({ error, plain = false }: { error: unknown; plain?: bo
             {!plain && <span className="font-mono font-semibold">{e.code}: </span>}
             {e.message}
             {!plain && e.requestId && <span className="font-mono text-xs opacity-80"> (request {e.requestId})</span>}
+            {e.details.length > 0 && (
+              <ul className="mt-1 list-disc pl-5">
+                {e.details.map((d) => (
+                  <li key={d.field + d.reason}>
+                    {d.field}: {d.reason}
+                  </li>
+                ))}
+              </ul>
+            )}
           </>
         ) : (
           "Error: something went wrong. Reload and try again."

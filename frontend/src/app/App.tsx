@@ -272,7 +272,7 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
       <main className="mx-auto w-full max-w-console min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
         {route.page === "today" && <Today />}
         {route.page === "approvals" && <Approvals role={role} />}
-        {route.page === "customers" && <Customers />}
+        {route.page === "customers" && <Customers role={role} />}
         {route.page === "customer" && <CustomerPage key={route.id} id={route.id} role={role} />}
         {route.page === "admin" && (role === "admin" ? <Admin /> : <p>Admin is for the admin role.</p>)}
         {route.page === "evals" && <Evaluation />}

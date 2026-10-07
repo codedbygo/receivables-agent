@@ -26,6 +26,9 @@ export const Customer = z.object({
   next_action: nstr,
 });
 
+export const Imported = z.object({ customers_created: z.number(), invoices_added: z.number() });
+export const Deleted = z.object({ id: z.string(), name: z.string() });
+
 export const Invoice = z.object({
   id: z.string(),
   number: z.string(),

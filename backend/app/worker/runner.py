@@ -29,6 +29,7 @@ def channels(settings: Settings) -> dict[str, MessageChannel]:
             starttls=settings.smtp_starttls,
             from_addr=settings.smtp_from,
             redirect_to=settings.email_redirect_to,
+            allow_real=settings.email_allow_real,
         ),
         **messaging_channels(settings),
     }

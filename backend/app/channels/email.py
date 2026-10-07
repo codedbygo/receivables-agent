@@ -41,16 +41,20 @@ class EmailChannel:
         starttls: bool = False,
         from_addr: str = "",
         redirect_to: str = "",
+        allow_real: str = "",
     ) -> None:
         self.host, self.port = host, port
         self.username, self.password, self.starttls = username, password, starttls
         self.from_addr = from_addr or "Accounts team <collections@demo-business.example.in>"
         self.redirect_to = redirect_to
+        self.allow_real = {a.strip().lower() for a in allow_real.split(",") if a.strip()}
 
     def send(self, message: Outbound) -> str:
         m = EmailMessage()
         m["From"] = self.from_addr
-        if self.redirect_to:  # hosted demo (ADR-0016): every mail goes to the demo inbox, never to a customer
+        if self.redirect_to and message.to.strip().lower() not in self.allow_real:
+            # hosted demo (ADR-0016): every mail goes to the demo inbox, never to a customer; HACK-007 lets the
+            # engineer's own listed test addresses through
             m["To"] = self.redirect_to
             m["X-Original-To"] = message.to
             m["Subject"] = f"[demo to {message.to}] {message.subject}"

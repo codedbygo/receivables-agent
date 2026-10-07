@@ -3,7 +3,7 @@
 - Task: HACK-006
 - Title: Demo readiness, hosted demo fix and 10-customer seed
 - Branch: main (at the engineer's request; no task branch)
-- Status: built and verified locally, uncommitted
+- Status: committed (1188951) and deployed; hosted reset ran (smoke reset passed); the count of 10 is not yet confirmed
 - Owner: Savitha Sista
 - Started: 2026-10-07
 - Updated: 2026-10-07

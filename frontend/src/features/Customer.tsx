@@ -42,6 +42,8 @@ import {
   tdNum,
   WhyFactors,
 } from "@/components/kit";
+import { href } from "../app/route";
+import { CustomerDialog, DeleteCustomerDialog, InvoiceDialog } from "./Directory";
 import { api } from "@/lib/api";
 import { day, inr, stamp } from "@/lib/format";
 import { useAction, useCustomer, useSettings } from "@/lib/hooks";
@@ -88,6 +90,7 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
   const [callPrep, setCallPrep] = useState(false);
   const [replyTo, setReplyTo] = useState<S.Message | null>(null);
   const [resolving, setResolving] = useState<{ id: string; invoice: string } | null>(null);
+  const [manage, setManage] = useState<"edit" | "invoice" | "delete" | null>(null);
   const run = useAction(() => api("/runs", S.RunBatch, { method: "POST", body: { customer_ids: [id] } }));
   const resend = useAction((mid: string) => api(`/messages/${mid}/resend`, S.Message, { method: "POST" }));
   const link = useAction((number: string) =>
@@ -124,8 +127,24 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
           )}
           {canAct && lastSent && <Button onClick={() => setReplyTo(lastSent)}>Record a reply</Button>}
           {canAct && flags?.feature_voice && <Button onClick={() => setCallPrep(true)}>Prepare call</Button>}
+          {canAct && <Button onClick={() => setManage("invoice")}>Add invoice</Button>}
+          {canAct && <Button onClick={() => setManage("edit")}>Edit details</Button>}
+          {role === "admin" && (
+            <Button variant="danger" onClick={() => setManage("delete")}>
+              Delete
+            </Button>
+          )}
         </div>
       </header>
+      {manage === "edit" && <CustomerDialog customer={c} onClose={() => setManage(null)} />}
+      {manage === "invoice" && <InvoiceDialog customerId={id} onClose={() => setManage(null)} />}
+      {manage === "delete" && (
+        <DeleteCustomerDialog
+          customer={c}
+          onClose={() => setManage(null)}
+          onDeleted={() => (window.location.hash = href({ page: "customers" }))}
+        />
+      )}
       <ErrorLine error={run.error ?? resend.error ?? check.error ?? link.error} />
       {link.data && (
         <p role="status" className="rounded border border-info bg-info-subtle px-3 py-2 break-all text-info">

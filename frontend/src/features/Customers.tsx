@@ -1,10 +1,11 @@
 /** S-06 Customers: the CRM list, sortable by each column (US-00-026, US-00-002). */
 import { useState } from "react";
 import { href } from "../app/route";
-import { BandBadge, Empty, ErrorLine, inputClass, Loading, td, tdNum } from "../components/kit";
+import { BandBadge, Button, Empty, ErrorLine, inputClass, Loading, td, tdNum } from "../components/kit";
 import { day, inr } from "../lib/format";
 import { useCustomers } from "../lib/hooks";
-import type { Customer } from "../lib/schemas";
+import type { Customer, Role } from "../lib/schemas";
+import { CustomerDialog, DeleteCustomerDialog, ImportDialog } from "./Directory";
 
 const BAND: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
@@ -33,9 +34,13 @@ export function sortCustomers(rows: Customer[], col: number, asc: boolean): Cust
   });
 }
 
-export function Customers() {
+export function Customers({ role }: { role: Role }) {
   const q = useCustomers();
   const [find, setFind] = useState("");
+  const [dialog, setDialog] = useState<"add" | "upload" | null>(null);
+  const [deleting, setDeleting] = useState<Customer | null>(null);
+  const canAct = role !== "viewer";
+  const canDelete = role === "admin";
   const [sort, setSort] = useState<{ col: number; asc: boolean }>({ col: 4, asc: true });
   if (q.isPending) return <Loading what="customers" />;
   if (q.error) return <ErrorLine error={q.error} />;
@@ -49,16 +54,29 @@ export function Customers() {
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-display font-semibold">Customers</h1>
-        <label className="w-72">
-          <span className="sr-only">Find a customer</span>
-          <input
-            className={inputClass}
-            placeholder="Find a customer"
-            value={find}
-            onChange={(e) => setFind(e.target.value)}
-          />
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          {canAct && (
+            <>
+              <Button variant="primary" onClick={() => setDialog("add")}>
+                Add distributor
+              </Button>
+              <Button onClick={() => setDialog("upload")}>Upload CSV</Button>
+            </>
+          )}
+          <label className="w-72">
+            <span className="sr-only">Find a customer</span>
+            <input
+              className={inputClass}
+              placeholder="Find a customer"
+              value={find}
+              onChange={(e) => setFind(e.target.value)}
+            />
+          </label>
+        </div>
       </header>
+      {dialog === "add" && <CustomerDialog onClose={() => setDialog(null)} />}
+      {dialog === "upload" && <ImportDialog onClose={() => setDialog(null)} />}
+      {deleting && <DeleteCustomerDialog customer={deleting} onClose={() => setDeleting(null)} />}
       {rows.length === 0 ? (
         <Empty>No customer matches “{find.trim()}”.</Empty>
       ) : (
@@ -83,6 +101,11 @@ export function Customers() {
                     </button>
                   </th>
                 ))}
+                {canDelete && (
+                  <th scope="col" className="px-2 py-2 font-semibold">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -101,6 +124,13 @@ export function Customers() {
                   </td>
                   <td className={td}>{c.last_contact_at ? day(c.last_contact_at) : "Never"}</td>
                   <td className={td}>{c.next_action ?? "None"}</td>
+                  {canDelete && (
+                    <td className={td}>
+                      <Button variant="danger" onClick={() => setDeleting(c)}>
+                        Delete<span className="sr-only"> {c.name}</span>
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
