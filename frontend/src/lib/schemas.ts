@@ -26,6 +26,31 @@ export const Customer = z.object({
   next_action: nstr,
 });
 
+export const GoogleStatus = z.object({
+  configured: z.boolean(),
+  connected: z.boolean(),
+  email: z.string().nullable(),
+  connected_at: z.string().nullable(),
+  email_provider: z.enum(["smtp", "gmail"]),
+});
+export const GoogleSync = z.object({
+  calendar: z.object({ created: z.number(), removed: z.number() }),
+  replies_found: z.number(),
+});
+export const Inbound = z.object({
+  id: z.string(),
+  customer_id: z.string(),
+  customer_name: z.string(),
+  message_id: z.string(),
+  message_subject: z.string(),
+  from_address: z.string(),
+  subject: z.string(),
+  body: z.string(),
+  received_at: z.string(),
+  status: z.enum(["pending", "accepted", "dismissed"]),
+});
+export type Inbound = z.infer<typeof Inbound>;
+
 export const Imported = z.object({ customers_created: z.number(), invoices_added: z.number() });
 export const Deleted = z.object({ id: z.string(), name: z.string() });
 

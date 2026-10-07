@@ -380,7 +380,7 @@ def deliver(engine: Engine, message_id: str, channels: dict[str, MessageChannel]
         simulated = channels[g.channel].simulated  # read before sending: nothing may fail after the send
         customer_id, attempts = g.customer_id, g.send_attempts + 1
     try:
-        channels[g.channel].send(out)
+        provider_ref = channels[g.channel].send(out)
     except ChannelError as e:
         final = attempts >= MAX_SEND_ATTEMPTS
         with engine.begin() as c, Session(bind=c) as s:
@@ -403,8 +403,8 @@ def deliver(engine: Engine, message_id: str, channels: dict[str, MessageChannel]
     with engine.begin() as c, Session(bind=c) as s:
         s.execute(
             text("""UPDATE messages SET status = 'sent', sent_at = now(), last_error = NULL, updated_at = now(),
-            simulated = :sim WHERE id = CAST(:m AS uuid)"""),
-            {"m": message_id, "sim": simulated},
+            simulated = :sim, provider_ref = :ref WHERE id = CAST(:m AS uuid)"""),
+            {"m": message_id, "sim": simulated, "ref": provider_ref or None},
         )
         record(
             s,

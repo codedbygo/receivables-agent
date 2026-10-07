@@ -27,6 +27,24 @@ class MessageChannel(Protocol):
     def send(self, message: Outbound) -> str: ...
 
 
+def compose(message: Outbound, from_addr: str, redirect_to: str, allow_real: set[str]) -> EmailMessage:
+    """The email as sent, shared by SMTP and Gmail (HACK-009) so both follow the same redirect rule."""
+    m = EmailMessage()
+    m["From"] = from_addr
+    if redirect_to and message.to.strip().lower() not in allow_real:
+        # optional (ADR-0017): with a redirect inbox set, every mail goes there except the allow-listed
+        # addresses; with none set, every customer is mailed at their own address
+        m["To"] = redirect_to
+        m["X-Original-To"] = message.to
+        m["Subject"] = f"[demo to {message.to}] {message.subject}"
+    else:
+        m["To"] = message.to
+        m["Subject"] = message.subject
+    m["Message-ID"] = f"<{message.message_id}@collections.local>"
+    m.set_content(message.body)
+    return m
+
+
 class EmailChannel:
     name = "email"
     simulated = False  # real SMTP (Mailpit, a test inbox, in the local demo)
@@ -50,19 +68,7 @@ class EmailChannel:
         self.allow_real = {a.strip().lower() for a in allow_real.split(",") if a.strip()}
 
     def send(self, message: Outbound) -> str:
-        m = EmailMessage()
-        m["From"] = self.from_addr
-        if self.redirect_to and message.to.strip().lower() not in self.allow_real:
-            # optional (ADR-0017): with a redirect inbox set, every mail goes there except the allow-listed
-            # addresses; with none set, every customer is mailed at their own address
-            m["To"] = self.redirect_to
-            m["X-Original-To"] = message.to
-            m["Subject"] = f"[demo to {message.to}] {message.subject}"
-        else:
-            m["To"] = message.to
-            m["Subject"] = message.subject
-        m["Message-ID"] = f"<{message.message_id}@collections.local>"
-        m.set_content(message.body)
+        m = compose(message, self.from_addr, self.redirect_to, self.allow_real)
         accepted = False
         try:
             with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:

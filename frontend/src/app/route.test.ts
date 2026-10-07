@@ -21,6 +21,10 @@ describe("parse", () => {
     expect(parse("#/safety")).toEqual({ page: "safety" });
   });
 
+  it("reads the incoming replies queue (HACK-009)", () => {
+    expect(parse("#/inbox")).toEqual({ page: "inbox" });
+  });
+
   it("reads a portal token and refuses a malformed one (HACK-003)", () => {
     const token = "Abc_def-1234567890abcdef1234567890ABCDEF12";
     expect(parse(`#/portal/${token}`)).toEqual({ page: "portal", token });

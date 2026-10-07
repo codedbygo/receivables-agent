@@ -93,6 +93,25 @@ removes everything recorded about it. A demo reset brings back the 10 seeded dis
 With real SMTP and `EMAIL_REDIRECT_TO` empty, every reminder goes to the distributor's own address (ADR-0017). Set
 `EMAIL_REDIRECT_TO` to send everything to one inbox instead, with `EMAIL_ALLOW_REAL` listing the exceptions.
 
+## Connecting Google: Gmail and Calendar (HACK-009)
+
+One company Google account sends the reminders, receives the customers' replies and holds a calendar of
+promises and follow-ups (ADR-0018). Set it up once:
+
+1. In Google Cloud Console create a project and enable the **Gmail API** and the **Google Calendar API**.
+2. OAuth consent screen: External, Testing, and add the company Gmail address as a test user.
+3. Credentials, Create OAuth client ID, Web application. Authorised redirect URI:
+   `https://<your host>/api/v1/google/callback` (and `http://localhost:8080/api/v1/google/callback` locally).
+4. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` (exactly as registered) and
+   `GOOGLE_TOKEN_KEY` (`python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`).
+   Set `EMAIL_PROVIDER=gmail` to send from Gmail and read replies. Redeploy, and migrate the database to 0009 first.
+5. Admin, **Connect Google**, sign in with the company account and tick every permission.
+
+Then reminders leave from Gmail, **Incoming replies** fills with customer emails (accept or dismiss each), and the
+account's calendar shows each open promise and follow-up. A sync runs every 5 minutes with the worker; on Vercel
+use **Check for replies** and **Sync now**, or point a free external timer at `/api/v1/cron/tick` with
+`Authorization: Bearer <CRON_SECRET>`. In Testing mode Google asks you to connect again every 7 days.
+
 ## 3. What is real and what is simulated
 
 | Part | Status |
@@ -169,6 +188,10 @@ with `LLM_MODE=record` and a key to measure the model itself.
 | `LLM_TIMEOUT_S` | `20` | gateway | |
 | `SMTP_HOST` / `SMTP_PORT` | `mailhog` / `1025` | email channel | |
 | `EMAIL_REDIRECT_TO` | empty | email channel | optional inbox that receives every message instead of the customer (ADR-0017); empty mails each customer directly |
+| `EMAIL_PROVIDER` | `smtp` | email channel | `gmail` sends through the connected Google account and reads replies (ADR-0018) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | empty | api, worker | the OAuth client from Google Cloud; the secret is a secret |
+| `GOOGLE_TOKEN_KEY` | empty | api, worker | secret; Fernet key that encrypts the stored refresh token |
+| `GOOGLE_REDIRECT_URI` | empty | api | exactly the redirect URI registered on the OAuth client |
 | `EMAIL_ALLOW_REAL` | empty | email channel | comma-separated addresses mailed for real even when `EMAIL_REDIRECT_TO` is set (HACK-007) |
 | `MAILHOG_UI_URL` | `http://localhost:8025` | links | |
 | `DEMO_TODAY` | `2026-09-30` | seeds settings | runtime value in the settings row |

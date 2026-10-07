@@ -33,7 +33,7 @@ NS = uuid.UUID("6b1f5c1e-9d6a-4f7e-8a51-3c2f0e7d9a10")
 IST = timezone(timedelta(hours=5, minutes=30))
 RNG_SEED = 20260930
 TODAY = date(2026, 9, 30)  # the seed is written for the story's start date; DEMO_TODAY must match it
-KEEP = {"users", "sessions", "llm_calls"}
+KEEP = {"users", "sessions", "llm_calls", "google_account"}  # a reset never disconnects Google (HACK-009)
 LAKH = 100_000_00
 
 CUSTOMERS: list[tuple[str, str, str]] = [  # name, segment, profile

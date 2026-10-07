@@ -15,14 +15,14 @@ import {
   UserCog,
   Users,
   Wallet,
-  type LucideIcon,
-} from "lucide-react";
+  type LucideIcon, MailOpen } from "lucide-react";
 import { useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { Button, ErrorLine, Loading } from "@/components/kit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Admin } from "@/features/Admin";
+import { IncomingReplies } from "@/features/Google";
 import { Approvals } from "@/features/Approvals";
 import { CustomerPage } from "@/features/Customer";
 import { Customers } from "@/features/Customers";
@@ -130,6 +130,7 @@ const NAV: { route: Route; label: string; icon: LucideIcon; adminOnly?: boolean 
   { route: { page: "today" }, label: "Today", icon: LayoutDashboard },
   { route: { page: "executive" }, label: "CFO view", icon: IndianRupee },
   { route: { page: "approvals" }, label: "Approvals", icon: Inbox },
+  { route: { page: "inbox" }, label: "Incoming replies", icon: MailOpen },
   { route: { page: "customers" }, label: "Customers", icon: Users },
   { route: { page: "safety" }, label: "AI Safety", icon: ShieldCheck },
   { route: { page: "evals" }, label: "Evaluation", icon: FlaskConical },
@@ -272,6 +273,7 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
       <main className="mx-auto w-full max-w-console min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
         {route.page === "today" && <Today />}
         {route.page === "approvals" && <Approvals role={role} />}
+        {route.page === "inbox" && <IncomingReplies role={role} />}
         {route.page === "customers" && <Customers role={role} />}
         {route.page === "customer" && <CustomerPage key={route.id} id={route.id} role={role} />}
         {route.page === "admin" && (role === "admin" ? <Admin /> : <p>Admin is for the admin role.</p>)}

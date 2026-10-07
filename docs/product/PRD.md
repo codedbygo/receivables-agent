@@ -169,6 +169,10 @@ One testable statement per id. Ids are never reused or renumbered. Tier is the b
 | REQ-123 | A collector or admin uploads a CSV of distributors and invoices; any bad row saves nothing and the errors name the row; at most 500 rows and 1 MB (HACK-007). | Collector | P1 | HACK-007 | none |
 | REQ-124 | Only an admin deletes a distributor, which removes every row recorded about it in one transaction (HACK-007). | Admin | P1 | HACK-007 | none |
 | REQ-125 | With real SMTP, an address listed in EMAIL_ALLOW_REAL receives its mail; every other address still goes to the demo inbox (HACK-007). | Admin | P1 | HACK-007 | none |
+| REQ-126 | An admin connects one company Google account; its refresh token is stored encrypted and the sign-in round trip is protected by a signed, expiring state (HACK-009). | Admin | P1 | HACK-009 | none |
+| REQ-127 | With EMAIL_PROVIDER=gmail, approved emails are sent from the connected account through the Gmail API and keep their thread id (HACK-009). | Admin | P1 | HACK-009 | none |
+| REQ-128 | Customer emails in threads the app started are queued without their quoted history; a collector accepts one (classified like a pasted reply) or dismisses it (HACK-009, closes D-001). | Collector | P1 | HACK-009 | none |
+| REQ-129 | Each pending promise and open follow-up task has one all-day event in the connected Google Calendar, removed when settled or closed (HACK-009). | Collector | P1 | HACK-009 | none |
 
 ## 6. Constraints
 

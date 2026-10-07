@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     email_redirect_to: str = ""
     # HACK-007: comma-separated addresses that may receive real mail despite the redirect (your own test inboxes).
     email_allow_real: str = ""
+    # HACK-009 (ADR-0018): "gmail" sends through the connected company Google account instead of SMTP.
+    email_provider: Literal["smtp", "gmail"] = "smtp"
+    # The Google Cloud OAuth client and the key that encrypts the stored refresh token (Fernet, base64).
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_token_key: str = ""
+    # Exactly the redirect URI registered on the OAuth client, e.g. https://<host>/api/v1/google/callback.
+    google_redirect_uri: str = ""
     # Serverless (ADR-0015): send right after approval instead of waiting for a worker; a cron tick runs jobs.
     send_inline: bool = False
     cron_secret: str = ""

@@ -12,7 +12,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.agent.orchestrator import Orchestrator
 from app.api.deps import require
-from app.api.routers import admin, calls, cron, directory, ledger, messages, portal, records
+from app.api.routers import admin, calls, cron, directory, google, ledger, messages, portal, records
 from app.channels.voice import voice_provider
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_sessionmaker, ping
@@ -110,6 +110,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         calls.router,
         portal.router,
         directory.router,
+        google.router,
     ):
         api.include_router(r)
     app.include_router(api)

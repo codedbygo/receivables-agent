@@ -1,17 +1,19 @@
 """Job handlers and the scheduler, shared by the long-running worker and the serverless cron tick (ADR-0015)."""
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import Engine, text
 
 from app.agent.orchestrator import Orchestrator
 from app.channels.email import EmailChannel, MessageChannel
+from app.channels.gmail import GmailChannel
 from app.channels.messaging import messaging_channels
 from app.core.config import Settings
+from app.core.errors import AppError, ErrorCode
 from app.llm.gateway import Gateway
-from app.services import approval
+from app.services import approval, google_calendar, inbox
 from app.services.priority import top
 from app.tools.registry import build_registry
 from app.worker.jobs import Handler, enqueue, run_once
@@ -19,9 +21,11 @@ from app.worker.jobs import Handler, enqueue, run_once
 IST = timezone(timedelta(hours=5, minutes=30))
 
 
-def channels(settings: Settings) -> dict[str, MessageChannel]:
-    return {
-        "email": EmailChannel(
+def channels(settings: Settings, engine: Engine) -> dict[str, MessageChannel]:
+    email: MessageChannel = (
+        GmailChannel(engine, settings)
+        if settings.email_provider == "gmail"
+        else EmailChannel(
             settings.smtp_host,
             settings.smtp_port,
             username=settings.smtp_user,
@@ -30,14 +34,13 @@ def channels(settings: Settings) -> dict[str, MessageChannel]:
             from_addr=settings.smtp_from,
             redirect_to=settings.email_redirect_to,
             allow_real=settings.email_allow_real,
-        ),
-        **messaging_channels(settings),
-    }
+        )
+    )
+    return {"email": email, **messaging_channels(settings)}
 
 
 def send_handlers(settings: Settings) -> dict[str, Handler]:
-    chans = channels(settings)
-    return {"send_message": lambda e, p: approval.deliver(e, p["message_id"], chans)}
+    return {"send_message": lambda e, p: approval.deliver(e, p["message_id"], channels(settings, e))}
 
 
 def handlers(engine: Engine, settings: Settings) -> dict[str, Handler]:
@@ -58,11 +61,36 @@ def handlers(engine: Engine, settings: Settings) -> dict[str, Handler]:
 
         check_promises(e)
 
-    return {"daily_run": daily_run, "promise_check": promise_check, **send_handlers(settings)}
+    def google_sync(e: Engine, _payload: dict[str, Any]) -> None:
+        try:
+            if settings.email_provider == "gmail":
+                inbox.poll(e, settings)
+            google_calendar.sync(e, settings)
+        except AppError as err:
+            if err.code not in (ErrorCode.GOOGLE_NOT_CONFIGURED, ErrorCode.GOOGLE_NOT_CONNECTED):
+                raise  # Google down: the job retries; not set up or disconnected: nothing to do
+
+    return {
+        "daily_run": daily_run,
+        "promise_check": promise_check,
+        "google_sync": google_sync,
+        **send_handlers(settings),
+    }
 
 
 def schedule(engine: Engine, now: datetime) -> None:
-    """Once per demo date, from 09:00 IST wall time: the daily run and the promise check."""
+    """Every 5 minutes while Google is connected: a sync (HACK-009). Once per demo date, from 09:00 IST wall
+    time: the daily run and the promise check."""
+    with engine.begin() as c:
+        if c.execute(text("SELECT 1 FROM google_account WHERE id = 1")).first():
+            u = now.astimezone(UTC)
+            bucket = u.replace(minute=u.minute - u.minute % 5, second=0, microsecond=0)
+            enqueue(c, "google_sync", bucket.isoformat())
+            c.execute(
+                text(
+                    "DELETE FROM jobs WHERE kind = 'google_sync' AND status = 'done' AND created_at < now() - interval '1 day'"
+                )
+            )
     if now.astimezone(IST).hour < 9:
         return
     with engine.begin() as c:

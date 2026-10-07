@@ -20,6 +20,8 @@ export const keys = {
   executive: ["executive"] as const,
   safety: ["safety"] as const,
   followUps: ["follow-ups"] as const,
+  google: ["google"] as const,
+  inbox: ["inbox"] as const,
 };
 
 const Timeline = z.object({ data: z.array(S.TimelineEvent), next_action: z.string() });
@@ -91,3 +93,7 @@ export function useAction<A, R>(fn: (args: A) => Promise<R>) {
   const qc = useQueryClient();
   return useMutation<R, Error, A>({ mutationFn: fn, onSettled: () => qc.invalidateQueries() });
 }
+
+export const useGoogle = () => useQuery({ queryKey: keys.google, queryFn: () => api("/google/status", S.GoogleStatus) });
+export const useInbox = () =>
+  useQuery({ queryKey: keys.inbox, queryFn: () => api("/google/inbox", z.object({ data: z.array(S.Inbound) })) });

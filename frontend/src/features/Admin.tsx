@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { day, inr, rupeesToPaise, stamp } from "@/lib/format";
+import { GooglePanel } from "./Google";
 import { useAction, useCustomers, useGuardrailEvents, usePayments, useRuns, useSettings } from "@/lib/hooks";
 import * as S from "@/lib/schemas";
 import { RunDialog } from "./RunDialog";
@@ -67,6 +68,7 @@ export function Admin() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="controls" className="space-y-6">
+      <GooglePanel isAdmin />
       <div className="grid gap-4 lg:grid-cols-3">
         <Panel title="Kill switch">
           <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-3">

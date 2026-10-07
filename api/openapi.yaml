@@ -241,6 +241,308 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalError'
+  /google/status:
+    get:
+      operationId: getGoogleStatus
+      summary: Whether Google is set up and which account is connected
+      tags:
+      - google
+      x-story-ids:
+      - HACK-009
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured, connected, email, connected_at, email_provider]
+                properties:
+                  configured:
+                    type: boolean
+                  connected:
+                    type: boolean
+                  email:
+                    type: [string, 'null']
+                  connected_at:
+                    type: [string, 'null']
+                    format: date-time
+                  email_provider:
+                    type: string
+                    enum: [smtp, gmail]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /google/connect:
+    post:
+      operationId: connectGoogle
+      summary: The Google sign-in URL for the admin's browser
+      tags:
+      - google
+      x-story-ids:
+      - HACK-009
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url:
+                    type: string
+                    format: uri
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /google/callback:
+    get:
+      operationId: googleCallback
+      summary: Google returns the admin's browser here
+      tags:
+      - google
+      x-story-ids:
+      - HACK-009
+      x-roles: public
+      description: Public; the signed, 10-minute state minted by connectGoogle is the credential.
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - {name: state, in: query, required: false, schema: {type: string, maxLength: 200}}
+      - {name: code, in: query, required: false, schema: {type: string, maxLength: 2000}}
+      - {name: error, in: query, required: false, schema: {type: string, maxLength: 200}}
+      responses:
+        '303':
+          description: Back to the console's Admin page, with google=connected or google_error=<reason> in the query
+  /google/disconnect:
+    post:
+      operationId: disconnectGoogle
+      summary: Forget the account and revoke the grant
+      tags:
+      - google
+      x-story-ids:
+      - HACK-009
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured, connected, email, connected_at, email_provider]
+                properties:
+                  configured:
+                    type: boolean
+                  connected:
+                    type: boolean
+                  email:
+                    type: [string, 'null']
+                  connected_at:
+                    type: [string, 'null']
+                    format: date-time
+                  email_provider:
+                    type: string
+                    enum: [smtp, gmail]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /google/sync:
+    post:
+      operationId: syncGoogle
+      summary: Read new Gmail replies (when EMAIL_PROVIDER=gmail) and bring the calendar up to date
+      tags:
+      - google
+      x-story-ids:
+      - HACK-009
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [calendar, replies_found]
+                properties:
+                  calendar:
+                    type: object
+                    required: [created, removed]
+                    properties:
+                      created: {type: integer}
+                      removed: {type: integer}
+                  replies_found:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /google/inbox:
+    get:
+      operationId: listIncomingReplies
+      summary: Customer emails from Gmail waiting for review
+      tags:
+      - google
+      x-story-ids:
+      - HACK-009
+      x-roles: viewer, collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                    type: object
+                    required: [id, customer_id, customer_name, message_id, message_subject, from_address, subject, body, received_at, status]
+                    properties:
+                      id: {type: string, format: uuid}
+                      customer_id: {type: string, format: uuid}
+                      customer_name: {type: string}
+                      message_id: {type: string, format: uuid}
+                      message_subject: {type: string}
+                      from_address: {type: string}
+                      subject: {type: string}
+                      body: {type: string}
+                      received_at: {type: string, format: date-time}
+                      status: {type: string, enum: [pending, accepted, dismissed]}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /google/inbox/{id}/accept:
+    post:
+      operationId: acceptIncomingReply
+      summary: Record the email as the customer's reply and classify it
+      tags:
+      - google
+      x-story-ids:
+      - HACK-009
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reply'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /google/inbox/{id}/dismiss:
+    post:
+      operationId: dismissIncomingReply
+      summary: Take the email off the queue without recording a reply
+      tags:
+      - google
+      x-story-ids:
+      - HACK-009
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, customer_id, customer_name, message_id, message_subject, from_address, subject, body, received_at, status]
+                properties:
+                  id: {type: string, format: uuid}
+                  customer_id: {type: string, format: uuid}
+                  customer_name: {type: string}
+                  message_id: {type: string, format: uuid}
+                  message_subject: {type: string}
+                  from_address: {type: string}
+                  subject: {type: string}
+                  body: {type: string}
+                  received_at: {type: string, format: date-time}
+                  status: {type: string, enum: [pending, accepted, dismissed]}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /customers:
     get:
       operationId: listCustomers
