@@ -9,6 +9,7 @@ from httpx2 import Response
 from sqlalchemy import Engine
 
 from app.api.main import create_app
+from app.channels.email import ChannelError
 from app.channels.voice import twilio_signature
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
@@ -349,6 +350,22 @@ def test_a_real_call_takes_speech_only_from_the_provider(real: TestClient) -> No
     r = real.post(f"/api/v1/calls/{call['id']}/turns", json={"text": "hello"}, headers=COLLECTOR)
 
     assert call["simulated"] is False and r.status_code == 403
+
+
+class RefusingTwilio(FakeTwilio):
+    def place(self, call_id: str, to: str) -> str:
+        raise ChannelError("PROVIDER_REJECTED_400_21219", retryable=False)
+
+
+def test_a_call_the_provider_refuses_names_the_reason_and_leaves_no_call(real: TestClient) -> None:
+    # HACK-010: a Twilio refusal surfaced as INTERNAL and hid Twilio's error number.
+    real.app.state.voice = RefusingTwilio()  # type: ignore[attr-defined]  # TestClient.app is typed as ASGIApp
+
+    r = real.post("/api/v1/calls", json={"customer_id": ABC}, headers=COLLECTOR)
+
+    assert r.status_code == 503 and r.json()["error"]["code"] == "VOICE_PROVIDER"
+    assert "21219" in r.json()["error"]["message"]
+    assert real.get(f"/api/v1/calls?filter[customer_id]={ABC}", headers=COLLECTOR).json()["data"] == []
 
 
 def test_signed_speech_is_answered_in_twiml_and_keeps_listening(real: TestClient) -> None:

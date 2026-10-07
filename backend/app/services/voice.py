@@ -21,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.agent.classify import INVOICE, classify, dispute_category, dispute_reason, injection_suspected
+from app.channels.email import ChannelError
 from app.channels.voice import VoiceProvider
 from app.core.clock import today
 from app.core.errors import AppError, ErrorCode
@@ -318,7 +319,14 @@ def request(session: Session, customer_id: str, user_id: str, provider: VoicePro
     )
     _say(session, call_id, customer_id, opening(session, customer_id))
     # ponytail: the provider call happens inside this transaction (10 s timeout); a queue if calls get slow
-    pid = provider.place(call_id, c.phone)
+    try:
+        pid = provider.place(call_id, c.phone)
+    except ChannelError as e:
+        # Raising rolls the call row back, so a refused call leaves nothing half-started.
+        raise AppError(
+            ErrorCode.VOICE_PROVIDER,
+            f"The phone provider refused the call ({e.code}). Check the number is in +91 form and allowed.",
+        ) from e
     session.execute(
         text("UPDATE calls SET provider_call_id = :p WHERE id = CAST(:k AS uuid)"), {"p": pid, "k": call_id}
     )

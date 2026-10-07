@@ -176,6 +176,7 @@ def test_twilio_voice_places_the_call_with_signed_webhook_urls() -> None:
         (unreachable, "PROVIDER_UNAVAILABLE", True),
         (lambda _: httpx.Response(500), "PROVIDER_REJECTED_500", True),
         (lambda _: httpx.Response(400), "PROVIDER_REJECTED_400", False),
+        (lambda _: httpx.Response(400, json={"code": 21219}), "PROVIDER_REJECTED_400_21219", False),
     ],
 )
 def test_twilio_voice_failures_are_retryable_or_final(

@@ -57,7 +57,13 @@ class TwilioVoice:
         except httpx.HTTPError as e:
             raise ChannelError("PROVIDER_UNAVAILABLE", retryable=True) from e
         if r.status_code >= 400:
-            raise ChannelError(f"PROVIDER_REJECTED_{r.status_code}", retryable=r.status_code >= 500)
+            # Twilio's own error number (21219 unverified, 21215 geo permission...) is the only useful diagnosis.
+            try:
+                twilio_code = r.json().get("code")
+            except ValueError:
+                twilio_code = None
+            suffix = f"_{twilio_code}" if twilio_code else ""
+            raise ChannelError(f"PROVIDER_REJECTED_{r.status_code}{suffix}", retryable=r.status_code >= 500)
         return str(r.json().get("sid", ""))
 
 
