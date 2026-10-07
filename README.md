@@ -90,8 +90,8 @@ YYYY-MM-DD, segment is sme, mid_market or enterprise, and amounts are rupees (up
 nothing and the errors name the row; at most 500 rows and 1 MB. Only an admin can **Delete** a distributor, which
 removes everything recorded about it. A demo reset brings back the 10 seeded distributors and drops the rest.
 
-To receive a real reminder, give a test distributor your own address and list it in `EMAIL_ALLOW_REAL`; every other
-address still goes to the `EMAIL_REDIRECT_TO` inbox.
+With real SMTP and `EMAIL_REDIRECT_TO` empty, every reminder goes to the distributor's own address (ADR-0017). Set
+`EMAIL_REDIRECT_TO` to send everything to one inbox instead, with `EMAIL_ALLOW_REAL` listing the exceptions.
 
 ## 3. What is real and what is simulated
 
@@ -168,7 +168,8 @@ with `LLM_MODE=record` and a key to measure the model itself.
 | `LLM_MAX_TOKENS` | `500` | gateway | capped at 500 |
 | `LLM_TIMEOUT_S` | `20` | gateway | |
 | `SMTP_HOST` / `SMTP_PORT` | `mailhog` / `1025` | email channel | |
-| `EMAIL_ALLOW_REAL` | empty | email channel | comma-separated addresses mailed for real even when `EMAIL_REDIRECT_TO` redirects everything else; only your own test inboxes (HACK-007) |
+| `EMAIL_REDIRECT_TO` | empty | email channel | optional inbox that receives every message instead of the customer (ADR-0017); empty mails each customer directly |
+| `EMAIL_ALLOW_REAL` | empty | email channel | comma-separated addresses mailed for real even when `EMAIL_REDIRECT_TO` is set (HACK-007) |
 | `MAILHOG_UI_URL` | `http://localhost:8025` | links | |
 | `DEMO_TODAY` | `2026-09-30` | seeds settings | runtime value in the settings row |
 | `TZ` | `Asia/Kolkata` | all | |

@@ -53,8 +53,8 @@ class EmailChannel:
         m = EmailMessage()
         m["From"] = self.from_addr
         if self.redirect_to and message.to.strip().lower() not in self.allow_real:
-            # hosted demo (ADR-0016): every mail goes to the demo inbox, never to a customer; HACK-007 lets the
-            # engineer's own listed test addresses through
+            # optional (ADR-0017): with a redirect inbox set, every mail goes there except the allow-listed
+            # addresses; with none set, every customer is mailed at their own address
             m["To"] = self.redirect_to
             m["X-Original-To"] = message.to
             m["Subject"] = f"[demo to {message.to}] {message.subject}"
@@ -78,12 +78,6 @@ class EmailChannel:
             ):  # an error in QUIT after the server accepted the mail must not cause a second send
                 raise ChannelError("SMTP_UNAVAILABLE", retryable=True) from e
         return str(m["Message-ID"])
-
-
-def check_email_config(smtp_user: str, redirect_to: str) -> None:
-    """Real SMTP with the seeded demo customers would mail made-up addresses: require the demo inbox."""
-    if smtp_user and not redirect_to:
-        raise RuntimeError("SMTP_USER is set but EMAIL_REDIRECT_TO is empty: set the demo inbox to mail")
 
 
 class WhatsAppChannel:

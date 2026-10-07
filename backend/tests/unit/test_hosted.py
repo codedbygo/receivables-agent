@@ -102,10 +102,15 @@ def test_only_allow_listed_addresses_get_real_mail(
     assert sent["To"] == expected
 
 
-def test_a_real_smtp_account_without_a_demo_inbox_refuses_to_start() -> None:
-    settings = Settings(
-        database_url="postgresql+psycopg://x:x@nowhere:1/x", smtp_user="me@gmail.com", email_redirect_to=""
-    )
+# HACK-008 (ADR-0017): real SMTP with no redirect inbox starts and mails each customer at their own address.
+def test_real_smtp_without_a_redirect_starts_and_mails_the_customer(monkeypatch: pytest.MonkeyPatch) -> None:
+    RecordingSMTP.calls = []
+    monkeypatch.setattr(smtplib, "SMTP", RecordingSMTP)
+    create_app(Settings(database_url="postgresql+psycopg://x:x@nowhere:1/x", smtp_user="me@gmail.com"))
+    channel = EmailChannel("smtp.gmail.com", 587, username="me@gmail.com", password="pw", starttls=True)
 
-    with pytest.raises(RuntimeError, match="EMAIL_REDIRECT_TO"):
-        create_app(settings)
+    channel.send(Outbound("m1", "accounts@riya.example.com", "Overdue invoices", "Body"))
+
+    sent = RecordingSMTP.calls[-1][1]
+    assert isinstance(sent, EmailMessage)
+    assert (sent["To"], sent["Subject"]) == ("accounts@riya.example.com", "Overdue invoices")

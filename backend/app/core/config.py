@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_starttls: bool = False
     smtp_from: str = ""
-    # With real SMTP every message goes to this inbox, never to the seeded customers (startup refuses without).
+    # Optional (ADR-0017): when set, every message goes to this inbox instead of the customer, except the allow-list.
     email_redirect_to: str = ""
     # HACK-007: comma-separated addresses that may receive real mail despite the redirect (your own test inboxes).
     email_allow_real: str = ""
