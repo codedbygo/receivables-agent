@@ -1,6 +1,7 @@
 """US-03-001, US-00-012 to US-00-020, US-01-004: replies become promises and disputes; credits settle promises."""
 
 import os
+import threading
 from datetime import date
 from pathlib import Path
 
@@ -303,3 +304,25 @@ def test_an_exact_payment_marks_the_invoice_paid(engine: Engine, o: Orchestrator
         )
         == 0
     )
+
+
+# HACK-004 (CI e2e flake): a reply that arrived while the scheduled run held the customer was refused with a 422.
+def test_a_reply_during_a_running_agent_run_waits_for_it(engine: Engine, o: Orchestrator) -> None:
+    mid = message_for(engine)
+    with engine.begin() as c:
+        run: str = c.execute(
+            text(f"""INSERT INTO agent_runs (customer_id, run_date, trigger)
+            VALUES ('{ABC}', DATE '2026-09-30', 'manual') RETURNING id::text""")
+        ).scalar_one()
+
+    def finish() -> None:
+        with engine.begin() as c:
+            c.execute(
+                text(f"""UPDATE agent_runs SET status = 'finished', outcome = 'NO_ACTION', finished_at = now()
+                WHERE id = '{run}'""")
+            )
+
+    threading.Timer(0.5, finish).start()
+    result = reply(o, mid, "We can pay ₹3 lakh on October 5.")
+
+    assert result.classification.klass == "PROMISE"

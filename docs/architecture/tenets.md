@@ -28,9 +28,9 @@ _A breach looks like:_ an approve endpoint that runs `UPDATE messages SET status
 
 ## 4. Nothing sends without passing the send gate
 
-**Every send path calls one `send_gate` check (approved or Trusted allow-list, kill switch off, guardrails current for this text version) and refuses otherwise.**
+**Every send path calls one `send_gate` check (approved or Trusted allow-list, kill switch off, guardrails current for this text version and for the ledger as it is now) and refuses otherwise.**
 
-Three send paths exist (API, worker, MCP `send_message`); REQ-043, REQ-058, REQ-099.
+Three send paths exist (API, worker, MCP `send_message`); REQ-043, REQ-058, REQ-099. A payment can land between drafting and sending, so approval and the gate both re-run the verifier; a draft whose figures went stale goes back to the queue unverified (HACK-004).
 
 _A breach looks like:_ a "resend" admin button that calls the channel adapter directly.
 

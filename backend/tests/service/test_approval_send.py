@@ -324,3 +324,42 @@ def test_last_contact_in_the_list_is_the_business_date_of_the_send(engine: Engin
     with tx(engine) as s:
         row = ledger.list_customers(s, clock.today(s), customer_id=ABC)[0]
         assert str(row.last_contact_at) == str(clock.today(s)) == "2026-09-30"
+
+
+# HACK-004 (CI coverage): the send gate's channel checks, after a collector moved a draft to SMS.
+def approve_as_sms(engine: Engine, draft_id: str) -> None:
+    with engine.begin() as c:
+        c.execute(text("UPDATE settings SET feature_sms = true WHERE id = 1"))
+        c.execute(
+            text(
+                f"""UPDATE customers SET contact_consent = '{{"email": true, "sms": true}}' WHERE id = '{ABC}'"""
+            )
+        )
+    with tx(engine) as s, s.begin():
+        m = approval.get_message(s, draft_id)
+        approval.edit(s, draft_id, m.subject, m.body, 1, None, channel="sms")
+    approve(engine, draft_id, 2)
+
+
+def test_sms_switched_off_after_approval_fails_the_send(engine: Engine, draft_id: str) -> None:
+    approve_as_sms(engine, draft_id)
+    with engine.begin() as c:
+        c.execute(text("UPDATE settings SET feature_sms = false WHERE id = 1"))
+
+    worker(engine, FakeChannel())
+
+    assert one(engine, f"SELECT status || '/' || last_error FROM messages WHERE id = '{draft_id}'") == (
+        "failed/FEATURE_DISABLED"
+    )
+
+
+def test_sms_to_a_customer_who_withdrew_consent_fails_the_send(engine: Engine, draft_id: str) -> None:
+    approve_as_sms(engine, draft_id)
+    with engine.begin() as c:
+        c.execute(text(f"""UPDATE customers SET contact_consent = '{{"email": true}}' WHERE id = '{ABC}'"""))
+
+    worker(engine, FakeChannel())
+
+    assert one(engine, f"SELECT status || '/' || last_error FROM messages WHERE id = '{draft_id}'") == (
+        "failed/FEATURE_DISABLED"
+    )
