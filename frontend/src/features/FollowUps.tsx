@@ -14,14 +14,14 @@ export function FollowUpCard({ f, canAct, showCustomer }: { f: FollowUp; canAct:
   const [closing, setClosing] = useState(false);
   const title = f.kind === "missed_promise" ? "Missed promise" : "Promise partly kept";
   return (
-    <article className="rounded border border-danger bg-surface p-3" aria-label={`${title}, ${f.customer_name}`}>
+    <article className="rounded-xl border border-l-4 border-l-danger bg-card p-4 shadow-xs" aria-label={`${title}, ${f.customer_name}`}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold">
           {title}
           {showCustomer && (
             <>
               {": "}
-              <a href={href({ page: "customer", id: f.customer_id })} className="text-link underline">
+              <a href={href({ page: "customer", id: f.customer_id })} className="underline-offset-4 hover:text-primary hover:underline">
                 {f.customer_name}
               </a>
             </>
@@ -29,7 +29,7 @@ export function FollowUpCard({ f, canAct, showCustomer }: { f: FollowUp; canAct:
         </h3>
         <Badge value={f.promise_status.replace("_", " ").toUpperCase()} tone="bad" />
       </header>
-      <dl className="mt-2 grid grid-cols-3 gap-2">
+      <dl className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-3">
         <div>
           <dt className="text-label text-text-muted">Promised</dt>
           <dd className="num font-semibold">{inr(f.promised_paise)}</dd>
@@ -65,7 +65,7 @@ export function FollowUpCard({ f, canAct, showCustomer }: { f: FollowUp; canAct:
       {f.status === "open" && (
         <div className="mt-2 flex flex-wrap gap-2">
           {f.message_id && (
-            <a className="text-link underline" href={href({ page: "approvals" })}>
+            <a className="inline-flex h-9 items-center text-sm font-medium text-link underline-offset-4 hover:underline" href={href({ page: "approvals" })}>
               Review the follow-up draft
             </a>
           )}

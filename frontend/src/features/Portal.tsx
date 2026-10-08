@@ -43,18 +43,18 @@ export function Portal({ token }: { token: string }) {
     <Shell>
       <header className="mb-6">
         <p className="text-text-muted">Account statement for</p>
-        <h1 className="font-display text-display font-semibold">{v.customer_name}</h1>
+        <h1 className="text-display font-semibold tracking-tight">{v.customer_name}</h1>
         <p className="mt-2 text-text-muted">Outstanding</p>
         <p className="num font-display text-figure font-semibold">{inr(v.outstanding_paise)}</p>
       </header>
 
       {done && (
-        <p role="status" className="mb-4 rounded border border-success bg-success-subtle px-3 py-2 font-semibold text-success">
+        <p role="status" className="mb-4 rounded-lg border border-success/30 bg-success-subtle px-3 py-2 font-semibold text-success">
           {done}
         </p>
       )}
 
-      <section aria-label="Invoices" className="rounded border border-border bg-surface p-4">
+      <section aria-label="Invoices" className="rounded-xl border bg-card p-5 shadow-xs">
         <Table head={["Invoice", "Due", "Amount due", "Status", ""]} numeric={[2]}>
           {v.invoices.map((i) => (
             <tr key={i.number}>
@@ -122,7 +122,7 @@ export function Portal({ token }: { token: string }) {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
-      <p role="note" className="mb-6 rounded border border-warning bg-warning-subtle px-4 py-2 text-center text-label font-semibold text-warning">
+      <p role="note" className="mb-6 rounded-lg border border-warning/30 bg-warning-subtle px-4 py-2 text-center text-label font-semibold text-warning">
         Demo portal: Pay Now is SIMULATED and no money moves. Promises, disputes and help requests are recorded.
       </p>
       {children}
@@ -153,7 +153,7 @@ function PromiseForm({
   const valid = paise !== null && on !== "";
   return (
     <form
-      className="mt-4 space-y-3 rounded border border-border bg-surface p-4"
+      className="mt-4 space-y-3 rounded-xl border bg-card p-5 shadow-xs"
       onSubmit={(e) => {
         e.preventDefault();
         if (paise !== null && on !== "") onSubmit({ amount_paise: paise, promised_date: on });
@@ -198,7 +198,7 @@ function TextForm({
   const [text, setText] = useState("");
   return (
     <form
-      className="mt-4 space-y-3 rounded border border-border bg-surface p-4"
+      className="mt-4 space-y-3 rounded-xl border bg-card p-5 shadow-xs"
       onSubmit={(e) => {
         e.preventDefault();
         onSubmit(invoice, text.trim());

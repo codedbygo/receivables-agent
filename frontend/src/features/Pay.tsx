@@ -10,15 +10,15 @@ export function Pay({ token }: { token: string }) {
   const pay = useMutation({ mutationFn: () => api(`/pay/${token}`, S.PaymentOut, { method: "POST" }) });
   return (
     <main className="mx-auto max-w-lg px-4 py-12">
-      <p role="note" className="mb-6 rounded border-2 border-warning bg-warning-subtle px-4 py-3 text-center font-semibold text-warning">
+      <p role="note" className="mb-6 rounded-lg border border-warning/40 bg-warning-subtle px-4 py-3 text-center font-semibold text-warning">
         SIMULATED payment page for the demo. No money moves.
       </p>
       {link.isPending && <Loading what="the invoice" />}
       <ErrorLine error={link.error} />
       {link.data && (
-        <section className="rounded border border-border bg-surface p-6" aria-label="Invoice">
+        <section className="rounded-xl border bg-card p-6 shadow-sm" aria-label="Invoice">
           <p className="text-text-muted">{link.data.customer_name}</p>
-          <h1 className="font-display text-display font-semibold">
+          <h1 className="text-display font-semibold tracking-tight">
             Pay <span className="font-mono">{link.data.invoice_number}</span>
           </h1>
           <p className="num my-6 font-display text-figure font-semibold">{inr(link.data.amount_paise)}</p>

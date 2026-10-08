@@ -1,7 +1,11 @@
 /** S-06 Customers: the CRM list, sortable by each column (US-00-026, US-00-002). */
 import { useState } from "react";
 import { href } from "../app/route";
-import { BandBadge, Button, Empty, ErrorLine, inputClass, Loading, td, tdNum } from "../components/kit";
+import { ArrowDown, ArrowUp, MoreHorizontal, Plus, Search, Trash2, Upload, Users } from "lucide-react";
+import { BandBadge, Button, Empty, ErrorLine, inputClass, Loading, PageHeader, td, tdNum } from "../components/kit";
+import { Button as UIButton } from "../components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
+import { cn } from "../lib/utils";
 import { day, inr } from "../lib/format";
 import { useCustomers } from "../lib/hooks";
 import type { Customer, Role } from "../lib/schemas";
@@ -52,57 +56,69 @@ export function Customers({ role }: { role: Role }) {
   );
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-display text-display font-semibold">Customers</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {canAct && (
-            <>
-              <Button variant="primary" onClick={() => setDialog("add")}>
-                Add distributor
-              </Button>
-              <Button onClick={() => setDialog("upload")}>Upload CSV</Button>
-            </>
-          )}
-          <label className="w-72">
+      <PageHeader
+        title="Customers"
+        description={`${q.data.data.length} distributors, highest priority first.`}
+      >
+        {canAct && (
+          <>
+            <Button icon={Upload} onClick={() => setDialog("upload")}>
+              Upload CSV
+            </Button>
+            <Button variant="primary" icon={Plus} onClick={() => setDialog("add")}>
+              Add distributor
+            </Button>
+          </>
+        )}
+      </PageHeader>
+      {dialog === "add" && <CustomerDialog onClose={() => setDialog(null)} />}
+      {dialog === "upload" && <ImportDialog onClose={() => setDialog(null)} />}
+      {deleting && <DeleteCustomerDialog customer={deleting} onClose={() => setDeleting(null)} />}
+      <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+          <label className="relative w-full sm:w-72">
             <span className="sr-only">Find a customer</span>
+            <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
-              className={inputClass}
+              type="search"
+              className={cn(inputClass, "pl-9")}
               placeholder="Find a customer"
               value={find}
               onChange={(e) => setFind(e.target.value)}
             />
           </label>
+          {needle && (
+            <span role="status" className="text-sm text-muted-foreground">
+              {rows.length} of {q.data.data.length} shown
+            </span>
+          )}
         </div>
-      </header>
-      {dialog === "add" && <CustomerDialog onClose={() => setDialog(null)} />}
-      {dialog === "upload" && <ImportDialog onClose={() => setDialog(null)} />}
-      {deleting && <DeleteCustomerDialog customer={deleting} onClose={() => setDeleting(null)} />}
       {rows.length === 0 ? (
-        <Empty>No customer matches “{find.trim()}”.</Empty>
+        <Empty icon={Users}>No customer matches “{find.trim()}”.</Empty>
       ) : (
-        <div className="overflow-x-auto rounded border border-border bg-surface">
-          <table className="w-full border-collapse text-left">
-            <thead className="sticky top-0 bg-surface">
-              <tr className="border-b border-border-strong text-label text-text-muted uppercase">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left text-sm">
+            <thead className="bg-muted/50">
+              <tr className="border-b text-xs tracking-wide text-muted-foreground uppercase">
                 {COLUMNS.map((c, i) => (
                   <th
                     key={c.label}
                     scope="col"
                     aria-sort={sort.col === i ? (sort.asc ? "ascending" : "descending") : "none"}
-                    className={`px-2 py-2 font-semibold ${c.numeric ? "text-right" : ""}`}
+                    className={cn("px-3 py-1 font-semibold first:pl-4", c.numeric && "text-right")}
                   >
                     <button
                       type="button"
-                      className="min-h-9 uppercase hover:text-text"
+                      className={cn("inline-flex min-h-9 items-center gap-1 uppercase hover:text-foreground", sort.col === i && "text-foreground")}
                       onClick={() => setSort({ col: i, asc: sort.col === i ? !sort.asc : !c.numeric })}
                     >
                       {c.label}
-                      <span aria-hidden> {sort.col === i ? (sort.asc ? "▲" : "▼") : ""}</span>
+                      {sort.col === i && (sort.asc ? <ArrowUp aria-hidden className="size-3.5" /> : <ArrowDown aria-hidden className="size-3.5" />)}
                     </button>
                   </th>
                 ))}
                 {canDelete && (
-                  <th scope="col" className="px-2 py-2 font-semibold">
+                  <th scope="col" className="w-12 px-3 py-1 font-semibold">
                     <span className="sr-only">Actions</span>
                   </th>
                 )}
@@ -110,25 +126,34 @@ export function Customers({ role }: { role: Role }) {
             </thead>
             <tbody>
               {rows.map((c) => (
-                <tr key={c.id} className="hover:bg-bg-subtle">
-                  <td className={td}>
-                    <a href={href({ page: "customer", id: c.id })} className="font-semibold font-medium text-link underline-offset-4 hover:underline">
+                <tr key={c.id} className="transition-colors hover:bg-muted/50">
+                  <td className={cn(td, "pl-4")}>
+                    <a href={href({ page: "customer", id: c.id })} className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">
                       {c.name}
                     </a>
                   </td>
-                  <td className={td}>{c.segment.replaceAll("_", " ")}</td>
+                  <td className={cn(td, "text-muted-foreground capitalize")}>{c.segment.replaceAll("_", " ")}</td>
                   <td className={tdNum}>{inr(c.outstanding_paise)}</td>
                   <td className={tdNum}>{inr(c.overdue_paise)}</td>
                   <td className={td}>
                     <BandBadge band={c.band} />
                   </td>
-                  <td className={td}>{c.last_contact_at ? day(c.last_contact_at) : "Never"}</td>
-                  <td className={td}>{c.next_action ?? "None"}</td>
+                  <td className={cn(td, "whitespace-nowrap text-muted-foreground")}>{c.last_contact_at ? day(c.last_contact_at) : "Never"}</td>
+                  <td className={cn(td, "max-w-xs")}>{c.next_action ?? "None"}</td>
                   {canDelete && (
-                    <td className={td}>
-                      <Button variant="danger" onClick={() => setDeleting(c)}>
-                        Delete<span className="sr-only"> {c.name}</span>
-                      </Button>
+                    <td className={cn(td, "py-1.5 text-right")}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <UIButton variant="ghost" size="icon" className="size-8" aria-label={`Actions for ${c.name}`}>
+                            <MoreHorizontal aria-hidden />
+                          </UIButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(c)}>
+                            <Trash2 aria-hidden /> Delete customer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   )}
                 </tr>
@@ -137,6 +162,7 @@ export function Customers({ role }: { role: Role }) {
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

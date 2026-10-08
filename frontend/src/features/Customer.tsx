@@ -8,21 +8,34 @@ import {
   Check,
   CheckCheck,
   CircleDot,
+  FilePlus,
   FileText,
   Flag,
   Handshake,
+  History,
   IndianRupee,
   LayoutList,
   Mail,
   MessagesSquare,
+  MoreHorizontal,
+  NotebookPen,
   PenLine,
   Reply,
   ShieldCheck,
   ShieldX,
   Tag,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { Button as UIButton } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
@@ -33,10 +46,12 @@ import {
   Empty,
   ErrorLine,
   Field,
-  Figure,
   inputClass,
   Loading,
+  Notice,
+  PageHeader,
   Panel,
+  StatStrip,
   Table,
   td,
   tdNum,
@@ -108,34 +123,60 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-display font-semibold tracking-tight">{c.name}</h1>
-          <p className="mt-1 text-muted-foreground">
-            {c.segment.replaceAll("_", " ")} · {c.credit_terms_days}-day terms · {c.email} · {c.phone}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {role === "admin" && (
-            <Button
-              variant="primary"
-              busy={run.isPending}
-              onClick={() => run.mutate(undefined, { onSuccess: (r) => setRunId(r.run_ids[0] ?? null) })}
-            >
-              Run agent now
-            </Button>
-          )}
-          {canAct && lastSent && <Button onClick={() => setReplyTo(lastSent)}>Record a reply</Button>}
-          {canAct && flags?.feature_voice && <Button onClick={() => setCallPrep(true)}>Prepare call</Button>}
-          {canAct && <Button onClick={() => setManage("invoice")}>Add invoice</Button>}
-          {canAct && <Button onClick={() => setManage("edit")}>Edit details</Button>}
-          {role === "admin" && (
-            <Button variant="danger" onClick={() => setManage("delete")}>
-              Delete
-            </Button>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        back={{ href: href({ page: "customers" }), label: "Customers" }}
+        title={c.name}
+        badge={<BandBadge band={priority.band} />}
+        description={
+          <span className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+            <span className="capitalize">{c.segment.replaceAll("_", " ")}</span>
+            <span aria-hidden>·</span>
+            <span>{c.credit_terms_days}-day terms</span>
+            <span aria-hidden>·</span>
+            <span>{c.email}</span>
+            <span aria-hidden>·</span>
+            <span className="num">{c.phone}</span>
+          </span>
+        }
+      >
+        {canAct && lastSent && <Button onClick={() => setReplyTo(lastSent)}>Record a reply</Button>}
+        {canAct && flags?.feature_voice && <Button onClick={() => setCallPrep(true)}>Prepare call</Button>}
+        {role === "admin" && (
+          <Button
+            variant="primary"
+            icon={Bot}
+            busy={run.isPending}
+            onClick={() => run.mutate(undefined, { onSuccess: (r) => setRunId(r.run_ids[0] ?? null) })}
+          >
+            Run agent now
+          </Button>
+        )}
+        {canAct && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <UIButton variant="outline" size="icon" className="size-9" aria-label="More actions">
+                <MoreHorizontal aria-hidden />
+              </UIButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onSelect={() => setManage("invoice")}>
+                <FilePlus aria-hidden /> Add invoice
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setManage("edit")}>
+                <PenLine aria-hidden /> Edit details
+              </DropdownMenuItem>
+              {role === "admin" && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onSelect={() => setManage("delete")}>
+                    <Trash2 aria-hidden /> Delete customer
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </PageHeader>
       {manage === "edit" && <CustomerDialog customer={c} onClose={() => setManage(null)} />}
       {manage === "invoice" && <InvoiceDialog customerId={id} onClose={() => setManage(null)} />}
       {manage === "delete" && (
@@ -147,111 +188,49 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
       )}
       <ErrorLine error={run.error ?? resend.error ?? check.error ?? link.error} />
       {link.data && (
-        <p role="status" className="rounded border border-info bg-info-subtle px-3 py-2 break-all text-info">
+        <Notice>
           SIMULATED payment link for {link.data.invoice_number}:{" "}
-          <a className="underline" href={`#/pay/${link.data.token}`} target="_blank" rel="noreferrer">
+          <a className="font-mono underline" href={`#/pay/${link.data.token}`} target="_blank" rel="noreferrer">
             {`${window.location.origin}/#/pay/${link.data.token}`}
           </a>
-        </p>
+        </Notice>
       )}
-      {check.data && (
-        <p role="status" className="rounded border border-info bg-info-subtle px-3 py-2 text-info">
-          {check.data.message}
-        </p>
-      )}
+      {check.data && <Notice>{check.data.message}</Notice>}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Figure label="Outstanding" value={inr(c.outstanding_paise)} hint={`${inr(c.overdue_paise)} overdue`} />
-        <Figure label="Oldest overdue" value={`${oldest} days`} />
-        <Figure
-          label="Priority"
-          value={
-            <>
-              {priority.score === 0 ? "Not prioritised" : <>{priority.score} <BandBadge band={priority.band} /></>}
-            </>
-          }
-        />
-        <Figure label="Next action" value={<span className="text-base leading-snug font-semibold">{nextAction}</span>} />
-      </div>
+      <StatStrip
+        stats={[
+          { label: "Outstanding", value: inr(c.outstanding_paise), hint: `${inr(c.overdue_paise)} overdue` },
+          { label: "Oldest overdue", value: `${oldest} days`, alert: oldest > 60 },
+          {
+            label: "Priority score",
+            value: priority.score === 0 ? "Not prioritised" : priority.score,
+            hint: priority.band ? `${priority.band.toLowerCase()} band` : undefined,
+          },
+          { label: "Next action", value: <span className="block text-base leading-snug">{nextAction}</span> },
+        ]}
+      />
 
-      <ContactPanel customerId={id} canAct={canAct} />
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <Tabs defaultValue="overview" className="min-w-0 gap-4">
+          <TabsList>
+            <TabsTrigger value="overview" className="px-3">
+              <LayoutList aria-hidden /> Overview
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="px-3">
+              <History aria-hidden /> Activity
+              <span className="num rounded-full bg-muted px-1.5 text-xs">{timeline.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="px-3">
+              <MessagesSquare aria-hidden /> Messages and runs
+              <span className="num rounded-full bg-muted px-1.5 text-xs">{messages.length + runs.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="memory" className="px-3">
+              <NotebookPen aria-hidden /> Notes
+            </TabsTrigger>
+          </TabsList>
 
-      <Panel title={priority.score === 0 ? "Why is this customer not prioritised?" : `Why is this customer ${priority.band} priority?`}>
-        <WhyFactors factors={priority.factors} score={priority.score} />
-      </Panel>
-
-      <Tabs defaultValue="overview" className="gap-6">
-        <TabsList>
-          <TabsTrigger value="overview">
-            <LayoutList aria-hidden /> Overview
-          </TabsTrigger>
-          <TabsTrigger value="activity">
-            <MessagesSquare aria-hidden /> Messages and runs
-            <span className="num rounded-full bg-muted px-1.5 text-xs">{messages.length + runs.length}</span>
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="overview">
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Panel title="Timeline">
-          {timeline.length === 0 ? (
-            <Empty>Nothing has happened for this customer yet.</Empty>
-          ) : (
-            <ol className="relative space-y-5 before:absolute before:top-2 before:bottom-2 before:left-4 before:w-px before:bg-border">
-              {timeline.map((e) => {
-                const [Icon, tone] = ICON[e.kind] ?? [CircleDot, "bg-muted text-muted-foreground"];
-                return (
-                  <li key={e.id} className="relative flex gap-3">
-                    <span aria-hidden className={cn("relative z-10 grid size-8 shrink-0 place-items-center rounded-full ring-4 ring-card", tone)}>
-                      <Icon className="size-4" />
-                    </span>
-                    <div className="min-w-0 flex-1 pt-1">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <span className="font-semibold">{e.summary}</span>
-                        {e.amount_paise !== null && <span className="num font-semibold">{inr(e.amount_paise)}</span>}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {ACTOR[e.actor] ?? e.actor}
-                        {e.actor_name ? ` (${e.actor_name})` : ""} · {e.kind.replaceAll("_", " ")} · {stamp(e.occurred_at)}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </Panel>
-
-        <div className="space-y-6">
-          <Panel title="Invoices">
-            <Table head={["Invoice", "Due", "Remaining", "Status"]} numeric={[2]}>
-              {invoices.map((i) => (
-                <tr key={i.id}>
-                  <td className={`${td} font-mono`}>{i.number}</td>
-                  <td className={td}>
-                    {day(i.due_date)}
-                    {i.days_overdue > 0 && i.remaining_paise > 0 && (
-                      <span className="block text-label text-danger">{i.days_overdue} days overdue</span>
-                    )}
-                  </td>
-                  <td className={tdNum}>{inr(i.remaining_paise)}</td>
-                  <td className={td}>
-                    <Badge value={i.status} />
-                    {canAct && flags?.feature_payment_link && i.remaining_paise > 0 && (
-                      <button type="button" className="mt-1 block text-label font-medium text-link underline-offset-4 hover:underline" onClick={() => link.mutate(i.number)}>
-                        Payment link
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </Table>
-            <p className="num mt-2 border-t-4 border-double border-border-strong pt-2 text-right font-semibold">
-              Total outstanding {inr(c.outstanding_paise)}
-            </p>
-          </Panel>
-
-          {followUps.some((f) => f.status === "open") && (
-            <Panel title="Follow-ups">
+          <TabsContent value="overview" className="space-y-6">
+            {followUps.some((f) => f.status === "open") && (
               <div className="space-y-3">
                 {followUps
                   .filter((f) => f.status === "open")
@@ -259,109 +238,182 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
                     <FollowUpCard key={f.id} f={f} canAct={canAct} />
                   ))}
               </div>
-            </Panel>
-          )}
+            )}
 
-          <Panel title="Promises">
-            {promises.length === 0 ? (
-              <Empty>No promises recorded.</Empty>
-            ) : (
-              <ul className="divide-y divide-border">
-                {promises.map((p) => (
-                  <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                    <span>
-                      <span className="num font-semibold">{inr(p.amount_paise)}</span> by {day(p.promised_date)}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <Badge value={p.status} />
-                      {canAct && p.status === "pending" && (
-                        <Button onClick={() => check.mutate(p.id)} busy={check.isPending}>
-                          Check payment
-                        </Button>
+            <Panel title="Invoices" action={<span className="num text-sm font-semibold">{inr(c.outstanding_paise)} outstanding</span>}>
+              <Table head={["Invoice", "Due", "Remaining", "Status"]} numeric={[2]}>
+                {invoices.map((i) => (
+                  <tr key={i.id}>
+                    <td className={`${td} font-mono`}>{i.number}</td>
+                    <td className={td}>
+                      {day(i.due_date)}
+                      {i.days_overdue > 0 && i.remaining_paise > 0 && (
+                        <span className="block text-label text-danger">{i.days_overdue} days overdue</span>
                       )}
-                    </span>
-                  </li>
+                    </td>
+                    <td className={tdNum}>{inr(i.remaining_paise)}</td>
+                    <td className={td}>
+                      <Badge value={i.status} />
+                      {canAct && flags?.feature_payment_link && i.remaining_paise > 0 && (
+                        <button
+                          type="button"
+                          className="mt-1 block text-label font-medium text-link underline-offset-4 hover:underline"
+                          onClick={() => link.mutate(i.number)}
+                        >
+                          Payment link
+                        </button>
+                      )}
+                    </td>
+                  </tr>
                 ))}
-              </ul>
-            )}
-          </Panel>
+              </Table>
+            </Panel>
 
-          <Panel title="Disputes">
-            {disputes.length === 0 ? (
-              <Empty>No disputes.</Empty>
-            ) : (
-              <ul className="divide-y divide-border">
-                {disputes.map((d) => (
-                  <DisputeItem
-                    key={d.id}
-                    d={d}
-                    canAct={canAct}
-                    onResolve={() => setResolving({ id: d.id, invoice: d.invoice_number })}
-                  />
-                ))}
-              </ul>
-            )}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Panel title="Promises">
+                {promises.length === 0 ? (
+                  <Empty icon={Handshake}>No promises recorded.</Empty>
+                ) : (
+                  <ul className="-my-1 divide-y">
+                    {promises.map((p) => (
+                      <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                        <span>
+                          <span className="num font-semibold">{inr(p.amount_paise)}</span>{" "}
+                          <span className="text-muted-foreground">by {day(p.promised_date)}</span>
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <Badge value={p.status} />
+                          {canAct && p.status === "pending" && (
+                            <Button onClick={() => check.mutate(p.id)} busy={check.isPending}>
+                              Check payment
+                            </Button>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+
+              <Panel title="Disputes">
+                {disputes.length === 0 ? (
+                  <Empty icon={Flag}>No disputes.</Empty>
+                ) : (
+                  <ul className="-my-1 divide-y">
+                    {disputes.map((d) => (
+                      <DisputeItem
+                        key={d.id}
+                        d={d}
+                        canAct={canAct}
+                        onResolve={() => setResolving({ id: d.id, invoice: d.invoice_number })}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="activity">
+            <Panel title="Timeline">
+              {timeline.length === 0 ? (
+                <Empty icon={History}>Nothing has happened for this customer yet.</Empty>
+              ) : (
+                <ol className="relative space-y-5 before:absolute before:top-2 before:bottom-2 before:left-4 before:w-px before:bg-border">
+                  {timeline.map((e) => {
+                    const [Icon, tone] = ICON[e.kind] ?? [CircleDot, "bg-muted text-muted-foreground"];
+                    return (
+                      <li key={e.id} className="relative flex gap-3">
+                        <span aria-hidden className={cn("relative z-10 grid size-8 shrink-0 place-items-center rounded-full ring-4 ring-card", tone)}>
+                          <Icon className="size-4" />
+                        </span>
+                        <div className="min-w-0 flex-1 pt-1">
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="font-semibold">{e.summary}</span>
+                            {e.amount_paise !== null && <span className="num font-semibold">{inr(e.amount_paise)}</span>}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {ACTOR[e.actor] ?? e.actor}
+                            {e.actor_name ? ` (${e.actor_name})` : ""} · {e.kind.replaceAll("_", " ")} · {stamp(e.occurred_at)}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </Panel>
+          </TabsContent>
+
+          <TabsContent value="messages" className="space-y-6">
+            <Panel title="Messages">
+              {messages.length === 0 ? (
+                <Empty icon={Mail}>No messages yet. Run the agent to draft a reminder.</Empty>
+              ) : (
+                <Table head={["Subject", "Kind", "Status", "Sent", "Action"]}>
+                  {messages.map((m) => (
+                    <tr key={m.id}>
+                      <td className={td}>{m.subject}</td>
+                      <td className={td}>
+                        {m.kind.replaceAll("_", " ")} · {m.tone} · {m.channel}
+                        {m.status === "sent" && (
+                          <span className="ml-1">
+                            <Badge value={m.simulated ? "SIMULATED" : "REAL"} tone={m.simulated ? "wait" : "ok"} />
+                          </span>
+                        )}
+                      </td>
+                      <td className={td}>
+                        <Badge value={m.status} />
+                        {m.last_error && <span className="block font-mono text-label text-danger">{m.last_error}</span>}
+                      </td>
+                      <td className={td}>{m.sent_at ? stamp(m.sent_at) : "Not sent"}</td>
+                      <td className={td}>
+                        {canAct && m.status === "sent" && <Button onClick={() => setReplyTo(m)}>Record reply</Button>}
+                        {canAct && m.status === "failed" && <Button onClick={() => resend.mutate(m.id)}>Resend</Button>}
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+              )}
+            </Panel>
+
+            <Panel title="Agent runs">
+              {runs.length === 0 ? (
+                <Empty icon={Bot}>The agent has not run for this customer.</Empty>
+              ) : (
+                <Table head={["Started", "Trigger", "Outcome", "Tool calls", "Trajectory"]} numeric={[3]}>
+                  {runs.map((r) => (
+                    <tr key={r.id}>
+                      <td className={td}>{stamp(r.started_at)}</td>
+                      <td className={td}>{r.trigger}</td>
+                      <td className={td}>{r.outcome ? <Badge value={r.outcome} /> : "Running"}</td>
+                      <td className={tdNum}>{r.tool_call_count} of 4</td>
+                      <td className={td}>
+                        <Button icon={Bot} onClick={() => setRunId(r.id)}>
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+              )}
+            </Panel>
+
+            <CallsPanel customerId={id} canAct={canAct} voiceOn={Boolean(flags?.feature_voice)} />
+          </TabsContent>
+
+          <TabsContent value="memory">
+            <MemoryPanel customerId={id} canAct={canAct} />
+          </TabsContent>
+        </Tabs>
+
+        <aside aria-label="Customer context" className="space-y-6 xl:sticky xl:top-6">
+          <Panel title={priority.score === 0 ? "Why not prioritised?" : `Why ${priority.band} priority?`}>
+            <WhyFactors factors={priority.factors} score={priority.score} />
           </Panel>
-        </div>
+          <ContactPanel customerId={id} canAct={canAct} />
+        </aside>
       </div>
-        </TabsContent>
-        <TabsContent value="activity" className="space-y-6">
-      <CallsPanel customerId={id} canAct={canAct} voiceOn={Boolean(flags?.feature_voice)} />
-
-      <MemoryPanel customerId={id} canAct={canAct} />
-
-      <Panel title="Messages">
-        {messages.length === 0 ? (
-          <Empty>No messages yet. Run the agent to draft a reminder.</Empty>
-        ) : (
-          <Table head={["Subject", "Kind", "Status", "Sent", "Action"]}>
-            {messages.map((m) => (
-              <tr key={m.id}>
-                <td className={td}>{m.subject}</td>
-                <td className={td}>
-                  {m.kind.replaceAll("_", " ")} · {m.tone} · {m.channel}
-                  {m.status === "sent" && (
-                    <span className="ml-1">
-                      <Badge value={m.simulated ? "SIMULATED" : "REAL"} tone={m.simulated ? "wait" : "ok"} />
-                    </span>
-                  )}
-                </td>
-                <td className={td}>
-                  <Badge value={m.status} />
-                  {m.last_error && <span className="block font-mono text-label text-danger">{m.last_error}</span>}
-                </td>
-                <td className={td}>{m.sent_at ? stamp(m.sent_at) : "Not sent"}</td>
-                <td className={td}>
-                  {canAct && m.status === "sent" && <Button onClick={() => setReplyTo(m)}>Record reply</Button>}
-                  {canAct && m.status === "failed" && <Button onClick={() => resend.mutate(m.id)}>Resend</Button>}
-                </td>
-              </tr>
-            ))}
-          </Table>
-        )}
-      </Panel>
-
-      <Panel title="Agent runs">
-        {runs.length === 0 ? (
-          <Empty>The agent has not run for this customer.</Empty>
-        ) : (
-          <Table head={["Started", "Trigger", "Outcome", "Tool calls", "Trajectory"]} numeric={[3]}>
-            {runs.map((r) => (
-              <tr key={r.id}>
-                <td className={td}>{stamp(r.started_at)}</td>
-                <td className={td}>{r.trigger}</td>
-                <td className={td}>{r.outcome ? <Badge value={r.outcome} /> : "Running"}</td>
-                <td className={tdNum}>{r.tool_call_count} of 4</td>
-                <td className={td}>
-                  <Button icon={Bot} onClick={() => setRunId(r.id)}>View</Button>
-                </td>
-              </tr>
-            ))}
-          </Table>
-        )}
-      </Panel>
-        </TabsContent>
-      </Tabs>
 
       {replyTo && <ReplyDialog message={replyTo} onClose={() => setReplyTo(null)} onRun={setRunId} />}
       {callPrep && <CallPrepDialog customerId={id} onClose={() => setCallPrep(false)} />}
@@ -469,7 +521,7 @@ function DisputeItem({ d, canAct, onResolve }: { d: S.Dispute; canAct: boolean; 
   );
   const at = STEPS.indexOf(d.status);
   return (
-    <li className="py-2">
+    <li className="py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-mono">{d.invoice_number}</span>
         <span className="flex flex-wrap gap-1">
@@ -477,14 +529,19 @@ function DisputeItem({ d, canAct, onResolve }: { d: S.Dispute; canAct: boolean; 
           {d.assigned_team && <Badge value={TEAM[d.assigned_team] ?? d.assigned_team} tone="plain" />}
         </span>
       </div>
-      <ol className="mt-1 flex flex-wrap gap-1 text-label" aria-label="Dispute status">
+      <ol className="mt-2 flex flex-wrap items-center gap-1 text-xs" aria-label="Dispute status">
         {STEPS.map((step, i) => (
           <li
             key={step}
             aria-current={i === at ? "step" : undefined}
-            className={`rounded border px-2 ${i <= at ? "border-accent bg-accent-subtle font-semibold" : "border-border text-text-muted"}`}
+            className={cn(
+              "rounded-full px-2 py-0.5 font-medium capitalize",
+              i < at && "bg-primary-subtle text-primary",
+              i === at && "bg-primary text-primary-foreground",
+              i > at && "bg-muted text-muted-foreground",
+            )}
           >
-            {step.toUpperCase()}
+            {step}
           </li>
         ))}
       </ol>

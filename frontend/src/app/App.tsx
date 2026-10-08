@@ -33,7 +33,7 @@ import { Portal } from "@/features/Portal";
 import { SafetyCenter } from "@/features/Safety";
 import { Today } from "@/features/Today";
 import { storedRole, storeCode, storeRole } from "@/lib/api";
-import { useMe } from "@/lib/hooks";
+import { useDashboard, useMe } from "@/lib/hooks";
 import type { Role } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 import { href, useRoute, type Route } from "./route";
@@ -126,15 +126,28 @@ function SignIn({ onPick }: { onPick: (r: Role, code: string) => void }) {
 /** Sidebar widths in px: icons only, the drag range, the default, and the width below which it snaps shut. */
 const SIDE = { collapsed: 64, min: 200, open: 240, max: 400, snap: 140 };
 
-const NAV: { route: Route; label: string; icon: LucideIcon; adminOnly?: boolean }[] = [
-  { route: { page: "today" }, label: "Today", icon: LayoutDashboard },
-  { route: { page: "executive" }, label: "CFO view", icon: IndianRupee },
-  { route: { page: "approvals" }, label: "Approvals", icon: Inbox },
-  { route: { page: "inbox" }, label: "Incoming replies", icon: MailOpen },
-  { route: { page: "customers" }, label: "Customers", icon: Users },
-  { route: { page: "safety" }, label: "AI Safety", icon: ShieldCheck },
-  { route: { page: "evals" }, label: "Evaluation", icon: FlaskConical },
-  { route: { page: "admin" }, label: "Admin", icon: Settings2, adminOnly: true },
+type NavItem = { route: Route; label: string; icon: LucideIcon; adminOnly?: boolean };
+
+/** Daily work first, reporting second, settings last. */
+const NAV: { section: string; items: NavItem[] }[] = [
+  {
+    section: "Work",
+    items: [
+      { route: { page: "today" }, label: "Today", icon: LayoutDashboard },
+      { route: { page: "approvals" }, label: "Approvals", icon: Inbox },
+      { route: { page: "inbox" }, label: "Incoming replies", icon: MailOpen },
+      { route: { page: "customers" }, label: "Customers", icon: Users },
+    ],
+  },
+  {
+    section: "Insights",
+    items: [
+      { route: { page: "executive" }, label: "CFO view", icon: IndianRupee },
+      { route: { page: "safety" }, label: "AI Safety", icon: ShieldCheck },
+      { route: { page: "evals" }, label: "Evaluation", icon: FlaskConical },
+    ],
+  },
+  { section: "Settings", items: [{ route: { page: "admin" }, label: "Admin", icon: Settings2, adminOnly: true }] },
 ];
 
 function Shell() {
@@ -156,6 +169,7 @@ function Shell() {
 function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
   const route = useRoute();
   const me = useMe();
+  const pending = useDashboard().data?.pending_approvals ?? 0;
   const current = route.page === "customer" ? "customers" : route.page;
   const [width, setWidth] = useState(() => Number(localStorage.getItem("ca.sidebar-width")) || SIDE.open);
   const collapsed = width === SIDE.collapsed;
@@ -233,22 +247,38 @@ function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
           }}
           className="absolute inset-y-0 -right-1 z-10 hidden w-2 cursor-col-resize outline-none after:absolute after:inset-y-0 after:left-1/2 after:w-px focus-visible:after:bg-ring md:block"
         />
-        <p className="hidden px-3 pb-2 text-xs font-medium tracking-wider text-sidebar-muted uppercase md:block md:group-data-collapsed/side:hidden">Workspace</p>
-        {NAV.filter((n) => !n.adminOnly || role === "admin").map((n) => (
-          <a
-            key={n.label}
-            href={href(n.route)}
-            title={collapsed ? n.label : undefined}
-            aria-current={current === n.route.page ? "page" : undefined}
-            className="flex min-h-10 shrink-0 items-center gap-3 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors hover:bg-sidebar-active hover:text-sidebar-strong aria-[current=page]:bg-sidebar-active aria-[current=page]:text-sidebar-strong md:mb-0.5"
-          >
-            <n.icon
-              aria-hidden
-              className={cn("size-4", current === n.route.page ? "text-sidebar-primary" : "text-sidebar-muted")}
-            />
-            <span className="md:group-data-collapsed/side:sr-only">{n.label}</span>
-          </a>
-        ))}
+        {NAV.map(({ section, items }) => {
+          const shown = items.filter((n) => !n.adminOnly || role === "admin");
+          if (shown.length === 0) return null;
+          return (
+            <div key={section} className="contents md:mb-4 md:block">
+              <p className="hidden px-3 pb-1.5 text-xs font-medium tracking-wider text-sidebar-muted uppercase md:block md:group-data-collapsed/side:hidden">
+                {section}
+              </p>
+              {shown.map((n) => (
+                <a
+                  key={n.label}
+                  href={href(n.route)}
+                  title={collapsed ? n.label : undefined}
+                  aria-current={current === n.route.page ? "page" : undefined}
+                  className="relative flex min-h-10 shrink-0 items-center gap-3 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors hover:bg-sidebar-active hover:text-sidebar-strong aria-[current=page]:bg-sidebar-active aria-[current=page]:text-sidebar-strong md:mb-0.5"
+                >
+                  <n.icon
+                    aria-hidden
+                    className={cn("size-4 shrink-0", current === n.route.page ? "text-sidebar-primary" : "text-sidebar-muted")}
+                  />
+                  <span className="md:group-data-collapsed/side:sr-only">{n.label}</span>
+                  {n.route.page === "approvals" && pending > 0 && (
+                    <span className="num ml-auto rounded-full bg-primary px-1.5 py-px text-xs font-semibold text-primary-foreground md:group-data-collapsed/side:absolute md:group-data-collapsed/side:top-1 md:group-data-collapsed/side:right-1 md:group-data-collapsed/side:px-1">
+                      {pending}
+                      <span className="sr-only"> waiting</span>
+                    </span>
+                  )}
+                </a>
+              ))}
+            </div>
+          );
+        })}
         <div className="ml-auto flex items-center gap-1 md:mt-auto md:ml-0 md:flex-col md:items-stretch md:gap-2 md:border-t md:border-sidebar-border md:pt-3">
           <ThemeToggle />
           <div className="hidden items-center gap-3 rounded-lg px-2 py-2 md:flex md:group-data-collapsed/side:hidden">

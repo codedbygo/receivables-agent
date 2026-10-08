@@ -179,7 +179,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         </Field>
         <ErrorLine error={upload.error} />
         {upload.data && (
-          <p role="status" className="rounded border border-info bg-info-subtle px-3 py-2 text-info">
+          <p role="status" className="rounded-lg border border-info/30 bg-info-subtle px-4 py-3 text-sm text-info">
             Uploaded: {upload.data.customers_created} new distributor(s), {upload.data.invoices_added} invoice(s) added.
           </p>
         )}

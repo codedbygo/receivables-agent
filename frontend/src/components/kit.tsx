@@ -1,6 +1,6 @@
 /** Console building blocks on shadcn/ui. Colour comes from theme tokens only; status is never colour alone. */
 import type { LucideIcon } from "lucide-react";
-import { AlertCircle, Inbox, Loader2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronLeft, Inbox, Info, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button as UIButton } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,43 +112,6 @@ export function BandBadge({ band }: { band: string | null }) {
   return band ? <Badge value={band} tone={band as Tone} /> : <span className="text-muted-foreground">None</span>;
 }
 
-/** A KPI tile: label, the figure, an optional hint and icon. */
-export function Figure({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  tone = "primary",
-}: {
-  label: string;
-  value: ReactNode;
-  hint?: ReactNode;
-  icon?: LucideIcon;
-  tone?: "primary" | "danger" | "warning" | "info" | "success";
-}) {
-  const chip = {
-    primary: "bg-primary-subtle text-primary",
-    danger: "bg-danger-subtle text-danger",
-    warning: "bg-warning-subtle text-warning",
-    info: "bg-info-subtle text-info",
-    success: "bg-success-subtle text-success",
-  }[tone];
-  return (
-    <div className="min-w-0 rounded-xl border bg-card p-5 shadow-xs">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-muted-foreground">{label}</span>
-        {Icon && (
-          <span className={cn("grid size-8 place-items-center rounded-lg", chip)}>
-            <Icon aria-hidden className="size-4" />
-          </span>
-        )}
-      </div>
-      <div className="num mt-2 text-2xl leading-tight font-semibold tracking-tight md:text-figure">{value}</div>
-      {hint && <div className="mt-1 text-sm text-muted-foreground">{hint}</div>}
-    </div>
-  );
-}
-
 export function Panel({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
     <section aria-label={title}>
@@ -165,23 +128,102 @@ export function Panel({ title, children, action }: { title: string; children: Re
   );
 }
 
-export function PageHeader({ title, description, children }: { title: string; description?: ReactNode; children?: ReactNode }) {
+/** One header for every page: optional breadcrumb, the title (with an optional badge beside it), a line under it, actions right. */
+export function PageHeader({
+  title,
+  description,
+  children,
+  back,
+  badge,
+}: {
+  title: string;
+  description?: ReactNode;
+  children?: ReactNode;
+  back?: { href: string; label: string };
+  badge?: ReactNode;
+}) {
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-display font-semibold tracking-tight">{title}</h1>
-        {description && <p className="mt-1 text-muted-foreground">{description}</p>}
+    <header className="mb-6">
+      {back && (
+        <nav aria-label="Breadcrumb" className="mb-2">
+          <a
+            href={back.href}
+            className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft aria-hidden className="size-4" />
+            {back.label}
+          </a>
+        </nav>
+      )}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-display leading-tight font-semibold tracking-tight">{title}</h1>
+            {badge}
+          </div>
+          {description && <p className="mt-1 text-muted-foreground">{description}</p>}
+        </div>
+        {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
       </div>
-      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </header>
   );
 }
 
-export function Empty({ children }: { children: ReactNode }) {
+/** A small rounded fact beside a page title, such as the demo date. */
+export function MetaChip({ icon: Icon, label, value, mono }: { icon: LucideIcon; label: string; value: ReactNode; mono?: boolean }) {
   return (
-    <div className="flex items-center gap-2 py-4 text-muted-foreground">
-      <Inbox aria-hidden className="size-4" />
-      <p>{children}</p>
+    <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-sm shadow-xs">
+      <Icon aria-hidden className="size-4 text-primary" />
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn("num font-semibold", mono && "font-mono")}>{value}</span>
+    </span>
+  );
+}
+
+export type Stat = { label: string; value: ReactNode; hint?: ReactNode; alert?: boolean };
+
+/** Related figures in one card split by hairlines, instead of a grid of separate cards. `alert` colours the figure. */
+export function StatStrip({ stats }: { stats: Stat[] }) {
+  return (
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none">
+      {stats.map((s) => (
+        <div key={s.label} className="min-w-0 bg-card p-4 max-lg:odd:last:col-span-2 md:p-5">
+          <dt className="truncate text-sm font-medium text-muted-foreground">{s.label}</dt>
+          <dd className={cn("num mt-1 text-xl leading-tight font-semibold tracking-tight md:text-2xl", s.alert && "text-danger")}>
+            {s.value}
+          </dd>
+          {s.hint && <dd className="mt-1 truncate text-sm text-muted-foreground">{s.hint}</dd>}
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+const NOTICE = {
+  info: ["border-info/30 bg-info-subtle text-info", Info],
+  warning: ["border-warning/30 bg-warning-subtle text-warning", AlertTriangle],
+  success: ["border-success/30 bg-success-subtle text-success", CheckCircle2],
+  danger: ["border-danger/30 bg-danger-subtle text-danger", AlertCircle],
+} as const;
+
+/** A status banner: tone, icon and text; announced to screen readers. */
+export function Notice({ tone = "info", children }: { tone?: keyof typeof NOTICE; children: ReactNode }) {
+  const [cls, Icon] = NOTICE[tone];
+  return (
+    <div role="status" className={cn("flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm", cls)}>
+      <Icon aria-hidden className="mt-0.5 size-4 shrink-0" />
+      <div className="min-w-0 flex-1 break-words">{children}</div>
+    </div>
+  );
+}
+
+export function Empty({ children, icon: Icon = Inbox }: { children: ReactNode; icon?: LucideIcon }) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-4 py-10 text-center text-muted-foreground">
+      <span className="grid size-10 place-items-center rounded-full bg-muted">
+        <Icon aria-hidden className="size-5" />
+      </span>
+      <p className="max-w-sm text-sm">{children}</p>
     </div>
   );
 }
@@ -284,8 +326,8 @@ export function Table({ head, children, numeric = [] }: { head: string[]; childr
   );
 }
 
-export const td = "border-b px-2 py-2.5 align-top";
-export const tdNum = "num border-b px-2 py-2.5 text-right align-top";
+export const td = "border-b px-3 py-3 align-top";
+export const tdNum = "num border-b px-3 py-3 text-right align-top";
 
 type FactorRow = { code: string; label: string; value: string; points: number; rule: string };
 
@@ -321,19 +363,39 @@ export function WhyFactors({ factors, score }: { factors: FactorRow[]; score: nu
   );
 }
 
+/** How figures are computed: closed by default so the page leads with the figures, one click away for the curious. */
+export function Definitions({ title, entries }: { title: string; entries: Record<string, string> }) {
+  return (
+    <details className="group rounded-xl border bg-card shadow-xs">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-3.5 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+        {title}
+        <ChevronDown aria-hidden className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <dl className="grid gap-x-8 gap-y-3 border-t px-5 py-4 md:grid-cols-2">
+        {Object.entries(entries).map(([key, text]) => (
+          <div key={key}>
+            <dt className="text-sm font-semibold first-letter:uppercase">{key.replaceAll("_", " ")}</dt>
+            <dd className="text-label text-muted-foreground">{text}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
 /** Horizontal bars for a small labelled series; values are shown as text too, so the bar is decoration. */
 export function BarList({ data, format }: { data: { label: string; value: number }[]; format: (v: number) => string }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   if (data.length === 0) return <Empty>No data yet.</Empty>;
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-3">
       {data.map((d) => (
-        <li key={d.label} className="grid grid-cols-[7rem_1fr_7rem] items-center gap-3">
-          <span className="truncate text-text-muted">{d.label.replaceAll("_", " ")}</span>
-          <span className="h-3 rounded bg-bg-subtle" aria-hidden>
-            <span className="block h-3 rounded bg-primary" style={{ width: `${(d.value / max) * 100}%` }} />
+        <li key={d.label} className="grid grid-cols-[minmax(0,7rem)_1fr_auto] items-center gap-3 text-sm">
+          <span className="truncate text-muted-foreground first-letter:uppercase">{d.label.replaceAll("_", " ")}</span>
+          <span className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden>
+            <span className="block h-full rounded-full bg-primary" style={{ width: `${(d.value / max) * 100}%` }} />
           </span>
-          <span className="num text-right">{format(d.value)}</span>
+          <span className="num min-w-16 text-right font-medium">{format(d.value)}</span>
         </li>
       ))}
     </ul>

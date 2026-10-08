@@ -1,5 +1,6 @@
 /** S-16 Evaluation: the numbers from the last `make eval`, never typed by hand (US-01-010 to US-01-012). */
-import { Badge, Empty, ErrorLine, Figure, Loading, Panel, Table, td } from "../components/kit";
+import { FlaskConical } from "lucide-react";
+import { Badge, Empty, ErrorLine, Loading, PageHeader, Panel, StatStrip, Table, td } from "../components/kit";
 import { ApiError } from "../lib/api";
 import { stamp } from "../lib/format";
 import { useEval } from "../lib/hooks";
@@ -10,36 +11,55 @@ export function Evaluation() {
   const q = useEval();
   if (q.isPending) return <Loading what="the evaluation" />;
   if (q.error instanceof ApiError && q.error.code === "NOT_FOUND") {
-    return <Empty>No evaluation has run yet. Run make eval, then reload.</Empty>;
+    return (
+      <div>
+        <PageHeader title="Evaluation" />
+        <div className="rounded-xl border bg-card shadow-xs">
+          <Empty icon={FlaskConical}>No evaluation has run yet. Run make eval, then reload.</Empty>
+        </div>
+      </div>
+    );
   }
   if (q.error) return <ErrorLine error={q.error} />;
   const r = q.data;
   const replies = r.replies;
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="font-display text-display font-semibold">Evaluation</h1>
-        <p className="text-text-muted">
-          Generated {stamp(r.generated_at)} by <span className="font-mono">{r.command}</span> with{" "}
-          <span className="font-mono">LLM_MODE={r.mode}</span>. Classifier:{" "}
-          {Object.entries(replies.source)
-            .map(([k, v]) => `${k} ${v}`)
-            .join(", ")}
-          .
-        </p>
-      </header>
+      <PageHeader
+        title="Evaluation"
+        description={
+          <>
+            Generated {stamp(r.generated_at)} by <span className="font-mono">{r.command}</span> with{" "}
+            <span className="font-mono">LLM_MODE={r.mode}</span>. Classifier:{" "}
+            {Object.entries(replies.source)
+              .map(([k, v]) => `${k} ${v}`)
+              .join(", ")}
+            .
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Figure label="Classification" value={pct(replies.class)} hint="40 labelled replies" />
-        <Figure label="Amount extraction" value={pct(replies.amount)} />
-        <Figure label="Date extraction" value={pct(replies.date)} />
-        <Figure label="Expected action" value={pct(replies.action)} />
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Figure label="Red team rejected" value={pct(r.red_team)} hint="invented amounts, wrong totals, threats" />
-        <Figure label="Golden drafts pass" value={pct(r.golden)} />
-        {r.scenarios && <Figure label="Trajectory scenarios" value={pct(r.scenarios)} />}
-      </div>
+      <section aria-labelledby="reply-metrics" className="space-y-3">
+        <h2 id="reply-metrics" className="text-sm font-semibold text-muted-foreground">Reply understanding (40 labelled replies)</h2>
+        <StatStrip
+          stats={[
+            { label: "Classification", value: pct(replies.class) },
+            { label: "Amount extraction", value: pct(replies.amount) },
+            { label: "Date extraction", value: pct(replies.date) },
+            { label: "Expected action", value: pct(replies.action) },
+          ]}
+        />
+      </section>
+      <section aria-labelledby="draft-metrics" className="space-y-3">
+        <h2 id="draft-metrics" className="text-sm font-semibold text-muted-foreground">Drafts and trajectories</h2>
+        <StatStrip
+          stats={[
+            { label: "Red team rejected", value: pct(r.red_team), hint: "invented amounts, wrong totals, threats" },
+            { label: "Golden drafts pass", value: pct(r.golden) },
+            ...(r.scenarios ? [{ label: "Trajectory scenarios", value: pct(r.scenarios) }] : []),
+          ]}
+        />
+      </section>
 
       {r.scenarios && (
         <Panel title="Trajectory scenarios">
