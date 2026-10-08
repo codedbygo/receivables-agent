@@ -14,8 +14,9 @@ def _tables(engine: Engine) -> set[str]:
 
 def test_upgrade_creates_every_table(engine: Engine) -> None:
     assert (
-        len(_tables(engine)) == 26
-    )  # 21 in 0001, follow_up_tasks, customer_notes, calls, call_turns, portal_links
+        len(_tables(engine)) == 29
+    )  # 21 in 0001, follow_up_tasks, customer_notes, calls, call_turns, portal_links, then google_account,
+    # inbound_emails and calendar_events (0009)
 
 
 def test_downgrade_then_upgrade_restores_the_schema(engine: Engine, alembic_cfg: Config) -> None:

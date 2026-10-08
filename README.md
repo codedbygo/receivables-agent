@@ -39,7 +39,7 @@ claude mcp add collections --env DATABASE_URL=postgresql+psycopg://collections:c
 ## 2. How to demo
 
 The ABC Distributors story, about 8 minutes. Start with `make demo`, which resets the data to the start of the
-story (demo date 30 Sep 2026). Sign in as **Admin** (on a hosted demo, enter the admin access code first).
+story (demo date 30 Sep 2026). Sign in as `admin@example.in` with password `demo-password` (your own machine only; a hosted deployment refuses the demo accounts, and its first admin is `BOOTSTRAP_ADMIN_EMAIL`).
 
 | Time | Click | What the audience sees | If it goes wrong |
 | --- | --- | --- | --- |
@@ -74,6 +74,43 @@ story (demo date 30 Sep 2026). Sign in as **Admin** (on a hosted demo, enter the
 | AI Safety | Live counts: messages checked, amounts blocked (try the ₹5,00,000 edit), prompt attacks, approvals, automatic sends 0, kill switch |
 
 Evaluation page: the numbers from the last `make eval`.
+
+## Managing distributors (HACK-007)
+
+Collectors and admins add a distributor with **Customers, Add distributor**, change one with **Edit details** on its
+page and add an unpaid invoice with **Add invoice**. **Upload CSV** adds many at once, one row per invoice:
+
+```
+customer_name,email,phone,segment,credit_terms_days,invoice_number,invoice_date,due_date,amount_rupees
+Riya Traders,riya@example.com,+919800000000,sme,30,INV-5001,2026-09-01,2026-09-20,125000
+```
+
+A new name creates the distributor; a known name (any case) gets the invoice and keeps its details. Dates are
+YYYY-MM-DD, segment is sme, mid_market or enterprise, and amounts are rupees (up to 2 decimals). Any bad row saves
+nothing and the errors name the row; at most 500 rows and 1 MB. Only an admin can **Delete** a distributor, which
+removes everything recorded about it. A demo reset brings back the 10 seeded distributors and drops the rest.
+
+With real SMTP and `EMAIL_REDIRECT_TO` empty, every reminder goes to the distributor's own address (ADR-0017). Set
+`EMAIL_REDIRECT_TO` to send everything to one inbox instead, with `EMAIL_ALLOW_REAL` listing the exceptions.
+
+## Connecting Google: Gmail and Calendar (HACK-009)
+
+One company Google account sends the reminders, receives the customers' replies and holds a calendar of
+promises and follow-ups (ADR-0018). Set it up once:
+
+1. In Google Cloud Console create a project and enable the **Gmail API** and the **Google Calendar API**.
+2. OAuth consent screen: External, Testing, and add the company Gmail address as a test user.
+3. Credentials, Create OAuth client ID, Web application. Authorised redirect URI:
+   `https://<your host>/api/v1/google/callback` (and `http://localhost:8080/api/v1/google/callback` locally).
+4. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` (exactly as registered) and
+   `GOOGLE_TOKEN_KEY` (`python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`).
+   Set `EMAIL_PROVIDER=gmail` to send from Gmail and read replies. Redeploy, and migrate the database to 0009 first.
+5. Admin, **Connect Google**, sign in with the company account and tick every permission.
+
+Then reminders leave from Gmail, **Incoming replies** fills with customer emails (accept or dismiss each), and the
+account's calendar shows each open promise and follow-up. A sync runs every 5 minutes with the worker; on Vercel
+use **Check for replies** and **Sync now**, or point a free external timer at `/api/v1/cron/tick` with
+`Authorization: Bearer <CRON_SECRET>`. In Testing mode Google asks you to connect again every 7 days.
 
 ## 3. What is real and what is simulated
 
@@ -150,15 +187,20 @@ with `LLM_MODE=record` and a key to measure the model itself.
 | `LLM_MAX_TOKENS` | `500` | gateway | capped at 500 |
 | `LLM_TIMEOUT_S` | `20` | gateway | |
 | `SMTP_HOST` / `SMTP_PORT` | `mailhog` / `1025` | email channel | |
+| `EMAIL_REDIRECT_TO` | empty | email channel | optional inbox that receives every message instead of the customer (ADR-0017); empty mails each customer directly |
+| `EMAIL_PROVIDER` | `smtp` | email channel | `gmail` sends through the connected Google account and reads replies (ADR-0018) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | empty | api, worker | the OAuth client from Google Cloud; the secret is a secret |
+| `GOOGLE_TOKEN_KEY` | empty | api, worker | secret; Fernet key that encrypts the stored refresh token |
+| `GOOGLE_REDIRECT_URI` | empty | api | exactly the redirect URI registered on the OAuth client |
+| `EMAIL_ALLOW_REAL` | empty | email channel | comma-separated addresses mailed for real even when `EMAIL_REDIRECT_TO` is set (HACK-007) |
 | `MAILHOG_UI_URL` | `http://localhost:8025` | links | |
 | `DEMO_TODAY` | `2026-09-30` | seeds settings | runtime value in the settings row |
 | `TZ` | `Asia/Kolkata` | all | |
 | `SENDING_ENABLED` | `true` | seeds settings | the kill switch at runtime |
 | `AUTONOMY_MODE` | `manual` | seeds settings | manual, assisted, trusted |
-| `ADMIN_TOKEN` | empty | api | secret; access code for the admin role (Bearer token); empty disables the role (ADR-0013) |
-| `COLLECTOR_TOKEN` | empty | api | secret; access code for the collector role |
-| `VIEWER_TOKEN` | empty | api | secret; access code for the viewer role |
-| `DEMO_OPEN_ROLES` | `false` (compose: `true`) | api | `true` lets the role picker sign in with no code; your own machine only. The API refuses to start with it on when `ALLOWED_HOSTS` names a public host |
+| `ADMIN_TOKEN` | empty | api | secret; Bearer token that signs scripts (make smoke) in as an admin; empty disables it. People sign in with a password or Google (ADR-0019) |
+| `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | empty | api | the first admin of a hosted deployment, created when that email first signs in with Google or with that password (secret); clear both once real admins exist |
+| `DEMO_OPEN_ROLES` | `false` (compose: `true`) | api | `true`: your own machine; the demo accounts (password `demo-password`) sign in and scripts may send a role header. Hosted: `false`, and the demo accounts are refused. The API refuses to start with it on when `ALLOWED_HOSTS` names a public host |
 | `FEATURE_WHATSAPP` / `FEATURE_VOICE` / `FEATURE_PAYMENT_LINK` / `FEATURE_TRUSTED_MODE` / `FEATURE_SMS` | `false` | seeds settings | |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | empty | api, worker | secret (token); empty means SIMULATED SMS, WhatsApp and voice |
 | `TWILIO_FROM_NUMBER` / `TWILIO_WHATSAPP_FROM` | empty | api, worker | E.164 sender numbers |

@@ -57,7 +57,13 @@ class TwilioVoice:
         except httpx.HTTPError as e:
             raise ChannelError("PROVIDER_UNAVAILABLE", retryable=True) from e
         if r.status_code >= 400:
-            raise ChannelError(f"PROVIDER_REJECTED_{r.status_code}", retryable=r.status_code >= 500)
+            # Twilio's own error number (21219 unverified, 21215 geo permission...) is the only useful diagnosis.
+            try:
+                twilio_code = r.json().get("code")
+            except ValueError:
+                twilio_code = None
+            suffix = f"_{twilio_code}" if twilio_code else ""
+            raise ChannelError(f"PROVIDER_REJECTED_{r.status_code}{suffix}", retryable=r.status_code >= 500)
         return str(r.json().get("sid", ""))
 
 
@@ -78,12 +84,20 @@ def signature_ok(auth_token: str, url: str, params: dict[str, str], signature: s
     )
 
 
+LISTEN_S = 10  # seconds of silence after the line before Twilio posts an empty result
+
+
 def twiml(line: str, gather_url: str | None) -> str:
-    """Say the line; then listen for speech (posting to gather_url) or hang up."""
+    """Say the line; then listen for speech (posting to gather_url) or hang up.
+
+    The Say sits inside the Gather so the customer can answer while the line plays, and an empty result still
+    posts back: a Gather that hears nothing otherwise falls through to the end of the TwiML and Twilio hangs up.
+    """
     say = f'<Say voice="Polly.Aditi" language="en-IN">{escape(line)}</Say>'
-    tail = (
-        f'<Gather input="speech" language="en-IN" speechTimeout="auto" action="{escape(gather_url)}" method="POST"/>'
+    body = (
+        f'<Gather input="speech" language="en-IN" speechTimeout="auto" timeout="{LISTEN_S}" '
+        f'actionOnEmptyResult="true" action="{escape(gather_url)}" method="POST">{say}</Gather>'
         if gather_url
-        else "<Hangup/>"
+        else f"{say}<Hangup/>"
     )
-    return f'<?xml version="1.0" encoding="UTF-8"?><Response>{say}{tail}</Response>'
+    return f'<?xml version="1.0" encoding="UTF-8"?><Response>{body}</Response>'

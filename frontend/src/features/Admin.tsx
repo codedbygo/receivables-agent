@@ -3,13 +3,15 @@
 import { Activity, CalendarDays, Cpu, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 import { href } from "@/app/route";
-import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading, PageHeader, Panel, Table, td, tdNum } from "@/components/kit";
+import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading, MetaChip, Notice, PageHeader, Panel, Table, td, tdNum } from "@/components/kit";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { day, inr, rupeesToPaise, stamp } from "@/lib/format";
+import { GooglePanel } from "./Google";
+import { PeoplePanel } from "./People";
 import { useAction, useCustomers, useGuardrailEvents, usePayments, useRuns, useSettings } from "@/lib/hooks";
 import * as S from "@/lib/schemas";
 import { RunDialog } from "./RunDialog";
@@ -44,16 +46,8 @@ export function Admin() {
   return (
     <div className="space-y-6">
       <PageHeader title="Admin" description="Sending, autonomy, budget and the demo controls.">
-        <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-sm shadow-xs">
-          <CalendarDays aria-hidden className="size-4 text-primary" />
-          <span className="text-muted-foreground">Demo date</span>
-          <span className="num font-semibold">{day(cfg.demo_today)}</span>
-        </span>
-        <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-sm shadow-xs">
-          <Cpu aria-hidden className="size-4 text-primary" />
-          <span className="text-muted-foreground">LLM mode</span>
-          <span className="font-mono font-semibold">{cfg.llm_mode}</span>
-        </span>
+        <MetaChip icon={CalendarDays} label="Demo date" value={day(cfg.demo_today)} />
+        <MetaChip icon={Cpu} label="LLM mode" value={cfg.llm_mode} mono />
       </PageHeader>
       <ErrorLine error={patch.error ?? dailyRun.error} />
 
@@ -67,6 +61,8 @@ export function Admin() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="controls" className="space-y-6">
+      <PeoplePanel />
+      <GooglePanel isAdmin />
       <div className="grid gap-4 lg:grid-cols-3">
         <Panel title="Kill switch">
           <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-3">
@@ -158,11 +154,13 @@ export function Admin() {
           <Button variant="danger" onClick={() => setOpen("reset")}>Reset demo data</Button>
         </div>
         {dailyRun.data && (
-          <p role="status" className="mt-2 text-label">
-            {dailyRun.data.queued
-              ? `Daily run for ${day(dailyRun.data.run_date)} queued; the worker picks it up.`
-              : `Today's daily run was already queued.`}
-          </p>
+          <div className="mt-3">
+            <Notice tone="success">
+              {dailyRun.data.queued
+                ? `Daily run for ${day(dailyRun.data.run_date)} queued; the worker picks it up.`
+                : `Today's daily run was already queued.`}
+            </Notice>
+          </div>
         )}
       </Panel>
 

@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { z } from "zod";
-import { Badge, Button, Dialog, Empty, ErrorLine, Field, Figure, inputClass, Loading, Panel } from "@/components/kit";
+import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading, Panel } from "@/components/kit";
 import { api } from "../lib/api";
 import { day, inr } from "../lib/format";
 import { useAction } from "../lib/hooks";
@@ -29,20 +29,30 @@ export function ContactPanel({ customerId, canAct }: { customerId: string; canAc
   const p = q.data;
   return (
     <Panel title="Contact" action={canAct ? <Button onClick={() => setEditing(true)}>Preferences</Button> : undefined}>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-        <Figure label="Preferred" value={<span className="text-title">{label(p.preferred_channel)}</span>} />
-        <Figure label="Last contacted" value={<span className="text-title">{label(p.last_channel)}</span>} />
-        <Figure
-          label="Last contact"
-          value={<span className="text-title">{p.last_contact_on ? day(p.last_contact_on) : "Never"}</span>}
-        />
-        <Figure label="Response" value={<span className="block text-title first-letter:uppercase">{p.response_status}</span>} />
-        <Figure
-          label="Next recommended"
-          value={<span className="text-title">{label(p.recommended_channel)}</span>}
-          hint={p.next_step_channel && p.next_step_on ? `then ${label(p.next_step_channel)} on ${day(p.next_step_on)}` : undefined}
-        />
+      <div className="mb-3 rounded-lg bg-primary-subtle px-3 py-2.5">
+        <p className="text-xs font-medium text-muted-foreground">Next recommended</p>
+        <p className="font-semibold text-primary">{label(p.recommended_channel)}</p>
+        {p.next_step_channel && p.next_step_on && (
+          <p className="text-sm text-muted-foreground">
+            then {label(p.next_step_channel)} on {day(p.next_step_on)}
+          </p>
+        )}
       </div>
+      <dl className="divide-y text-sm">
+        {(
+          [
+            ["Preferred", label(p.preferred_channel)],
+            ["Last contacted by", label(p.last_channel)],
+            ["Last contact", p.last_contact_on ? day(p.last_contact_on) : "Never"],
+            ["Response", p.response_status],
+          ] as const
+        ).map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-3 py-2">
+            <dt className="text-muted-foreground">{k}</dt>
+            <dd className="text-right font-medium first-letter:uppercase">{v}</dd>
+          </div>
+        ))}
+      </dl>
       <details className="mt-2 text-label">
         <summary className="cursor-pointer text-link">Why this channel?</summary>
         <ul className="mt-1 list-disc pl-5 text-text-muted">
@@ -115,7 +125,7 @@ export function MemoryPanel({ customerId, canAct }: { customerId: string; canAct
   return (
     <Panel title="Customer memory">
       {m.promise_recall && (
-        <p className="mb-3 rounded border border-warning bg-warning-subtle px-3 py-2">
+        <p className="mb-3 rounded-lg border border-warning/30 bg-warning-subtle px-3 py-2 text-sm">
           <span className="font-semibold">What the AI will remind them of: </span>
           {m.promise_recall}
         </p>
@@ -190,13 +200,13 @@ function PortalLinkControl({ customerId }: { customerId: string }) {
   const url = create.data ? `${window.location.origin}/${create.data.path}` : null;
   return (
     <div className="mt-3 border-t border-border pt-3">
+      <p className="mb-2 font-semibold">Customer portal</p>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold">Customer portal</span>
         <Button onClick={() => create.mutate(undefined)} busy={create.isPending}>
           Create link
         </Button>
         <Button onClick={() => revoke.mutate(undefined)} busy={revoke.isPending}>
-          Revoke all links
+          Revoke all
         </Button>
         {revoke.data && <span className="text-label text-text-muted">{revoke.data.revoked} revoked</span>}
       </div>

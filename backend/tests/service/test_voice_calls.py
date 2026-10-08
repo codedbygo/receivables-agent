@@ -9,6 +9,7 @@ from httpx2 import Response
 from sqlalchemy import Engine
 
 from app.api.main import create_app
+from app.channels.email import ChannelError
 from app.channels.voice import twilio_signature
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
@@ -253,7 +254,7 @@ def test_turns_are_refused_on_an_ended_call_and_empty_or_long_speech(api: TestCl
 
 def test_calls_are_refused_for_an_unknown_customer_or_nothing_to_collect(api: TestClient) -> None:
     nobody = api.post("/api/v1/calls", json={"customer_id": uid("customer", "nobody")}, headers=COLLECTOR)
-    zero = uid("customer", "Annapurna Provision Stores")
+    zero = uid("customer", "Deccan Polymers")
     api.put(
         f"/api/v1/customers/{zero}/contact-preferences",
         json={"preferred_channel": "email", "consent": {"voice": True}},
@@ -351,6 +352,22 @@ def test_a_real_call_takes_speech_only_from_the_provider(real: TestClient) -> No
     assert call["simulated"] is False and r.status_code == 403
 
 
+class RefusingTwilio(FakeTwilio):
+    def place(self, call_id: str, to: str) -> str:
+        raise ChannelError("PROVIDER_REJECTED_400_21219", retryable=False)
+
+
+def test_a_call_the_provider_refuses_names_the_reason_and_leaves_no_call(real: TestClient) -> None:
+    # HACK-010: a Twilio refusal surfaced as INTERNAL and hid Twilio's error number.
+    real.app.state.voice = RefusingTwilio()  # type: ignore[attr-defined]  # TestClient.app is typed as ASGIApp
+
+    r = real.post("/api/v1/calls", json={"customer_id": ABC}, headers=COLLECTOR)
+
+    assert r.status_code == 503 and r.json()["error"]["code"] == "VOICE_PROVIDER"
+    assert "21219" in r.json()["error"]["message"]
+    assert real.get(f"/api/v1/calls?filter[customer_id]={ABC}", headers=COLLECTOR).json()["data"] == []
+
+
 def test_signed_speech_is_answered_in_twiml_and_keeps_listening(real: TestClient) -> None:
     call = start(real)
 
@@ -358,6 +375,22 @@ def test_signed_speech_is_answered_in_twiml_and_keeps_listening(real: TestClient
 
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/xml")
     assert "recorded a payment promise of ₹2,00,000" in r.text and "<Gather" in r.text
+
+
+def test_silence_asks_again_and_only_then_ends_the_call(real: TestClient) -> None:
+    # A Gather that heard nothing used to fall through and hang up mid-conversation.
+    call = start(real)
+    first = hook(real, call, "turn", {"CallSid": "CA1"})  # the opening, before anyone listened
+    assert "<Gather" in first.text and "did not hear" not in first.text
+
+    again = hook(real, call, "turn?heard=1", {"CallSid": "CA1"})
+    assert "did not hear you" in again.text and "<Gather" in again.text
+    assert real.get(f"/api/v1/calls/{call['id']}", headers=VIEWER).json()["status"] == "in_progress"
+
+    hook(real, call, "turn?heard=1", {"CallSid": "CA1"})
+    last = hook(real, call, "turn?heard=1", {"CallSid": "CA1"})
+    after = real.get(f"/api/v1/calls/{call['id']}", headers=VIEWER).json()
+    assert "<Hangup/>" in last.text and (after["status"], after["outcome"]) == ("completed", "no_commitment")
 
 
 def test_a_webhook_for_another_provider_call_is_not_found(real: TestClient) -> None:

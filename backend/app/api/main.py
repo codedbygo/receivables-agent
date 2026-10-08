@@ -12,8 +12,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.agent.orchestrator import Orchestrator
 from app.api.deps import require
-from app.api.routers import admin, calls, cron, ledger, messages, portal, records
-from app.channels.email import check_email_config
+from app.api.routers import admin, auth, calls, cron, directory, google, ledger, messages, portal, records
 from app.channels.voice import voice_provider
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_sessionmaker, ping
@@ -34,7 +33,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if not settings.session_secret:  # signs payment links; links die with the process, which suits the demo
         settings = settings.model_copy(update={"session_secret": secrets.token_hex(32)})
     check_auth_config(settings)
-    check_email_config(settings.smtp_user, settings.email_redirect_to)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -104,7 +102,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(body, status_code=200 if ok else 503)
 
     api.include_router(ledger.router, dependencies=[Depends(require("viewer", "collector", "admin"))])
-    for r in (messages.router, records.router, admin.router, cron.router, calls.router, portal.router):
+    for r in (
+        auth.router,
+        messages.router,
+        records.router,
+        admin.router,
+        cron.router,
+        calls.router,
+        portal.router,
+        directory.router,
+        google.router,
+    ):
         api.include_router(r)
     app.include_router(api)
     return app

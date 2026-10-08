@@ -1,6 +1,6 @@
 # Evaluation report
 
-Generated 2026-10-05T06:26:43+00:00 by `make eval` with `LLM_MODE=replay`. Every figure below is computed by `backend/app/evaluation/harness.py` from a run of the product code; none is typed by hand. Regenerate with `make eval`.
+Generated 2026-10-07T12:20:59+00:00 by `make eval` with `LLM_MODE=replay`. Every figure below is computed by `backend/app/evaluation/harness.py` from a run of the product code; none is typed by hand. Regenerate with `make eval`.
 
 ## Labelled replies (40)
 

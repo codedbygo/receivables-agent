@@ -6,6 +6,7 @@ const nstr = z.string().nullable();
 
 export const Role = z.enum(["admin", "collector", "viewer"]);
 export const User = z.object({ id: z.string(), email: z.string(), display_name: z.string(), role: Role });
+export const Person = User.extend({ active: z.boolean(), has_password: z.boolean(), locked: z.boolean() });
 
 export const Band = z.enum(["HIGH", "MEDIUM", "LOW"]);
 export const Reason = z.object({ code: z.string(), text: z.string() });
@@ -25,6 +26,34 @@ export const Customer = z.object({
   last_contact_at: nstr,
   next_action: nstr,
 });
+
+export const GoogleStatus = z.object({
+  configured: z.boolean(),
+  connected: z.boolean(),
+  email: z.string().nullable(),
+  connected_at: z.string().nullable(),
+  email_provider: z.enum(["smtp", "gmail"]),
+});
+export const GoogleSync = z.object({
+  calendar: z.object({ created: z.number(), removed: z.number() }),
+  replies_found: z.number(),
+});
+export const Inbound = z.object({
+  id: z.string(),
+  customer_id: z.string(),
+  customer_name: z.string(),
+  message_id: z.string(),
+  message_subject: z.string(),
+  from_address: z.string(),
+  subject: z.string(),
+  body: z.string(),
+  received_at: z.string(),
+  status: z.enum(["pending", "accepted", "dismissed"]),
+});
+export type Inbound = z.infer<typeof Inbound>;
+
+export const Imported = z.object({ customers_created: z.number(), invoices_added: z.number() });
+export const Deleted = z.object({ id: z.string(), name: z.string() });
 
 export const Invoice = z.object({
   id: z.string(),
@@ -305,6 +334,7 @@ export const page = <T extends z.ZodTypeAny>(item: T) => z.object({ data: z.arra
 
 export type Role = z.infer<typeof Role>;
 export type User = z.infer<typeof User>;
+export type Person = z.infer<typeof Person>;
 export type Customer = z.infer<typeof Customer>;
 export type Payment = z.infer<typeof Payment>;
 export type Invoice = z.infer<typeof Invoice>;

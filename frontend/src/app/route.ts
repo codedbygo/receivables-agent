@@ -1,9 +1,10 @@
-/** Hash routes: #/today, #/executive, #/safety, #/approvals, #/customers, #/customers/<uuid>, #/admin, #/evals. */
+/** Hash routes: #/today, #/executive, #/safety, #/approvals, #/inbox, #/customers, #/customers/<uuid>, #/admin, #/evals. */
 import { useSyncExternalStore } from "react";
 
 export type Route =
   | { page: "today" }
   | { page: "approvals" }
+  | { page: "inbox" }
   | { page: "customers" }
   | { page: "customer"; id: string }
   | { page: "admin" }
@@ -20,7 +21,7 @@ export function parse(hash: string): Route {
   if (page === "customers" && id && UUID.test(id)) return { page: "customer", id };
   if (page === "pay" && id && /^INV-\d+\.\d+\.[0-9a-f]{32}$/.test(id)) return { page: "pay", token: id };
   if (page === "portal" && id && /^[A-Za-z0-9_-]{20,100}$/.test(id)) return { page: "portal", token: id };
-  if (page === "approvals" || page === "customers" || page === "admin" || page === "evals" || page === "executive" || page === "safety")
+  if (page === "approvals" || page === "inbox" || page === "customers" || page === "admin" || page === "evals" || page === "executive" || page === "safety")
     return { page };
   return { page: "today" };
 }

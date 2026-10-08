@@ -114,7 +114,7 @@ function CallView({ call, canAct }: { call: S.Call; canAct: boolean }) {
   const end = useAction(() => api(`/calls/${call.id}/end`, S.Call, { method: "POST" }));
   const live = call.status === "in_progress";
   return (
-    <article className="rounded border border-border p-3" aria-label={`Call started ${stamp(call.started_at)}`}>
+    <article className="rounded-lg border bg-muted/30 p-4" aria-label={`Call started ${stamp(call.started_at)}`}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-2">
           <span className="font-semibold">{stamp(call.started_at)}</span>
@@ -156,7 +156,7 @@ function CallView({ call, canAct }: { call: S.Call; canAct: boolean }) {
           </label>
           <input
             id={`say-${call.id}`}
-            className="min-w-0 flex-1 rounded border border-border-strong bg-surface px-2 py-1"
+            className="min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm"
             value={said}
             onChange={(e) => setSaid(e.target.value)}
             maxLength={2000}

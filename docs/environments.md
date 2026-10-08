@@ -18,11 +18,11 @@ before it passed its gate.
 ## Hosted environment prerequisites (dev and prod)
 
 - DNS for `PUBLIC_HOST` pointing at the host, with ports 80 and 443 open. The `caddy` service in
-  compose.prod.yaml is the only public listener: it obtains the certificate and serves HTTPS, so access codes
-  never cross plain HTTP. Everything else binds to 127.0.0.1 or is not published.
-- `.env` on the host with: `POSTGRES_PASSWORD`, `ADMIN_TOKEN`, `COLLECTOR_TOKEN`, `VIEWER_TOKEN`, `MCP_TOKEN`,
+  compose.prod.yaml is the only public listener: it obtains the certificate and serves HTTPS, so passwords and session
+  cookies never cross plain HTTP. Everything else binds to 127.0.0.1 or is not published.
+- `.env` on the host with: `POSTGRES_PASSWORD`, `ADMIN_TOKEN`, `BOOTSTRAP_ADMIN_EMAIL`, `MCP_TOKEN`,
   `MAILPIT_UI_AUTH` (`user:password`), `PUBLIC_HOST`, and optionally `OPENROUTER_API_KEY` with `LLM_MODE=live`.
-  Compose stops with "set X" when one is missing. Generate codes with `openssl rand -hex 24`.
+  Compose stops with "set X" when one is missing. Generate tokens with `openssl rand -hex 24`.
 - `POSTGRES_PASSWORD` takes effect when the data volume is first created. On a host that already ran with the
   default password, change it inside Postgres (`ALTER USER collections PASSWORD ...`) before setting it here.
 
@@ -42,6 +42,22 @@ Rollback in one sentence: redeploy the previous tag with the same compose comman
 
 - Model unavailable or budget spent: set `LLM_MODE=replay` in the host `.env` and rerun the deploy command.
 - Mailpit down: messages show Failed; Resend once it is back (docs/runbooks/demo-day.md).
+
+## Vercel and Neon: migrate before every deploy
+
+Vercel runs no migrations, so the engineer upgrades the Neon database before deploying code that needs a newer
+schema. On 7 Oct 2026 Neon sat at `0001` while the code needed `0007`, and reset failed with a 500. Use Neon's
+direct (non-pooled) connection string:
+
+```bash
+cd backend
+DATABASE_URL='<neon direct url>' uv run alembic upgrade head
+DATABASE_URL='<neon direct url>' uv run alembic current   # expect the newest revision, marked (head)
+cd ..
+```
+
+Then deploy as usual. Every migration so far only adds tables, columns or allowed values, so upgrading first is
+safe for the code already running.
 
 ## Console on Vercel (optional, ADR-0015)
 

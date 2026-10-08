@@ -19,7 +19,7 @@ def main(argv: list[str]) -> int:
             print("reset-demo: data at the start of the ABC story, demo date", settings.demo_today)
         else:
             seed(engine, settings)
-            print("seed: 50 customers, 300 invoices, 40 replies loaded")
+            print("seed: 10 customers, 60 invoices, 20 replies loaded")
     except RuntimeError as e:
         print(f"seed: {e}", file=sys.stderr)
         return 1

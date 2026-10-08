@@ -1,21 +1,23 @@
-/** S-02 Today: totals, ageing and "What needs my attention today?" (US-00-003, US-00-020, US-00-021). */
-import {
-  AlertTriangle,
-  ArrowRight,
-  CalendarClock,
-  CalendarDays,
-  Clock,
-  Flame,
-  Gavel,
-  IndianRupee,
-  Inbox,
-  Scale,
-  Send,
-  type LucideIcon,
-} from "lucide-react";
+/** S-02 Today: totals, "What needs my attention today?" and ageing (US-00-003, US-00-020, US-00-021).
+ * Order follows the work: the four headline figures, then the attention queue, then the portfolio trends. */
+import { AlertTriangle, ArrowRight, CalendarDays, Flame, Handshake, Scale, Send, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { href } from "@/app/route";
 import { ColumnChart, ProportionBar, type Bar } from "@/components/charts";
-import { Badge, BandBadge, Button, Empty, ErrorLine, Figure, Loading, PageHeader, Panel, WhyFactors } from "@/components/kit";
+import {
+  Badge,
+  BandBadge,
+  Button,
+  Empty,
+  ErrorLine,
+  Loading,
+  MetaChip,
+  PageHeader,
+  Panel,
+  StatStrip,
+  WhyFactors,
+} from "@/components/kit";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { day, inr } from "@/lib/format";
 import { useAction, useCustomers, useDashboard, useFollowUps, usePayments } from "@/lib/hooks";
@@ -35,6 +37,7 @@ export function Today() {
   if (q.error) return <ErrorLine error={q.error} />;
   const d = q.data;
   const a = d.attention;
+  const fus = followUps.data?.data ?? [];
   const weeks = weekly(payments.data?.data ?? []);
   const peakWeek = weeks.reduce<Bar | undefined>((m, w) => (!m || w.value > m.value ? w : m), undefined);
   const ageing: Bar[] = [
@@ -43,101 +46,56 @@ export function Today() {
     ["61 to 90 d", d.ageing.d61_90_paise],
     ["Over 90 d", d.ageing.d90_plus_paise],
   ].map(([label, v]) => ({ label: String(label), value: Number(v), display: inr(Number(v)) }));
+  const promiseCount = a.todays_promises.length + a.missed_promises.length + a.approved_ready.length + a.needs_verification.length;
+  const issueCount = a.disputes.length + a.escalations.length;
+
   return (
     <div className="space-y-8">
-      <PageHeader title="Today" description="Who needs attention, and why. Every figure is computed from the ledger.">
-        <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-sm shadow-xs">
-          <CalendarDays aria-hidden className="size-4 text-primary" />
-          <span className="text-muted-foreground">Demo date</span>
-          <span className="num font-semibold">{day(d.today)}</span>
-        </span>
+      <PageHeader title="Today" description="Who needs attention, and why.">
+        <MetaChip icon={CalendarDays} label="Demo date" value={day(d.today)} />
       </PageHeader>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Figure label="Total outstanding" value={inr(d.total_outstanding_paise)} icon={IndianRupee} />
-        <Figure
-          label="Total overdue"
-          value={inr(d.total_overdue_paise)}
-          hint={`${d.customers_overdue} customers overdue`}
-          icon={Clock}
-          tone="warning"
-        />
-        <Figure
-          label="Pending approvals"
-          value={d.pending_approvals}
-          hint={
-            <a className="inline-flex items-center gap-1 font-medium text-primary hover:underline" href="#/approvals">
-              Open the queue <ArrowRight aria-hidden className="size-3.5" />
-            </a>
-          }
-          icon={Inbox}
-          tone="info"
-        />
-        <Figure label="High-risk customers" value={d.high_risk_customers} icon={Flame} tone="danger" />
-      </div>
+      <StatStrip
+        stats={[
+          { label: "Total outstanding", value: inr(d.total_outstanding_paise) },
+          { label: "Total overdue", value: inr(d.total_overdue_paise), hint: `${d.customers_overdue} customers overdue` },
+          {
+            label: "Pending approvals",
+            value: d.pending_approvals,
+            hint: (
+              <a className="inline-flex items-center gap-1 font-medium text-primary hover:underline" href={href({ page: "approvals" })}>
+                Open the queue <ArrowRight aria-hidden className="size-3.5" />
+              </a>
+            ),
+          },
+          { label: "High-risk customers", value: d.high_risk_customers, alert: d.high_risk_customers > 0 },
+        ]}
+      />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Count label="Today's promises" n={d.todays_promises} icon={CalendarClock} />
-        <Count label="Missed promises" n={d.missed_promises} icon={AlertTriangle} alert={d.missed_promises > 0} />
-        <Count label="Open disputes" n={d.open_disputes} icon={Scale} alert={d.open_disputes > 0} />
-        <Count label="Open escalations" n={d.open_escalations} icon={Gavel} alert={d.open_escalations > 0} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Panel title="Ageing of overdue amounts">
-          <ColumnChart
-            data={ageing}
-            caption="Overdue amount by age bucket"
-            labels="all"
-            tones={["bg-primary/35", "bg-primary/55", "bg-primary/80", "bg-primary"]}
-          />
-        </Panel>
-        <Panel title="Credits received by week">
-          {payments.isPending ? (
-            <Loading what="credits" />
-          ) : !payments.data?.data.length ? (
-            <Empty>No credits received yet.</Empty>
-          ) : (
-            <>
-              <ColumnChart data={weeks} caption="Credits received per week, latest 30 credits" labels="none" />
-              {peakWeek && (
-                <p className="mt-3 text-sm">
-                  Peak week of {peakWeek.label}: <span className="num font-semibold">{peakWeek.display}</span>
-                </p>
-              )}
-              <p className="mt-1 text-xs text-muted-foreground">Latest 30 bank credits, summed by week from the ledger.</p>
-            </>
-          )}
-        </Panel>
-        <Panel title="Customers by priority band">
-          {customers.isPending ? (
-            <Loading what="customers" />
-          ) : (
-            <ProportionBar data={bands(customers.data?.data ?? [])} caption="Customers per priority band" unit="customers" />
-          )}
-        </Panel>
-      </div>
-
-      {(followUps.data?.data.length ?? 0) > 0 && (
-        <section aria-label="Follow-ups due" className="space-y-4">
-          <h2 className="text-heading font-semibold tracking-tight">Follow-ups due</h2>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {followUps.data?.data.map((f) => <FollowUpCard key={f.id} f={f} canAct={false} showCustomer />)}
+      <section aria-labelledby="attention" className="rounded-xl border bg-card shadow-xs">
+        <Tabs defaultValue="priority" className="gap-0">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-5 pt-4">
+            <h2 id="attention" className="pb-3 text-base font-semibold">
+              What needs my attention today?
+            </h2>
+            <div className="-mb-px max-w-full overflow-x-auto">
+              <TabsList variant="line" className="h-10">
+                <AttentionTab value="priority" icon={Flame} label="High priority" n={a.high_priority.length} />
+                <AttentionTab value="promises" icon={Handshake} label="Promises" n={promiseCount} alert={a.missed_promises.length > 0} />
+                <AttentionTab value="issues" icon={Scale} label="Disputes" n={issueCount} alert={issueCount > 0} />
+                {fus.length > 0 && <AttentionTab value="followups" icon={AlertTriangle} label="Follow-ups" n={fus.length} alert />}
+              </TabsList>
+            </div>
           </div>
-        </section>
-      )}
 
-      <section className="space-y-4">
-        <h2 className="text-heading font-semibold tracking-tight">What needs my attention today?</h2>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Panel title="High priority" action={<Badge value={`${a.high_priority.length} customers`} tone="HIGH" />}>
+          <TabsContent value="priority" className="px-5 py-2">
             {a.high_priority.length === 0 ? (
-              <Empty>No customer is in the HIGH band.</Empty>
+              <Empty icon={Flame}>No customer is in the HIGH band.</Empty>
             ) : (
-              <ul className="-my-1 divide-y">
+              <ul className="divide-y">
                 {a.high_priority.map((p) => (
-                  <li key={p.customer_id} className="py-3">
-                    <div className="flex items-center justify-between gap-3">
+                  <li key={p.customer_id} className="py-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <span className="flex min-w-0 items-center gap-2">
                         <a href={link(p.customer_id)} className={cn(name, "truncate")}>
                           {p.customer_name}
@@ -157,51 +115,76 @@ export function Today() {
                 ))}
               </ul>
             )}
-          </Panel>
-          <Panel title="Missed promises">
-            {a.missed_promises.length === 0 ? (
-              <Empty>No missed promises.</Empty>
+          </TabsContent>
+
+          <TabsContent value="promises" className="px-5 py-2">
+            {promiseCount === 0 ? (
+              <Empty icon={Handshake}>No promise is due or missed and nothing is waiting to send.</Empty>
             ) : (
-              <ul className="-my-1 divide-y">
+              <ul className="divide-y">
                 {a.missed_promises.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 py-3">
-                    <span className="flex min-w-0 items-center gap-3">
-                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-warning-subtle text-warning">
-                        <span aria-hidden>⚠</span>
+                  <Row key={p.id} icon={AlertTriangle} tone="bg-warning-subtle text-warning" end={<span className="num font-semibold">{inr(p.amount_paise)}</span>}>
+                    <a href={link(p.customer_id)} className={name}>
+                      {p.customer_name}
+                    </a>
+                    <span className="block text-sm text-muted-foreground">Missed: promised for {day(p.promised_date)}</span>
+                  </Row>
+                ))}
+                {a.todays_promises.map((p) => (
+                  <Row
+                    key={p.id}
+                    icon={Handshake}
+                    tone="bg-info-subtle text-info"
+                    end={
+                      <span className="flex items-center gap-3">
+                        <span className="num font-semibold">{inr(p.amount_paise)}</span>
+                        {p.status === "pending" ? <CheckPayment promiseId={p.id} /> : <Badge value={p.status} />}
                       </span>
-                      <span className="min-w-0">
-                        <a href={link(p.customer_id)} className={name}>
-                          {p.customer_name}
-                        </a>
-                        <span className="block text-sm text-muted-foreground">promised for {day(p.promised_date)}</span>
-                      </span>
+                    }
+                  >
+                    <a href={link(p.customer_id)} className={name}>
+                      {p.customer_name}
+                    </a>
+                    <span className="block text-sm text-muted-foreground">Due today</span>
+                  </Row>
+                ))}
+                {a.approved_ready.map((m) => (
+                  <Row key={m.id} icon={Send} tone="bg-primary-subtle text-primary">
+                    <span className="font-semibold">{m.customer_name}</span>
+                    <span className="block text-sm text-muted-foreground">Approved, sending: {m.subject}</span>
+                  </Row>
+                ))}
+                {a.needs_verification.map((p) => (
+                  <Row key={p.id} icon={Scale} tone="bg-muted text-muted-foreground" end={<span className="num font-semibold">{inr(p.amount_paise)}</span>}>
+                    <span className="font-semibold">Unmatched credit</span>
+                    <span className="block text-sm text-muted-foreground">
+                      {p.reference ?? "No reference"}: needs a human to match it (Admin)
                     </span>
-                    <span className="num font-semibold">{inr(p.amount_paise)}</span>
-                  </li>
+                  </Row>
                 ))}
               </ul>
             )}
-          </Panel>
-          <Panel title="Disputes and escalations">
-            {a.disputes.length + a.escalations.length === 0 ? (
-              <Empty>Nothing waits for a human.</Empty>
+          </TabsContent>
+
+          <TabsContent value="issues" className="px-5 py-2">
+            {issueCount === 0 ? (
+              <Empty icon={Scale}>Nothing waits for a human.</Empty>
             ) : (
-              <ul className="-my-1 divide-y">
+              <ul className="divide-y">
                 {a.disputes.map((x) => (
-                  <li key={x.id} className="py-3">
+                  <li key={x.id} className="py-3.5">
                     <span className="flex flex-wrap items-center gap-2">
                       <Badge value="Dispute" tone="bad" />
                       <a href={link(x.customer_id)} className={name}>
                         {x.customer_name}
                       </a>
-                      <span className="text-muted-foreground">disputes</span>
                       <span className="rounded bg-muted px-1.5 font-mono text-sm">{x.invoice_number}</span>
                     </span>
                     <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">{x.reason}</p>
                   </li>
                 ))}
                 {a.escalations.map((x) => (
-                  <li key={x.id} className="py-3">
+                  <li key={x.id} className="py-3.5">
                     <span className="flex flex-wrap items-center gap-2">
                       <Badge value="Escalated" tone="wait" />
                       <a href={link(x.customer_id)} className={name}>
@@ -213,41 +196,91 @@ export function Today() {
                 ))}
               </ul>
             )}
+          </TabsContent>
+
+          {fus.length > 0 && (
+            <TabsContent value="followups" className="grid grid-cols-1 gap-3 p-5 lg:grid-cols-2">
+              {fus.map((f) => (
+                <FollowUpCard key={f.id} f={f} canAct={false} showCustomer />
+              ))}
+            </TabsContent>
+          )}
+        </Tabs>
+      </section>
+
+      <section aria-labelledby="portfolio" className="space-y-4">
+        <h2 id="portfolio" className="text-title font-semibold tracking-tight">
+          Portfolio
+        </h2>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <Panel title="Ageing of overdue amounts">
+            <ColumnChart
+              data={ageing}
+              caption="Overdue amount by age bucket"
+              labels="all"
+              tones={["bg-primary/35", "bg-primary/55", "bg-primary/80", "bg-primary"]}
+            />
           </Panel>
-          <Panel title="Today's promises and ready reminders">
-            {a.todays_promises.length + a.approved_ready.length + a.needs_verification.length === 0 ? (
-              <Empty>No promise is due today and nothing is waiting to send.</Empty>
+          <Panel title="Credits received by week">
+            {payments.isPending ? (
+              <Loading what="credits" />
+            ) : !payments.data?.data.length ? (
+              <Empty>No credits received yet.</Empty>
             ) : (
-              <ul className="-my-1 divide-y">
-                {a.todays_promises.map((p) => (
-                  <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                    <a href={link(p.customer_id)} className={name}>
-                      {p.customer_name}
-                    </a>
-                    <span className="flex items-center gap-3">
-                      <span className="num text-sm">{inr(p.amount_paise)} due today</span>
-                      {p.status === "pending" ? <CheckPayment promiseId={p.id} /> : <Badge value={p.status} />}
-                    </span>
-                  </li>
-                ))}
-                {a.approved_ready.map((m) => (
-                  <li key={m.id} className="flex items-center gap-2 py-3 text-sm">
-                    <Send aria-hidden className="size-4 text-info" />
-                    Approved, sending: {m.customer_name}, {m.subject}
-                  </li>
-                ))}
-                {a.needs_verification.map((p) => (
-                  <li key={p.id} className="py-3 text-sm">
-                    Credit {inr(p.amount_paise)} ({p.reference ?? "no reference"}) needs a human to match it (Admin)
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ColumnChart data={weeks} caption="Credits received per week, latest 30 credits" labels="none" />
+                {peakWeek && (
+                  <p className="mt-3 text-sm">
+                    Peak week of {peakWeek.label}: <span className="num font-semibold">{peakWeek.display}</span>
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">Latest 30 bank credits, summed by week.</p>
+              </>
+            )}
+          </Panel>
+          <Panel title="Customers by priority band">
+            {customers.isPending ? (
+              <Loading what="customers" />
+            ) : (
+              <ProportionBar data={bands(customers.data?.data ?? [])} caption="Customers per priority band" unit="customers" />
             )}
           </Panel>
         </div>
+        <p className="text-xs text-muted-foreground">Every figure on this page is computed from the ledger, never by the model.</p>
       </section>
-
     </div>
+  );
+}
+
+function AttentionTab({ value, icon: Icon, label, n, alert }: { value: string; icon: LucideIcon; label: string; n: number; alert?: boolean }) {
+  return (
+    <TabsTrigger value={value} className="px-3">
+      <Icon aria-hidden />
+      {label}
+      <span
+        className={cn(
+          "num rounded-full px-1.5 text-xs font-semibold",
+          n > 0 && alert ? "bg-danger-subtle text-danger" : "bg-muted text-muted-foreground",
+        )}
+      >
+        {n}
+      </span>
+    </TabsTrigger>
+  );
+}
+
+/** One attention line: a tinted icon, what it is, and an optional figure or action on the right. */
+function Row({ icon: Icon, tone, end, children }: { icon: LucideIcon; tone: string; end?: ReactNode; children: ReactNode }) {
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-3 py-3.5">
+      <span className="flex min-w-0 items-center gap-3">
+        <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", tone)}>
+          <Icon aria-hidden className="size-4" />
+        </span>
+        <span className="min-w-0">{children}</span>
+      </span>
+      {end}
+    </li>
   );
 }
 
@@ -283,25 +316,6 @@ function CheckPayment({ promiseId }: { promiseId: string }) {
       </Button>
       <ErrorLine error={check.error} />
     </>
-  );
-}
-
-function Count({ label, n, icon: Icon, alert }: { label: string; n: number; icon: LucideIcon; alert?: boolean }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-xs">
-      <span
-        className={cn(
-          "grid size-10 shrink-0 place-items-center rounded-lg",
-          alert ? "bg-danger-subtle text-danger" : "bg-muted text-muted-foreground",
-        )}
-      >
-        <Icon aria-hidden className="size-5" />
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm text-muted-foreground">{label}</span>
-        <span className="num block text-xl font-semibold">{n}</span>
-      </span>
-    </div>
   );
 }
 

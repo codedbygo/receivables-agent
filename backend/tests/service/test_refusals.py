@@ -17,7 +17,7 @@ from app.services.priority import Factor, Priority
 pytestmark = pytest.mark.integration
 ABC = uid("customer", "ABC Distributors")
 ANDHRA = uid("customer", "Andhra Industrial Supplies")
-ANNAPURNA = uid("customer", "Annapurna Provision Stores")
+DECCAN = uid("customer", "Deccan Polymers")
 NOBODY = uid("customer", "nobody")
 
 
@@ -95,11 +95,11 @@ def test_outside_manual_mode_a_task_with_nothing_to_chase_has_no_draft(s: Sessio
     promise = str(
         s.execute(
             text(f"""INSERT INTO promises (customer_id, amount_paise, promised_date)
-            VALUES ('{ANNAPURNA}', 100000, DATE '2026-09-20') RETURNING id::text""")
+            VALUES ('{DECCAN}', 100000, DATE '2026-09-20') RETURNING id::text""")
         ).scalar_one()
     )
 
-    task = followups.on_broken_promise(s, ANNAPURNA, promise, "missed_promise")
+    task = followups.on_broken_promise(s, DECCAN, promise, "missed_promise")
 
     assert task is not None
     assert s.execute(text(f"SELECT message_id FROM follow_up_tasks WHERE id = '{task}'")).scalar() is None

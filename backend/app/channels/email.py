@@ -27,6 +27,24 @@ class MessageChannel(Protocol):
     def send(self, message: Outbound) -> str: ...
 
 
+def compose(message: Outbound, from_addr: str, redirect_to: str, allow_real: set[str]) -> EmailMessage:
+    """The email as sent, shared by SMTP and Gmail (HACK-009) so both follow the same redirect rule."""
+    m = EmailMessage()
+    m["From"] = from_addr
+    if redirect_to and message.to.strip().lower() not in allow_real:
+        # optional (ADR-0017): with a redirect inbox set, every mail goes there except the allow-listed
+        # addresses; with none set, every customer is mailed at their own address
+        m["To"] = redirect_to
+        m["X-Original-To"] = message.to
+        m["Subject"] = f"[demo to {message.to}] {message.subject}"
+    else:
+        m["To"] = message.to
+        m["Subject"] = message.subject
+    m["Message-ID"] = f"<{message.message_id}@collections.local>"
+    m.set_content(message.body)
+    return m
+
+
 class EmailChannel:
     name = "email"
     simulated = False  # real SMTP (Mailpit, a test inbox, in the local demo)
@@ -41,24 +59,16 @@ class EmailChannel:
         starttls: bool = False,
         from_addr: str = "",
         redirect_to: str = "",
+        allow_real: str = "",
     ) -> None:
         self.host, self.port = host, port
         self.username, self.password, self.starttls = username, password, starttls
         self.from_addr = from_addr or "Accounts team <collections@demo-business.example.in>"
         self.redirect_to = redirect_to
+        self.allow_real = {a.strip().lower() for a in allow_real.split(",") if a.strip()}
 
     def send(self, message: Outbound) -> str:
-        m = EmailMessage()
-        m["From"] = self.from_addr
-        if self.redirect_to:  # hosted demo (ADR-0016): every mail goes to the demo inbox, never to a customer
-            m["To"] = self.redirect_to
-            m["X-Original-To"] = message.to
-            m["Subject"] = f"[demo to {message.to}] {message.subject}"
-        else:
-            m["To"] = message.to
-            m["Subject"] = message.subject
-        m["Message-ID"] = f"<{message.message_id}@collections.local>"
-        m.set_content(message.body)
+        m = compose(message, self.from_addr, self.redirect_to, self.allow_real)
         accepted = False
         try:
             with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:
@@ -74,12 +84,6 @@ class EmailChannel:
             ):  # an error in QUIT after the server accepted the mail must not cause a second send
                 raise ChannelError("SMTP_UNAVAILABLE", retryable=True) from e
         return str(m["Message-ID"])
-
-
-def check_email_config(smtp_user: str, redirect_to: str) -> None:
-    """Real SMTP with the seeded demo customers would mail made-up addresses: require the demo inbox."""
-    if smtp_user and not redirect_to:
-        raise RuntimeError("SMTP_USER is set but EMAIL_REDIRECT_TO is empty: set the demo inbox to mail")
 
 
 class WhatsAppChannel:

@@ -1,15 +1,14 @@
 """Deterministic demo seed and reset (US-01-003, US-01-005, REQ-018 to REQ-025).
 
 Everything derives from a fixed RNG and uuid5 keys, so two seeds of an empty
-database hold identical business rows. The database seed stores 38 of the 40
-labelled eval replies plus 2 history replies behind the missed promises: the two
-ABC replies in the eval set are beats of the live demo story and would otherwise
-sit on ABC's timeline before its first reminder. Evals read evals/replies.jsonl.
+database hold identical business rows. The seed has 10 customers, 60 invoices and
+the 18 labelled eval replies that belong to them (ABC's two are skipped: they are
+beats of the live demo story and would otherwise sit on ABC's timeline before its
+first reminder), plus 2 history replies behind the missed promises. Evals read all
+40 replies from evals/replies.jsonl, whoever they name.
 """
 
-import hashlib
 import json
-import os
 import random
 import re
 import uuid
@@ -24,6 +23,7 @@ from sqlalchemy.exc import OperationalError
 
 from app.agent.classify import dispute_category
 from app.core.config import Settings
+from app.services.auth import DEMO_PASSWORD, DEMO_USERS, hash_password
 from app.services.disputes import team_for
 
 DATA = Path(__file__).parents[1] / "seed" / "data"
@@ -32,7 +32,7 @@ NS = uuid.UUID("6b1f5c1e-9d6a-4f7e-8a51-3c2f0e7d9a10")
 IST = timezone(timedelta(hours=5, minutes=30))
 RNG_SEED = 20260930
 TODAY = date(2026, 9, 30)  # the seed is written for the story's start date; DEMO_TODAY must match it
-KEEP = {"users", "sessions", "llm_calls"}
+KEEP = {"users", "sessions", "llm_calls", "google_account"}  # a reset never disconnects Google (HACK-009)
 LAKH = 100_000_00
 
 CUSTOMERS: list[tuple[str, str, str]] = [  # name, segment, profile
@@ -41,59 +41,15 @@ CUSTOMERS: list[tuple[str, str, str]] = [  # name, segment, profile
     ("Sri Lakshmi Industries", "mid_market", "fixture"),
     ("Metro Wholesale", "sme", "fixture"),
     ("Andhra Industrial Supplies", "enterprise", "fixture"),
-    ("Ganesh Traders", "sme", "recent"),
-    ("Balaji Agencies", "sme", "recent"),
-    ("Coastal Hardware", "sme", "recent"),
-    ("Deccan Polymers", "mid_market", "recent"),
+    ("Ganesh Traders", "sme", "clean"),
+    ("Deccan Polymers", "mid_market", "paid"),
     ("Shree Ram Textiles", "mid_market", "recent"),
     ("Vijaya Steel Corporation", "enterprise", "partial"),
-    ("Krishna Pharma Distributors", "mid_market", "partial"),
-    ("Nandi Foods", "sme", "partial"),
-    ("Sai Packaging", "sme", "paid"),
-    ("Pioneer Auto Parts", "mid_market", "partial"),
     ("Eastern Electricals", "mid_market", "disputed"),
-    ("Mahalaxmi Enterprises", "sme", "disputed"),
-    ("Royal Ceramics", "sme", "recent"),
-    ("Surya Chemicals", "enterprise", "recent"),
-    ("Tirupati Agro", "mid_market", "recent"),
-    ("Godavari Cement Traders", "enterprise", "huge"),
-    ("Nellore Rice Mills", "mid_market", "huge"),
-    ("Vizag Marine Supplies", "mid_market", "clean"),
-    ("Chennai Auto Components", "enterprise", "clean"),
-    ("Hyderabad Pharma Links", "mid_market", "paid"),
-    ("Mysore Silk House", "sme", "clean"),
-    ("Pune Precision Tools", "enterprise", "recent"),
-    ("Bharat Paints and Hardware", "sme", "partial"),
-    ("Kaveri Agro Foods", "mid_market", "clean"),
-    ("Lotus Electronics", "sme", "recent"),
-    ("Annapurna Provision Stores", "sme", "paid"),
-    ("Sahyadri Plastics", "mid_market", "huge"),
-    ("Konark Furnishings", "sme", "clean"),
-    ("Everest Industrial Gases", "enterprise", "recent"),
-    ("Srinivasa Medical Distributors", "mid_market", "partial"),
-    ("Jaipur Handloom Exports", "sme", "clean"),
-    ("Malabar Spices Trading", "mid_market", "recent"),
-    ("Narmada Pipes and Fittings", "enterprise", "huge"),
-    ("Coromandel Fertilisers Agency", "mid_market", "recent"),
-    ("Sunrise Stationers", "sme", "paid"),
-    ("Hindustan Bearings Depot", "mid_market", "recent"),
-    ("Western Ghats Coffee Traders", "sme", "clean"),
-    ("Brahmaputra Tea Distributors", "mid_market", "recent"),
-    ("Indus Textile Mills", "enterprise", "partial"),
-    ("Venkateswara Hardware Mart", "sme", "recent"),
-    ("Orient Kitchenware", "sme", "clean"),
-    ("Pragati Office Solutions", "mid_market", "recent"),
-    ("Saraswati Book Distributors", "sme", "paid"),
-    ("Tata Nagar Steel Traders", "enterprise", "huge"),
-    ("Ujjain Grain Merchants", "sme", "recent"),
 ]
+INVOICE_TOTAL = 60
 REFERENCED = {  # invoices named in the labelled replies: number, customer, amount, due, status
-    "INV-2040": ("Krishna Pharma Distributors", 180_000_00, date(2026, 9, 10), "unpaid"),
     "INV-2311": ("Eastern Electricals", 225_000_00, date(2026, 9, 5), "disputed"),
-    "INV-2402": ("Mahalaxmi Enterprises", 64_000_00, date(2026, 8, 28), "disputed"),
-    "INV-2519": ("Royal Ceramics", 112_000_00, date(2026, 9, 15), "unpaid"),
-    "INV-2688": ("Tirupati Agro", 87_500_00, date(2026, 9, 20), "unpaid"),
-    "INV-2873": ("Sai Packaging", 150_000_00, date(2026, 9, 14), "paid"),
 }
 EXTRA_PAID = {
     "ABC Distributors": 1,
@@ -121,23 +77,10 @@ HISTORY_REPLIES = [  # (customer, body, received, promise amount, promise date, 
     ),
 ]
 EXTRA_PROMISES = [("Kumar Electricals", 3 * LAKH, date(2026, 8, 25), date(2026, 8, 18))]  # missed, no reply
-DEMO_USERS = [
-    ("admin@example.in", "Asha (Admin)", "admin"),
-    ("collector@example.in", "Priya (Collector)", "collector"),
-    ("viewer@example.in", "Vikram (Viewer)", "viewer"),
-]
-DEMO_PASSWORD = "demo-password"  # noqa: S105  demo accounts only, printed in the README
 
 
 def uid(*parts: object) -> str:
     return str(uuid.uuid5(NS, "|".join(str(p) for p in parts)))
-
-
-def hash_password(password: str, salt: bytes | None = None) -> str:
-    """scrypt from the standard library (LLD 11): 'scrypt$<salt hex>$<hash hex>'."""
-    salt = salt or os.urandom(16)
-    digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)
-    return f"scrypt${salt.hex()}${digest.hex()}"
 
 
 def slug(name: str) -> str:
@@ -235,12 +178,7 @@ def build_plan() -> Plan:
         for number, amt, _inv_date, due in rows:
             invoice(name, number, amt, date.fromisoformat(due), "unpaid")
     for number, (name, amt, due, status) in REFERENCED.items():
-        inv = invoice(name, number, amt, due, "unpaid")
-        if status == "paid":
-            inv["status"] = "paid"
-            pay(inv, amt, due + timedelta(days=6))
-        elif status == "disputed":
-            inv["status"] = "disputed"
+        invoice(name, number, amt, due, status)
     for name, n in EXTRA_PAID.items():
         for _ in range(n):
             due = TODAY - timedelta(days=rng.randint(60, 150))
@@ -248,7 +186,7 @@ def build_plan() -> Plan:
             pay(inv, int(inv["amount_paise"]), due + timedelta(days=rng.randint(0, 10)))  # type: ignore[call-overload]
 
     generated = [(n, p) for n, _, p in CUSTOMERS if p != "fixture"]
-    remaining = 300 - len(plan.invoices)
+    remaining = INVOICE_TOTAL - len(plan.invoices)
     per = [remaining // len(generated)] * len(generated)
     for k in range(remaining - sum(per)):
         per[k] += 1
@@ -259,8 +197,6 @@ def build_plan() -> Plan:
             if profile == "clean" or (profile == "recent" and not open_slot and rng.random() < 0.3):
                 due = TODAY + timedelta(days=rng.randint(1, 45))
                 status = "unpaid"
-            elif profile == "huge" and open_slot:
-                due, status = TODAY - timedelta(days=rng.randint(95, 160)), "unpaid"
             elif profile in ("recent", "partial", "disputed") and open_slot:
                 due, status = TODAY - timedelta(days=rng.randint(3, 28)), "unpaid"
             else:
@@ -272,7 +208,7 @@ def build_plan() -> Plan:
                 part = int(inv["amount_paise"]) // 2 // 100 * 100  # type: ignore[call-overload]
                 inv["status"] = "partially_paid"
                 pay(inv, part, min(TODAY, due + timedelta(days=2)))
-    assert len(plan.invoices) == 300, len(plan.invoices)
+    assert len(plan.invoices) == INVOICE_TOTAL, len(plan.invoices)
 
     for inv in plan.invoices:
         due = inv["due_date"]
@@ -300,8 +236,8 @@ def _replies(plan: Plan, cid: dict[str, str], by_customer: dict[str, list[dict[s
     ]
     for r in labelled:
         name = r["input"]["customer"]
-        if name == "ABC Distributors":
-            continue  # demo story beats, see module docstring
+        if name == "ABC Distributors" or name not in cid:
+            continue  # demo story beats, or a customer the trimmed seed leaves out (module docstring)
         received = date(2026, 9, 1) + timedelta(days=int(r["id"][2:]) % 28)
         row = {
             "id": uid("reply", r["id"]),

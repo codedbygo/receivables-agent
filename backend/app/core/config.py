@@ -29,8 +29,18 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_starttls: bool = False
     smtp_from: str = ""
-    # With real SMTP every message goes to this inbox, never to the seeded customers (startup refuses without).
+    # Optional (ADR-0017): when set, every message goes to this inbox instead of the customer, except the allow-list.
     email_redirect_to: str = ""
+    # HACK-007: comma-separated addresses that may receive real mail despite the redirect (your own test inboxes).
+    email_allow_real: str = ""
+    # HACK-009 (ADR-0018): "gmail" sends through the connected company Google account instead of SMTP.
+    email_provider: Literal["smtp", "gmail"] = "smtp"
+    # The Google Cloud OAuth client and the key that encrypts the stored refresh token (Fernet, base64).
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_token_key: str = ""
+    # Exactly the redirect URI registered on the OAuth client, e.g. https://<host>/api/v1/google/callback.
+    google_redirect_uri: str = ""
     # Serverless (ADR-0015): send right after approval instead of waiting for a worker; a cron tick runs jobs.
     send_inline: bool = False
     cron_secret: str = ""
@@ -41,10 +51,13 @@ class Settings(BaseSettings):
     autonomy_mode: Literal["manual", "assisted", "trusted"] = "manual"
     # Host headers the API answers to; anything else (DNS rebinding) gets 400. "testserver" is the test client.
     allowed_hosts: str = "localhost,127.0.0.1,api,testserver"
-    # Access codes, one per role, sent as "Authorization: Bearer <code>". An empty code disables that role.
+    # Scripts (smoke run) sign in as an admin with "Authorization: Bearer <ADMIN_TOKEN>"; empty disables it.
+    # People sign in with a password or Google (ADR-0019).
     admin_token: str = ""
-    collector_token: str = ""
-    viewer_token: str = ""
+    # The first admin of a hosted deployment: created when this email first signs in with Google, or with
+    # BOOTSTRAP_ADMIN_PASSWORD. Clear both once real admins exist.
+    bootstrap_admin_email: str = ""
+    bootstrap_admin_password: str = ""
     # The X-Demo-Role header signs anyone in as that role: for a laptop only (refused on a public host).
     demo_open_roles: bool = False
     feature_whatsapp: bool = False

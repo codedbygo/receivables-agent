@@ -75,8 +75,9 @@ def mcp_list_overdue(_c: httpx.Client) -> str:
     assert isinstance(out, dict) and out.get("ok"), out
     data = out["data"]
     rows = data.get("customers") if isinstance(data, dict) else data
-    assert isinstance(rows, list) and len(rows) == 15, rows
-    return "MCP list_overdue returns the top 15"
+    assert isinstance(rows, list) and 0 < len(rows) <= 15, rows
+    assert any(r.get("name") == "ABC Distributors" for r in rows), rows
+    return f"MCP list_overdue returns the top {len(rows)}"
 
 
 def _abc_draft(c: httpx.Client) -> dict[str, object]:

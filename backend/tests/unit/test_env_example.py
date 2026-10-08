@@ -8,8 +8,7 @@ from app.core.paths import find_up
 SECRETS = (
     "OPENROUTER_API_KEY",
     "ADMIN_TOKEN",
-    "COLLECTOR_TOKEN",
-    "VIEWER_TOKEN",
+    "BOOTSTRAP_ADMIN_PASSWORD",
     "BANK_WEBHOOK_SECRET",
     "MCP_TOKEN",
     "SESSION_SECRET",

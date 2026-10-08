@@ -37,7 +37,7 @@ def test_list_overdue_returns_the_ranked_customers(reg) -> None:  # type: ignore
     out = reg.invoke("list_overdue", {"limit": 15}, ctx())
 
     assert out["ok"] is True
-    assert len(out["data"]["customers"]) == 15
+    assert len(out["data"]["customers"]) == 7  # every overdue customer of the 10
     abc = next(c for c in out["data"]["customers"] if c["customer_id"] == ABC)
     assert (abc["band"], abc["overdue_paise"]) == ("HIGH", 75_000_000)
 
@@ -56,7 +56,7 @@ def test_raw_sql_field_is_refused_and_logged(reg, engine: Engine) -> None:  # ty
 
     assert out["error"]["code"] == "VALIDATION_ERROR"
     assert scalar(engine, "SELECT count(*) FROM guardrail_events WHERE code = 'DIRECT_DB_ATTEMPT'") == 1
-    assert scalar(engine, "SELECT count(*) FROM invoices") == 300
+    assert scalar(engine, "SELECT count(*) FROM invoices") == 60
 
 
 # TC-0249 (AC-US-03-002-4)

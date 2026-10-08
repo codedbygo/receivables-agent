@@ -76,11 +76,11 @@ def test_abc_priority_explains_itself(client: TestClient) -> None:
 
 
 # TC-0165 (AC-US-00-002-2)
-def test_top_15_is_stable_and_contains_abc(client: TestClient) -> None:
+def test_top_priorities_are_stable_and_contain_abc(client: TestClient) -> None:
     first = client.get("/api/v1/priorities").json()["data"]
     second = client.get("/api/v1/priorities").json()["data"]
 
-    assert len(first) == 15
+    assert len(first) == 7  # every overdue customer of the 10
     assert [p["customer_id"] for p in first] == [p["customer_id"] for p in second]
     assert ABC in [p["customer_id"] for p in first]
     assert all(p["score"] > 0 for p in first)
@@ -93,8 +93,8 @@ def test_unknown_customer_is_404_with_the_envelope(client: TestClient) -> None:
     assert r.json()["error"]["code"] == "NOT_FOUND"
 
 
-def test_customers_list_has_all_50(client: TestClient) -> None:
-    assert len(client.get("/api/v1/customers").json()["data"]) == 50
+def test_customers_list_has_all_10(client: TestClient) -> None:
+    assert len(client.get("/api/v1/customers").json()["data"]) == 10
 
 
 # HACK-004 (QA ISSUE-001): the list hard-coded next_action None while the customer page showed the real one.

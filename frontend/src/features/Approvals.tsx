@@ -2,7 +2,9 @@
 Every draft shows its guardrail report; edited text is verified again by the API before it is saved. */
 import { useEffect, useState } from "react";
 import { href } from "../app/route";
-import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading, Panel } from "../components/kit";
+import { CheckCircle2, ShieldAlert } from "lucide-react";
+import { Badge, Button, Dialog, Empty, ErrorLine, Field, inputClass, Loading, Notice, PageHeader, Panel } from "../components/kit";
+import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { day, inr, stamp } from "../lib/format";
 import { useAction, useCustomer, useMessages, useSettings } from "../lib/hooks";
@@ -54,14 +56,20 @@ export function Approvals({ role }: { role: S.Role }) {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-display text-display font-semibold">Approvals</h1>
+      <PageHeader
+        title="Approvals"
+        description={
+          queue.length === 0
+            ? "Nothing is waiting. Every draft passes the guardrails, then a person."
+            : `${queue.length} draft${queue.length === 1 ? "" : "s"} waiting. J and K move, A approves, E edits, R rejects.`
+        }
+      >
         {assisted && canAct && queue.length > 0 && (
-          <Button onClick={() => setConfirmBatch(true)} busy={batch.isPending}>
+          <Button variant="primary" icon={CheckCircle2} onClick={() => setConfirmBatch(true)} busy={batch.isPending}>
             Approve all verified ({queue.filter((m) => m.verified).length})
           </Button>
         )}
-      </header>
+      </PageHeader>
       <Dialog title="Approve and send these drafts?" open={confirmBatch} onClose={() => setConfirmBatch(false)}>
         <p>Each draft below goes to its customer as soon as sending is on. This cannot be undone.</p>
         <ul className="my-3 list-disc pl-5">
@@ -89,25 +97,30 @@ export function Approvals({ role }: { role: S.Role }) {
       </Dialog>
       <ErrorLine error={approve.error ?? batch.error} />
       {settings.data && !settings.data.sending_enabled && (
-        <p role="status" className="rounded border border-warning bg-warning-subtle px-3 py-2 text-warning">
+        <Notice tone="warning">
           Sending is paused by the kill switch. Approved messages wait until an admin turns sending back on.
-        </p>
+        </Notice>
       )}
       {queue.length === 0 ? (
-        <Empty>No drafts wait for approval. The next run adds them here.</Empty>
+        <div className="rounded-xl border bg-card shadow-xs">
+          <Empty icon={CheckCircle2}>No drafts wait for approval. The next run adds them here.</Empty>
+        </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[20rem_1fr_18rem]">
-          <ul aria-label="Drafts" className="divide-y divide-border rounded border border-border bg-surface">
+        <div className="grid items-start gap-4 lg:grid-cols-[17rem_minmax(0,1fr)] 2xl:grid-cols-[18rem_minmax(0,1fr)_20rem]">
+          <ul aria-label="Drafts" className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs lg:sticky lg:top-6">
             {queue.map((m) => (
               <li key={m.id}>
                 <button
                   type="button"
                   aria-current={m.id === current?.id ? "true" : undefined}
                   onClick={() => setPicked(m.id)}
-                  className="block min-h-11 w-full px-3 py-2 text-left hover:bg-bg-subtle aria-[current=true]:bg-accent-subtle"
+                  className="relative block min-h-11 w-full px-4 py-3 text-left transition-colors hover:bg-muted aria-[current=true]:bg-primary-subtle aria-[current=true]:before:absolute aria-[current=true]:before:inset-y-0 aria-[current=true]:before:left-0 aria-[current=true]:before:w-0.5 aria-[current=true]:before:bg-primary"
                 >
-                  <span className="block font-semibold">{m.customer_name}</span>
-                  <span className="text-label text-text-muted">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="truncate font-semibold">{m.customer_name}</span>
+                    {!m.verified && <ShieldAlert aria-label="Not verified" className="size-4 shrink-0 text-danger" />}
+                  </span>
+                  <span className="block truncate text-label text-text-muted">
                     {m.kind.replaceAll("_", " ")} · {m.tone} · {m.invoice_numbers.join(", ") || "no invoices"}
                   </span>
                 </button>
@@ -118,7 +131,7 @@ export function Approvals({ role }: { role: S.Role }) {
           {current && (
             <article className="min-w-0 rounded-xl border bg-card p-5 shadow-xs">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <a className="font-semibold font-medium text-link underline-offset-4 hover:underline" href={href({ page: "customer", id: current.customer_id })}>
+                <a className="font-semibold text-link underline-offset-4 hover:underline" href={href({ page: "customer", id: current.customer_id })}>
                   {current.customer_name}
                 </a>
                 <Badge value={current.status} />
@@ -126,12 +139,12 @@ export function Approvals({ role }: { role: S.Role }) {
                   v{current.version} · {current.channel} · drafted {stamp(current.created_at)}
                 </span>
               </div>
-              <h2 className="mb-3 font-display text-title font-semibold">{current.subject}</h2>
-              <div className="num rounded border border-border bg-bg p-4 font-mono text-label whitespace-pre-line">
+              <h2 className="mb-4 text-title font-semibold">{current.subject}</h2>
+              <div className="num rounded-lg border bg-muted/40 p-5 text-sm leading-relaxed whitespace-pre-line">
                 {current.body}
               </div>
               {canAct && (
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-5 flex flex-wrap gap-2 border-t pt-4">
                   <Button variant="primary" kbd="A" onClick={() => approve.mutate(current)} busy={approve.isPending} disabled={!current.verified}>
                     Approve
                   </Button>
@@ -143,8 +156,12 @@ export function Approvals({ role }: { role: S.Role }) {
             </article>
           )}
 
-          {current && <DraftContext customerId={current.customer_id} />}
-          {current && <GuardrailReport checks={current.guardrail_report} verified={current.verified} key={current.id + current.version} />}
+          {current && (
+            <div className="space-y-4 lg:col-start-2 2xl:col-start-auto">
+              <GuardrailReport checks={current.guardrail_report} verified={current.verified} key={current.id + current.version} />
+              <DraftContext customerId={current.customer_id} />
+            </div>
+          )}
         </div>
       )}
       {current && dialog === "edit" && <EditDialog message={current} onClose={() => setDialog(null)} />}
@@ -175,7 +192,7 @@ function DraftContext({ customerId }: { customerId: string }) {
             </li>
           ))}
       </ul>
-      <p className="mt-3 font-semibold">
+      <p className="mt-4 border-t pt-3 font-semibold">
         Priority {priority.score} {priority.band}
       </p>
       <ul className="list-disc pl-5 text-label">
@@ -190,8 +207,8 @@ function DraftContext({ customerId }: { customerId: string }) {
 export function GuardrailReport({ checks, verified }: { checks: S.Check[]; verified: boolean }) {
   return (
     <aside aria-label="Guardrail report" className="rounded-xl border bg-card p-5 shadow-xs">
-      <h2 className="mb-2 font-display text-title font-semibold">Guardrail report</h2>
-      <p className={`mb-3 font-semibold ${verified ? "text-success" : "text-danger"}`}>
+      <h2 className="mb-2 text-base font-semibold">Guardrail report</h2>
+      <p className={cn("mb-3 rounded-lg px-3 py-2 text-sm font-semibold", verified ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger")}>
         {verified ? "✓ Every figure matches the ledger" : "Error: this text has not passed the guardrails"}
       </p>
       <ul className="space-y-1 text-label">
