@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { day, inr, rupeesToPaise, stamp } from "@/lib/format";
 import { GooglePanel } from "./Google";
-import { PeoplePanel } from "./People";
 import { useAction, useCustomers, useGuardrailEvents, usePayments, useRuns, useSettings } from "@/lib/hooks";
 import * as S from "@/lib/schemas";
 import { RunDialog } from "./RunDialog";
@@ -61,7 +60,6 @@ export function Admin() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="controls" className="space-y-6">
-      <PeoplePanel />
       <GooglePanel isAdmin />
       <div className="grid gap-4 lg:grid-cols-3">
         <Panel title="Kill switch">

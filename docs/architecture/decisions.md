@@ -18,7 +18,6 @@ One row per decision, and every contradiction settled once so it is not settled 
 | ADR-0010 | Deploy with local Docker Compose only | hosting | Accepted | cheap |
 | ADR-0012 | Use the LLM only for prose around placeholders and for reply classification | genai | Accepted | cheap: prompts and the drafting service change; the verifier stays |
 | ADR-0011 | Move the payment and clock stories into P0 | scope | Accepted | cheap: a priority change |
-| ADR-0019 | Sign in as a person, with Google or with an email and password | auth | Accepted | awkward: users, password hashes and sessions become stored data |
 
 ## Conflicts that were settled
 

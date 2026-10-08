@@ -1,23 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { ApiError, api } from "./api";
+import { ApiError, api, authHeaders } from "./api";
 
-describe("credentials", () => {
-  afterEach(() => vi.unstubAllGlobals());
+describe("authHeaders", () => {
+  it("sends the access code as a bearer token, with the role header beside it", () => {
+    // A hosted API reads only the code and ignores the header; a laptop API (DEMO_OPEN_ROLES) reads only the
+    // header. Sending both means a code the browser's password manager filled in cannot lock a laptop user out.
+    expect(authHeaders("admin", "s3cret")).toEqual({ Authorization: "Bearer s3cret", "X-Demo-Role": "admin" });
+  });
 
-  // HACK-011: the console sends its session cookie; a public page (portal, pay link) never does.
-  it("sends the session cookie to the API and leaves it off for a public page", async () => {
-    const seen: RequestInit[] = [];
-    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
-      seen.push(init);
-      return new Response("{}", { status: 200 });
-    });
+  it("never sends the role header without a role", () => {
+    expect(authHeaders(null, "s3cret")).toEqual({ Authorization: "Bearer s3cret" });
+  });
 
-    await api("/auth/me", z.object({}));
-    await api("/portal/t", z.object({}), { anonymous: true });
+  it("falls back to the role header on a laptop, where there is no code", () => {
+    expect(authHeaders("collector", "")).toEqual({ "X-Demo-Role": "collector" });
+  });
 
-    expect(seen.map((i) => i.credentials)).toEqual(["same-origin", "omit"]);
-    expect(seen.every((i) => !("Authorization" in (i.headers as Record<string, string>)))).toBe(true);
+  it("sends nothing when signed out", () => {
+    expect(authHeaders(null, "")).toEqual({});
   });
 });
 

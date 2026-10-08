@@ -1,5 +1,7 @@
-import { QueryCache, QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import {
+  ChevronRight,
+  Eye,
   FlaskConical,
   Inbox,
   IndianRupee,
@@ -10,6 +12,7 @@ import {
   Settings2,
   ShieldCheck,
   Sun,
+  UserCog,
   Users,
   Wallet,
   type LucideIcon, MailOpen } from "lucide-react";
@@ -29,24 +32,13 @@ import { Pay } from "@/features/Pay";
 import { Portal } from "@/features/Portal";
 import { SafetyCenter } from "@/features/Safety";
 import { Today } from "@/features/Today";
-import { z } from "zod";
-import { api, ApiError } from "@/lib/api";
-import { keys, useAction, useDashboard, useMe } from "@/lib/hooks";
-import * as S from "@/lib/schemas";
+import { storedRole, storeCode, storeRole } from "@/lib/api";
+import { useDashboard, useMe } from "@/lib/hooks";
+import type { Role } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 import { href, useRoute, type Route } from "./route";
 
-const client: QueryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: true } },
-  // A session that ended (expired, signed out elsewhere, switched off by an admin) sends any screen back to sign in.
-  queryCache: new QueryCache({
-    onError: (error, query) => {
-      if (error instanceof ApiError && error.status === 401 && query.queryKey[0] !== keys.me[0]) {
-        void client.resetQueries({ queryKey: keys.me });
-      }
-    },
-  }),
-});
+const client = new QueryClient({ defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: true } } });
 
 export function App() {
   return (
@@ -57,6 +49,12 @@ export function App() {
     </QueryClientProvider>
   );
 }
+
+const ROLES: { role: Role; label: string; what: string; icon: LucideIcon }[] = [
+  { role: "collector", label: "Collector", what: "Review drafts, record replies, resolve disputes.", icon: Inbox },
+  { role: "admin", label: "Admin", what: "Everything a collector does, plus sending, clock, reset and demo tools.", icon: UserCog },
+  { role: "viewer", label: "Viewer", what: "Read-only: every screen, no actions.", icon: Eye },
+];
 
 function Brand({ className }: { className?: string }) {
   return (
@@ -69,12 +67,9 @@ function Brand({ className }: { className?: string }) {
   );
 }
 
-/** S-01: sign in as a person, with an email and password or with Google (HACK-011, ADR-0019). */
-function SignIn() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const login = useAction(() => api("/auth/login", S.User, { method: "POST", body: { email: email.trim(), password } }));
-  const fromGoogle = new URLSearchParams(window.location.search).get("signin_error");
+/** S-01: pick a role. A hosted demo asks for that role's access code; on a laptop the code stays empty. */
+function SignIn({ onPick }: { onPick: (r: Role, code: string) => void }) {
+  const [code, setCode] = useState("");
   return (
     <main className="grid min-h-screen place-items-center bg-linear-to-b from-primary-subtle to-background px-4 py-12">
       <div className="w-full max-w-md">
@@ -84,61 +79,40 @@ function SignIn() {
           <p className="mt-1 mb-6 text-sm text-muted-foreground">
             Every number you will see comes from the ledger, never from the model.
           </p>
-          <a
-            href="/api/v1/auth/google"
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-md border bg-card text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary-subtle"
-          >
-            Continue with Google
-          </a>
-          <p className="my-5 flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
-            or with your email
-          </p>
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              login.mutate(undefined);
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                name="email"
-                autoComplete="username"
-                required
-                maxLength={254}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                name="password"
-                autoComplete="current-password"
-                required
-                maxLength={200}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11"
-              />
-            </div>
-            {/* HACK-011: Google's reason comes back in the URL; as a plain Error, ErrorLine hid it behind a generic line. */}
-            {login.error ? (
-              <ErrorLine error={login.error} />
-            ) : (
-              fromGoogle && <ErrorLine error={new ApiError(401, "UNAUTHORIZED", fromGoogle, "")} plain />
-            )}
-            <Button type="submit" variant="primary" busy={login.isPending}>
-              Sign in
-            </Button>
-          </form>
-          <p className="mt-5 text-xs text-muted-foreground">No account, or forgot your password? Ask an admin.</p>
+          <div className="mb-6 space-y-1.5">
+            <Label htmlFor="code">Access code</Label>
+            <Input
+              id="code"
+              type="password"
+              name="access-code"
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="h-11"
+            />
+            <p className="text-xs text-muted-foreground">Leave empty when running on your own machine.</p>
+          </div>
+          <p className="mb-2 text-sm font-medium">Continue as</p>
+          <ul className="space-y-2">
+            {ROLES.map((r) => (
+              <li key={r.role}>
+                <button
+                  type="button"
+                  onClick={() => onPick(r.role, code)}
+                  className="group flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-primary-subtle"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground">
+                    <r.icon aria-hidden className="size-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">{r.label}</span>
+                    <span className="block text-sm text-muted-foreground">{r.what}</span>
+                  </span>
+                  <ChevronRight aria-hidden className="size-4 text-muted-foreground group-hover:text-primary" />
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
         <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck aria-hidden className="size-3.5" />
@@ -178,36 +152,23 @@ const NAV: { section: string; items: NavItem[] }[] = [
 
 function Shell() {
   const route = useRoute();
-  const me = useMe();
+  const [role, setRole] = useState<Role | null>(storedRole);
   const qc = useQueryClient();
-  const signOut = useAction(() => api("/auth/logout", z.null(), { method: "POST" }));
+  const pick = (r: Role | null, code = "") => {
+    storeCode(code);
+    storeRole(r);
+    setRole(r);
+    qc.clear();
+  };
   if (route.page === "pay") return <Pay token={route.token} />; // public: the customer has no role
   if (route.page === "portal") return <Portal token={route.token} />; // public: the link is the credential
-  if (me.isPending) {
-    return (
-      <main className="grid min-h-screen place-items-center">
-        <Loading what="your session" />
-      </main>
-    );
-  }
-  if (me.error instanceof ApiError && me.error.status === 401) return <SignIn />;
-  if (me.error) {
-    return (
-      <main className="mx-auto grid min-h-screen max-w-lg content-center gap-4 p-8">
-        <ErrorLine error={me.error} />
-        <div>
-          <Button onClick={() => void me.refetch()}>Try again</Button>
-        </div>
-      </main>
-    );
-  }
-  // Whoever signs in next must not see this person's cached screens.
-  return <Console me={me.data} onSignOut={() => signOut.mutate(undefined, { onSettled: () => void qc.resetQueries() })} />;
+  if (!role) return <SignIn onPick={pick} />;
+  return <Console role={role} onSignOut={() => pick(null)} />;
 }
 
-function Console({ me, onSignOut }: { me: S.User; onSignOut: () => void }) {
+function Console({ role, onSignOut }: { role: Role; onSignOut: () => void }) {
   const route = useRoute();
-  const role = me.role;
+  const me = useMe();
   const pending = useDashboard().data?.pending_approvals ?? 0;
   const current = route.page === "customer" ? "customers" : route.page;
   const [width, setWidth] = useState(() => Number(localStorage.getItem("ca.sidebar-width")) || SIDE.open);
@@ -230,7 +191,24 @@ function Console({ me, onSignOut }: { me: S.User; onSignOut: () => void }) {
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   };
-  const initials = me.display_name
+  if (me.isPending) {
+    return (
+      <main className="grid min-h-screen place-items-center">
+        <Loading what="your session" />
+      </main>
+    );
+  }
+  if (me.error) {
+    return (
+      <main className="mx-auto grid min-h-screen max-w-lg content-center gap-4 p-8">
+        <ErrorLine error={me.error} />
+        <div>
+          <Button onClick={onSignOut}>Choose a role again</Button>
+        </div>
+      </main>
+    );
+  }
+  const initials = me.data.display_name
     .replace(/\(.*\)/, "")
     .trim()
     .split(/\s+/)
@@ -308,7 +286,7 @@ function Console({ me, onSignOut }: { me: S.User; onSignOut: () => void }) {
               {initials}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-sidebar-strong">{me.display_name}</span>
+              <span className="block truncate text-sm font-medium text-sidebar-strong">{me.data.display_name}</span>
               <span className="block text-xs text-sidebar-muted capitalize">{role}</span>
             </span>
           </div>
@@ -318,7 +296,7 @@ function Console({ me, onSignOut }: { me: S.User; onSignOut: () => void }) {
             className="flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm whitespace-nowrap hover:bg-sidebar-active hover:text-sidebar-strong"
           >
             <LogOut aria-hidden className="size-4 text-sidebar-muted" />
-            <span className="md:group-data-collapsed/side:sr-only">Sign out</span>
+            <span className="md:group-data-collapsed/side:sr-only">Switch role</span>
           </button>
         </div>
       </nav>
