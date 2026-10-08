@@ -128,7 +128,12 @@ function SignIn() {
                 className="h-11"
               />
             </div>
-            {login.error ? <ErrorLine error={login.error} /> : fromGoogle && <ErrorLine error={new Error(fromGoogle)} plain />}
+            {/* HACK-011: Google's reason comes back in the URL; as a plain Error, ErrorLine hid it behind a generic line. */}
+            {login.error ? (
+              <ErrorLine error={login.error} />
+            ) : (
+              fromGoogle && <ErrorLine error={new ApiError(401, "UNAUTHORIZED", fromGoogle, "")} plain />
+            )}
             <Button type="submit" variant="primary" busy={login.isPending} disabled={!email.trim() || !password}>
               Sign in
             </Button>
