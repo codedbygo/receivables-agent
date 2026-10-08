@@ -377,6 +377,22 @@ def test_signed_speech_is_answered_in_twiml_and_keeps_listening(real: TestClient
     assert "recorded a payment promise of ₹2,00,000" in r.text and "<Gather" in r.text
 
 
+def test_silence_asks_again_and_only_then_ends_the_call(real: TestClient) -> None:
+    # A Gather that heard nothing used to fall through and hang up mid-conversation.
+    call = start(real)
+    first = hook(real, call, "turn", {"CallSid": "CA1"})  # the opening, before anyone listened
+    assert "<Gather" in first.text and "did not hear" not in first.text
+
+    again = hook(real, call, "turn?heard=1", {"CallSid": "CA1"})
+    assert "did not hear you" in again.text and "<Gather" in again.text
+    assert real.get(f"/api/v1/calls/{call['id']}", headers=VIEWER).json()["status"] == "in_progress"
+
+    hook(real, call, "turn?heard=1", {"CallSid": "CA1"})
+    last = hook(real, call, "turn?heard=1", {"CallSid": "CA1"})
+    after = real.get(f"/api/v1/calls/{call['id']}", headers=VIEWER).json()
+    assert "<Hangup/>" in last.text and (after["status"], after["outcome"]) == ("completed", "no_commitment")
+
+
 def test_a_webhook_for_another_provider_call_is_not_found(real: TestClient) -> None:
     r = hook(real, start(real), "turn", {"CallSid": "CA-someone-else", "SpeechResult": "hello"})
 

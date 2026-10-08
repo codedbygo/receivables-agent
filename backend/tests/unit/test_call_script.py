@@ -57,7 +57,10 @@ def test_twilio_signature_is_checked_with_the_full_url_and_sorted_params() -> No
 def test_twiml_escapes_the_line_and_hangs_up_at_the_end() -> None:
     out = twiml("Promise of ₹2,00,000 <for> Friday & more", None)
     assert "&lt;for&gt;" in out and "&amp; more" in out and out.endswith("<Hangup/></Response>")
-    assert '<Gather input="speech"' in twiml("Hello", "https://x/turn")
+    listening = twiml("Hello", "https://x/turn")
+    # The line plays inside the Gather, and silence posts back instead of falling through to a hang-up.
+    assert '<Gather input="speech"' in listening and 'actionOnEmptyResult="true"' in listening
+    assert listening.endswith("</Say></Gather></Response>") and "<Hangup/>" not in listening
 
 
 # HACK-004 (CI coverage): what the reply classifier adds after the call-only rules.

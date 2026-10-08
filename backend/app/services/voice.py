@@ -442,6 +442,14 @@ def turn(session: Session, call_id: str, said: str, gateway: Gateway | None) -> 
     return get_call(session, call_id)
 
 
+def silence(session: Session, call_id: str) -> Call:
+    """The provider heard nothing after the last line: ask again, up to MAX_UNCLEAR times, then close politely."""
+    cid, _, _, promise_id = _lock(session, call_id)
+    if not _unclear(session, call_id, cid, "Sorry, I did not hear you. Could you say that again?"):
+        end(session, call_id, "completed", "promise" if promise_id else "no_commitment")
+    return get_call(session, call_id)
+
+
 def _unclear(session: Session, call_id: str, cid: str, ask: str) -> bool:
     """Ask again, up to MAX_UNCLEAR times. Returns False when the call should end instead."""
     n: int = session.execute(

@@ -77,7 +77,8 @@ async def _signed_form(request: Request, signature: str) -> dict[str, str]:
     raw = await read_capped(request)
     params = dict(parse_qsl(raw.decode("utf-8", "replace"), keep_blank_values=True))
     s = request.app.state.settings
-    url = s.voice_public_base_url.rstrip("/") + request.url.path
+    query = f"?{request.url.query}" if request.url.query else ""  # Twilio signs the full URL, query included
+    url = s.voice_public_base_url.rstrip("/") + request.url.path + query
     if not (s.voice_public_base_url and signature_ok(s.twilio_auth_token, url, params, signature)):
         raise AppError(ErrorCode.SIGNATURE_INVALID, "Bad signature.")
     return params
@@ -103,9 +104,12 @@ def _turn_twiml(request: Request, call_id: str, params: dict[str, str]) -> str:
         speech = params.get("SpeechResult", "").strip()
         if speech and call.status == "in_progress":
             call = voice.turn(s, call_id, speech[:2000], request.app.state.orchestrator.gateway)
+        elif request.query_params.get("heard") == "1" and call.status == "in_progress":
+            # The Gather timed out with nothing heard (the first request, which plays the opening, has no flag).
+            call = voice.silence(s, call_id)
         last = next((t.text for t in reversed(call.turns) if t.speaker == "ai"), voice.SAFE_LINE)
         listen = call.status == "in_progress"
-        url = request.app.state.settings.voice_public_base_url.rstrip("/") + request.url.path
+        url = request.app.state.settings.voice_public_base_url.rstrip("/") + request.url.path + "?heard=1"
         return twiml(last, url if listen else None)
 
 
