@@ -9,9 +9,11 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from app.api.deps import Admin, AppSettings, Collector, Orch, Reader, SessionDep
+from app.api.routers.auth import google_callback
 from app.core.db import transaction
 from app.core.errors import AppError, ErrorCode
 from app.services import google, google_calendar, inbox, overview
+from app.services.google import is_login_state
 
 router = APIRouter(prefix="/google", tags=["google"])
 
@@ -50,7 +52,14 @@ def callback(
     code: Annotated[str, Query(max_length=2000)] = "",
     error: Annotated[str, Query(max_length=200)] = "",
 ) -> RedirectResponse:
-    """Public: Google sends the admin's browser here. The signed state is the credential, not a session."""
+    """Public: Google sends the browser here, for a sign-in or for an admin connecting the mailbox. The signed
+    state is the credential, not a session, and says which of the two it is."""
+    if is_login_state(state):
+        if error or not code:
+            return RedirectResponse(
+                f"/?signin_error={quote('Google sign-in was cancelled.')}", status_code=303
+            )
+        return google_callback(request, s, code, state)
     try:
         if error or not code:
             raise AppError(ErrorCode.GOOGLE_NOT_CONNECTED, "Google sign-in was cancelled.")

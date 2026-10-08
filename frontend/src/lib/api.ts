@@ -1,39 +1,12 @@
-/** The one way the console talks to the API: access code, error envelope, schema-checked responses. */
+/** The one way the console talks to the API: the session cookie, error envelope, schema-checked responses. */
 import { z } from "zod";
-import type { Role } from "./schemas";
 
-const ROLE_KEY = "ca.role";
-
-export function storedRole(): Role | null {
-  const r = localStorage.getItem(ROLE_KEY);
-  return r === "admin" || r === "collector" || r === "viewer" ? r : null;
-}
-
-export function storeRole(role: Role | null): void {
-  if (role) localStorage.setItem(ROLE_KEY, role);
-  else localStorage.removeItem(ROLE_KEY);
-}
-
-const CODE_KEY = "ca.code";
-
-/** The access code lives in sessionStorage: it goes when the tab closes. */
-export function storedCode(): string {
-  return sessionStorage.getItem(CODE_KEY) ?? "";
-}
-
-export function storeCode(code: string): void {
-  if (code) sessionStorage.setItem(CODE_KEY, code);
-  else sessionStorage.removeItem(CODE_KEY);
-}
-
-/** The access code (hosted demo) and the role header (laptop, DEMO_OPEN_ROLES). The API reads exactly one of them
- * for its mode and ignores the other, so a code autofilled by a password manager cannot lock out a laptop user, and
- * the header grants nothing on a hosted API. */
-export function authHeaders(role: Role | null, code: string): Record<string, string> {
-  return {
-    ...(code ? { Authorization: `Bearer ${code}` } : {}),
-    ...(role ? { "X-Demo-Role": role } : {}),
-  };
+// HACK-011: sign-in is a session cookie now. Forget the role and access code that earlier builds stored.
+try {
+  localStorage.removeItem("ca.role");
+  sessionStorage.removeItem("ca.code");
+} catch {
+  // storage blocked or absent (private mode, tests): nothing was stored either
 }
 
 export class ApiError extends Error {
@@ -60,15 +33,14 @@ const Envelope = z.object({
   }),
 });
 
-/** anonymous: a public page (the customer portal) never sends a staff member's stored credentials. */
+/** anonymous: a public page (the customer portal) never sends a staff member's session cookie. */
 type Init = { method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"; body?: unknown; headers?: Record<string, string>; anonymous?: boolean };
 
 export async function api<T extends z.ZodTypeAny>(path: string, schema: T, init: Init = {}): Promise<z.infer<T>> {
-  const role = storedRole();
   const res = await fetch(`/api/v1${path}`, {
     method: init.method ?? "GET",
+    credentials: init.anonymous ? "omit" : "same-origin",
     headers: {
-      ...(init.anonymous ? {} : authHeaders(role, storedCode())),
       ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...init.headers,
     },

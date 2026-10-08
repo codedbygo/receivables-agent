@@ -26,7 +26,6 @@ from app.services import (
     payments,
     safety,
 )
-from app.services.auth import User
 
 router = APIRouter()
 Id = Annotated[uuid.UUID, Path()]
@@ -130,11 +129,6 @@ def latest_eval(_: Reader) -> EvalReport:
 
 def _cid(c: uuid.UUID | None) -> str | None:
     return str(c) if c else None
-
-
-@router.get("/auth/me", response_model=User)
-def me(user: Reader) -> User:
-    return user
 
 
 @router.get("/dashboard", response_model=Dashboard)

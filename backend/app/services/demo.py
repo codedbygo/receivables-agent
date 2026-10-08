@@ -8,9 +8,7 @@ first reminder), plus 2 history replies behind the missed promises. Evals read a
 40 replies from evals/replies.jsonl, whoever they name.
 """
 
-import hashlib
 import json
-import os
 import random
 import re
 import uuid
@@ -25,6 +23,7 @@ from sqlalchemy.exc import OperationalError
 
 from app.agent.classify import dispute_category
 from app.core.config import Settings
+from app.services.auth import DEMO_PASSWORD, DEMO_USERS, hash_password
 from app.services.disputes import team_for
 
 DATA = Path(__file__).parents[1] / "seed" / "data"
@@ -78,23 +77,10 @@ HISTORY_REPLIES = [  # (customer, body, received, promise amount, promise date, 
     ),
 ]
 EXTRA_PROMISES = [("Kumar Electricals", 3 * LAKH, date(2026, 8, 25), date(2026, 8, 18))]  # missed, no reply
-DEMO_USERS = [
-    ("admin@example.in", "Asha (Admin)", "admin"),
-    ("collector@example.in", "Priya (Collector)", "collector"),
-    ("viewer@example.in", "Vikram (Viewer)", "viewer"),
-]
-DEMO_PASSWORD = "demo-password"  # noqa: S105  demo accounts only, printed in the README
 
 
 def uid(*parts: object) -> str:
     return str(uuid.uuid5(NS, "|".join(str(p) for p in parts)))
-
-
-def hash_password(password: str, salt: bytes | None = None) -> str:
-    """scrypt from the standard library (LLD 11): 'scrypt$<salt hex>$<hash hex>'."""
-    salt = salt or os.urandom(16)
-    digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)
-    return f"scrypt${salt.hex()}${digest.hex()}"
 
 
 def slug(name: str) -> str:

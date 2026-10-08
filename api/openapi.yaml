@@ -102,6 +102,78 @@ paths:
                 $ref: '#/components/schemas/Health'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /auth/login:
+    post:
+      operationId: signIn
+      summary: Sign in with an email and password
+      tags:
+      - auth
+      x-story-ids:
+      - HACK-011
+      x-roles: public
+      description: Sets the HttpOnly ca_session cookie (12 hours). Five wrong passwords in a row lock the account for 15 minutes. The seeded demo accounts are refused unless DEMO_OPEN_ROLES.
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email: {type: string, minLength: 3, maxLength: 254}
+                password: {type: string, minLength: 1, maxLength: 200}
+      responses:
+        '200':
+          description: Signed in; Set-Cookie carries the session
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/logout:
+    post:
+      operationId: signOut
+      summary: End this session
+      tags:
+      - auth
+      x-story-ids:
+      - HACK-011
+      x-roles: public
+      description: Deletes the session row and clears the cookie; harmless without one.
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: Signed out
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+  /auth/google:
+    get:
+      operationId: signInWithGoogle
+      summary: Start Google sign-in
+      tags:
+      - auth
+      x-story-ids:
+      - HACK-011
+      x-roles: public
+      description: Redirects to Google asking for openid email only; Google returns to /google/callback with a sign-in state.
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '303':
+          description: To Google, or back to the console with signin_error=<reason> when Google is not set up
   /auth/me:
     get:
       operationId: getMe
@@ -127,6 +199,118 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalError'
+  /users:
+    get:
+      operationId: listPeople
+      summary: Everyone who can sign in
+      tags:
+      - auth
+      x-story-ids:
+      - HACK-011
+      x-roles: admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeoplePage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: addPerson
+      summary: Add a person who can sign in
+      tags:
+      - auth
+      x-story-ids:
+      - HACK-011
+      x-roles: admin
+      description: No password means Google sign-in only.
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, display_name, role]
+              properties:
+                email: {type: string, minLength: 3, maxLength: 254}
+                display_name: {type: string, minLength: 1, maxLength: 100}
+                role: {type: string, enum: [admin, collector, viewer]}
+                password: {type: [string, 'null'], minLength: 10, maxLength: 200}
+      responses:
+        '201':
+          description: Created
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Person'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /users/{id}:
+    patch:
+      operationId: changePerson
+      summary: Change a role, switch a person off or on, or set a new password
+      tags:
+      - auth
+      x-story-ids:
+      - HACK-011
+      x-roles: admin
+      description: Switching off ends every session of that person. An admin cannot remove their own admin access. A new password also clears a lock.
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                role: {type: [string, 'null'], enum: [admin, collector, viewer, null]}
+                active: {type: [boolean, 'null']}
+                password: {type: [string, 'null'], minLength: 10, maxLength: 200}
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Person'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
   /dashboard:
     get:
       operationId: getDashboard
@@ -323,7 +507,7 @@ paths:
       x-story-ids:
       - HACK-009
       x-roles: public
-      description: Public; the signed, 10-minute state minted by connectGoogle is the credential.
+      description: Public; the signed, 10-minute state minted by connectGoogle or signInWithGoogle is the credential, and says which of the two this is.
       parameters:
       - $ref: '#/components/parameters/ApiVersion'
       - {name: state, in: query, required: false, schema: {type: string, maxLength: 200}}
@@ -331,7 +515,7 @@ paths:
       - {name: error, in: query, required: false, schema: {type: string, maxLength: 200}}
       responses:
         '303':
-          description: Back to the console's Admin page, with google=connected or google_error=<reason> in the query
+          description: Connect - back to the Admin page with google=connected or google_error=<reason>. Sign-in - to the console with the session cookie set, or with signin_error=<reason>
   /google/disconnect:
     post:
       operationId: disconnectGoogle
@@ -3534,6 +3718,32 @@ components:
       example:
         next_cursor: eyJpZCI6IjAxOTIifQ
         has_more: false
+    Person:
+      allOf:
+      - $ref: '#/components/schemas/User'
+      - type: object
+        properties:
+          active:
+            type: boolean
+          has_password:
+            type: boolean
+            description: false for a Google-only person
+          locked:
+            type: boolean
+            description: password sign-in refused for now after too many wrong passwords
+        required:
+        - active
+        - has_password
+        - locked
+    PeoplePage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+      required:
+      - data
     User:
       type: object
       properties:

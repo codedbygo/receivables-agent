@@ -51,10 +51,13 @@ class Settings(BaseSettings):
     autonomy_mode: Literal["manual", "assisted", "trusted"] = "manual"
     # Host headers the API answers to; anything else (DNS rebinding) gets 400. "testserver" is the test client.
     allowed_hosts: str = "localhost,127.0.0.1,api,testserver"
-    # Access codes, one per role, sent as "Authorization: Bearer <code>". An empty code disables that role.
+    # Scripts (smoke run) sign in as an admin with "Authorization: Bearer <ADMIN_TOKEN>"; empty disables it.
+    # People sign in with a password or Google (ADR-0019).
     admin_token: str = ""
-    collector_token: str = ""
-    viewer_token: str = ""
+    # The first admin of a hosted deployment: created when this email first signs in with Google, or with
+    # BOOTSTRAP_ADMIN_PASSWORD. Clear both once real admins exist.
+    bootstrap_admin_email: str = ""
+    bootstrap_admin_password: str = ""
     # The X-Demo-Role header signs anyone in as that role: for a laptop only (refused on a public host).
     demo_open_roles: bool = False
     feature_whatsapp: bool = False

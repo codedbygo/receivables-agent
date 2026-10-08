@@ -6,6 +6,7 @@ import * as S from "./schemas";
 
 export const keys = {
   me: ["me"] as const,
+  people: ["people"] as const,
   dashboard: ["dashboard"] as const,
   customers: ["customers"] as const,
   priorities: ["priorities"] as const,
@@ -27,6 +28,8 @@ export const keys = {
 const Timeline = z.object({ data: z.array(S.TimelineEvent), next_action: z.string() });
 
 export const useMe = () => useQuery({ queryKey: keys.me, queryFn: () => api("/auth/me", S.User), retry: false });
+export const usePeople = () =>
+  useQuery({ queryKey: keys.people, queryFn: () => api("/users", z.object({ data: z.array(S.Person) })) });
 export const useDashboard = () => useQuery({ queryKey: keys.dashboard, queryFn: () => api("/dashboard", S.Dashboard) });
 export const useExecutive = () => useQuery({ queryKey: keys.executive, queryFn: () => api("/executive", S.Executive) });
 export const useSafety = () => useQuery({ queryKey: keys.safety, queryFn: () => api("/safety", S.Safety) });
