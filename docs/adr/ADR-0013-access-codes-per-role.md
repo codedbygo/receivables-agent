@@ -1,6 +1,6 @@
 # ADR-0013: Sign in with an access code per role; the role header is for a laptop only
 
-- Status: Accepted (browser sign-in superseded by ADR-0019; scripts and laptop mode stand)
+- Status: Accepted
 - Date: 2026-10-02
 - Task: HACK-001
 - Deciders: Savitha Sista (engineer; chose a public hosted demo on 2026-10-02 and approved the plan)

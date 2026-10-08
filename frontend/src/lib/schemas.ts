@@ -6,7 +6,6 @@ const nstr = z.string().nullable();
 
 export const Role = z.enum(["admin", "collector", "viewer"]);
 export const User = z.object({ id: z.string(), email: z.string(), display_name: z.string(), role: Role });
-export const Person = User.extend({ active: z.boolean(), has_password: z.boolean(), locked: z.boolean() });
 
 export const Band = z.enum(["HIGH", "MEDIUM", "LOW"]);
 export const Reason = z.object({ code: z.string(), text: z.string() });
@@ -334,7 +333,6 @@ export const page = <T extends z.ZodTypeAny>(item: T) => z.object({ data: z.arra
 
 export type Role = z.infer<typeof Role>;
 export type User = z.infer<typeof User>;
-export type Person = z.infer<typeof Person>;
 export type Customer = z.infer<typeof Customer>;
 export type Payment = z.infer<typeof Payment>;
 export type Invoice = z.infer<typeof Invoice>;

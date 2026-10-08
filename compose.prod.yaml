@@ -26,8 +26,8 @@ services:
       DATABASE_URL: *db-url
       DEMO_OPEN_ROLES: "false"
       ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN}
-      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?set BOOTSTRAP_ADMIN_EMAIL}
-      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      COLLECTOR_TOKEN: ${COLLECTOR_TOKEN:?set COLLECTOR_TOKEN}
+      VIEWER_TOKEN: ${VIEWER_TOKEN:?set VIEWER_TOKEN}
       ALLOWED_HOSTS: localhost,127.0.0.1,api,${PUBLIC_HOST:?set PUBLIC_HOST}
       LLM_MODE: ${LLM_MODE:-replay}  # one-line fallback: LLM_MODE=replay
     ports: !reset []  # reached through the web service only

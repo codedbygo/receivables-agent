@@ -39,7 +39,7 @@ claude mcp add collections --env DATABASE_URL=postgresql+psycopg://collections:c
 ## 2. How to demo
 
 The ABC Distributors story, about 8 minutes. Start with `make demo`, which resets the data to the start of the
-story (demo date 30 Sep 2026). Sign in as `admin@example.in` with password `demo-password` (your own machine only; a hosted deployment refuses the demo accounts, and its first admin is `BOOTSTRAP_ADMIN_EMAIL`).
+story (demo date 30 Sep 2026). Sign in as **Admin** (on a hosted demo, enter the admin access code first).
 
 | Time | Click | What the audience sees | If it goes wrong |
 | --- | --- | --- | --- |
@@ -198,9 +198,10 @@ with `LLM_MODE=record` and a key to measure the model itself.
 | `TZ` | `Asia/Kolkata` | all | |
 | `SENDING_ENABLED` | `true` | seeds settings | the kill switch at runtime |
 | `AUTONOMY_MODE` | `manual` | seeds settings | manual, assisted, trusted |
-| `ADMIN_TOKEN` | empty | api | secret; Bearer token that signs scripts (make smoke) in as an admin; empty disables it. People sign in with a password or Google (ADR-0019) |
-| `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | empty | api | the first admin of a hosted deployment, created when that email first signs in with Google or with that password (secret); clear both once real admins exist |
-| `DEMO_OPEN_ROLES` | `false` (compose: `true`) | api | `true`: your own machine; the demo accounts (password `demo-password`) sign in and scripts may send a role header. Hosted: `false`, and the demo accounts are refused. The API refuses to start with it on when `ALLOWED_HOSTS` names a public host |
+| `ADMIN_TOKEN` | empty | api | secret; access code for the admin role (Bearer token); empty disables the role (ADR-0013) |
+| `COLLECTOR_TOKEN` | empty | api | secret; access code for the collector role |
+| `VIEWER_TOKEN` | empty | api | secret; access code for the viewer role |
+| `DEMO_OPEN_ROLES` | `false` (compose: `true`) | api | `true` lets the role picker sign in with no code; your own machine only. The API refuses to start with it on when `ALLOWED_HOSTS` names a public host |
 | `FEATURE_WHATSAPP` / `FEATURE_VOICE` / `FEATURE_PAYMENT_LINK` / `FEATURE_TRUSTED_MODE` / `FEATURE_SMS` | `false` | seeds settings | |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | empty | api, worker | secret (token); empty means SIMULATED SMS, WhatsApp and voice |
 | `TWILIO_FROM_NUMBER` / `TWILIO_WHATSAPP_FROM` | empty | api, worker | E.164 sender numbers |

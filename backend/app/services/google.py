@@ -96,47 +96,6 @@ def auth_url(settings: Settings, user_id: str, now: float | None = None) -> str:
     return f"{AUTH_URL}?{urlencode(query)}"
 
 
-LOGIN = "login"  # the state's subject for a sign-in; a mailbox connect carries the admin's user id instead
-
-
-def is_login_state(state: str) -> bool:
-    return state.startswith(f"{LOGIN}.")
-
-
-def login_url(settings: Settings, now: float | None = None) -> str:
-    """Sign in with Google (ADR-0019): only the verified email is asked for, on the same client and callback."""
-    if not (settings.google_client_id and settings.google_client_secret and settings.google_redirect_uri):
-        raise AppError(ErrorCode.GOOGLE_NOT_CONFIGURED, "Sign in with Google is not set up here.")
-    query = {
-        "client_id": settings.google_client_id,
-        "redirect_uri": settings.google_redirect_uri,
-        "response_type": "code",
-        "scope": "openid email",
-        "prompt": "select_account",
-        "state": _state(settings, LOGIN, time.time() if now is None else now),
-    }
-    return f"{AUTH_URL}?{urlencode(query)}"
-
-
-def login_email(settings: Settings, code: str, state: str, now: float | None = None) -> str:
-    """The callback of a sign-in: the email Google verified for this person."""
-    if _user_from_state(settings, state, time.time() if now is None else now) != LOGIN:
-        raise AppError(ErrorCode.UNAUTHORIZED, "This Google sign-in link is not valid; start again.")
-    tokens = _post_token(
-        settings,
-        {"code": code, "grant_type": "authorization_code", "redirect_uri": settings.google_redirect_uri},
-    )
-    try:
-        with http() as c:
-            info = c.get(USERINFO_URL, headers={"Authorization": f"Bearer {tokens.get('access_token', '')}"})
-    except httpx.HTTPError as e:
-        raise AppError(ErrorCode.GOOGLE_UPSTREAM, "Google did not answer; try again.") from e
-    body = info.json() if info.status_code == 200 else {}
-    if not body.get("email") or body.get("email_verified") is not True:
-        raise AppError(ErrorCode.UNAUTHORIZED, "Google did not confirm a verified email for this account.")
-    return str(body["email"])
-
-
 def _fernet(settings: Settings) -> Fernet:
     try:
         return Fernet(settings.google_token_key.encode())
