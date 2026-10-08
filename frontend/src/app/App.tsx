@@ -134,7 +134,7 @@ function SignIn() {
             ) : (
               fromGoogle && <ErrorLine error={new ApiError(401, "UNAUTHORIZED", fromGoogle, "")} plain />
             )}
-            <Button type="submit" variant="primary" busy={login.isPending} disabled={!email.trim() || !password}>
+            <Button type="submit" variant="primary" busy={login.isPending}>
               Sign in
             </Button>
           </form>
