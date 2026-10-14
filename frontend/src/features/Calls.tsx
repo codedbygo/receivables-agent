@@ -137,7 +137,12 @@ export function CallMenu({ customerId }: { customerId: string }) {
  * and posts it to /calls/{id}/audio, where a local Whisper model turns it into text. While the agent speaks the
  * microphone is not recorded, so the agent never hears itself. */
 type Phase = "off" | "listening" | "thinking" | "speaking";
-const SPEECH_RMS = 0.03; // ponytail: one fixed loudness threshold; calibrate per microphone if rooms are noisy
+// Speech is louder than the room: the first CALIBRATE_MS of each listen measures the background, and speech is
+// anything above BACKGROUND_X times it, within [MIN_RMS, MAX_RMS] (quiet laptop microphones sit near 0.01).
+const CALIBRATE_MS = 300;
+const BACKGROUND_X = 2.5;
+const MIN_RMS = 0.006;
+const MAX_RMS = 0.03;
 const END_SILENCE_MS = 800;
 const NO_SPEECH_MS = 10_000;
 const MAX_UTTERANCE_MS = 30_000;
@@ -151,15 +156,9 @@ function release(l: Live | null) {
   void l.ctx.close();
 }
 
-/** Runs fn once the browser has finished speaking (polled: Chrome's onend is unreliable on long lines). */
+/** Runs fn once the agent's current line has been spoken (see speak()). */
 function afterSpeech(fn: () => void) {
-  const synth = window.speechSynthesis;
-  const t = window.setInterval(() => {
-    if (!synth.speaking && !synth.pending) {
-      window.clearInterval(t);
-      fn();
-    }
-  }, 150);
+  void lastSpeech.then(fn);
 }
 
 function useHandsFree(send: (audio: Blob) => Promise<S.Call>, onReply: (call: S.Call) => void) {
@@ -210,13 +209,16 @@ function useHandsFree(send: (audio: Blob) => Promise<S.Call>, onReply: (call: S.
     const started = performance.now();
     let spoke = 0;
     let lastLoud = 0;
+    let background = 0;
     rec.start();
     l.timer = window.setInterval(() => {
       l.analyser.getFloatTimeDomainData(buf);
       const rms = Math.sqrt(buf.reduce((a, v) => a + v * v, 0) / buf.length);
-      setLevel(Math.min(100, Math.round(rms * 400)));
+      setLevel(Math.min(100, Math.round(rms * 1000)));
       const now = performance.now();
-      if (rms > SPEECH_RMS) {
+      if (now - started < CALIBRATE_MS) background = Math.max(background, rms);
+      const threshold = Math.min(MAX_RMS, Math.max(MIN_RMS, background * BACKGROUND_X));
+      if (now - started >= CALIBRATE_MS && rms > threshold) {
         lastLoud = now;
         spoke ||= now;
       }
@@ -231,11 +233,13 @@ function useHandsFree(send: (audio: Blob) => Promise<S.Call>, onReply: (call: S.
   };
   const start = async () => {
     setError(null);
+    // Created inside the click: an AudioContext made after an await can start suspended and read silence.
+    const ctx = new AudioContext();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
-      const ctx = new AudioContext();
+      await ctx.resume();
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
       ctx.createMediaStreamSource(stream).connect(analyser);
@@ -244,6 +248,7 @@ function useHandsFree(send: (audio: Blob) => Promise<S.Call>, onReply: (call: S.
       setPhase("speaking");
       afterSpeech(() => listen(l)); // let the agent finish its line first
     } catch {
+      void ctx.close();
       setError("The microphone is blocked or missing: allow it from the icon left of the address bar, then try again.");
     }
   };
@@ -257,10 +262,21 @@ const PHASE: Record<Phase, string> = {
   speaking: "Agent speaking…",
 };
 
+/** The agent's line being spoken now; it settles when the browser says it finished or, because Chrome on Linux can
+ * miss that event, after a time estimated from the line's length. */
+let lastSpeech: Promise<void> = Promise.resolve();
+
 function speak(line: string) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   const u = new SpeechSynthesisUtterance(line);
   u.lang = "en-IN";
+  lastSpeech = new Promise((done) => {
+    const t = window.setTimeout(done, 1500 + 75 * line.length);
+    u.onend = u.onerror = () => {
+      window.clearTimeout(t);
+      done();
+    };
+  });
   window.speechSynthesis.speak(u);
 }
 
