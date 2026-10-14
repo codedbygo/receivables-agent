@@ -145,7 +145,8 @@ const MIN_RMS = 0.006;
 const MAX_RMS = 0.03;
 const END_SILENCE_MS = 800;
 const NO_SPEECH_MS = 10_000;
-const MAX_UTTERANCE_MS = 30_000;
+const MAX_UTTERANCE_MS = 15_000;
+const PEAK_SHARE = 0.3; // after speech, quiet means below this share of its peak (gain control lifts room noise)
 type Live = { stream: MediaStream; ctx: AudioContext; analyser: AnalyserNode; rec?: MediaRecorder; timer?: number };
 
 function release(l: Live | null) {
@@ -210,6 +211,7 @@ function useHandsFree(send: (audio: Blob) => Promise<S.Call>, onReply: (call: S.
     let spoke = 0;
     let lastLoud = 0;
     let background = 0;
+    let peak = 0;
     rec.start();
     l.timer = window.setInterval(() => {
       l.analyser.getFloatTimeDomainData(buf);
@@ -218,9 +220,11 @@ function useHandsFree(send: (audio: Blob) => Promise<S.Call>, onReply: (call: S.
       const now = performance.now();
       if (now - started < CALIBRATE_MS) background = Math.max(background, rms);
       const threshold = Math.min(MAX_RMS, Math.max(MIN_RMS, background * BACKGROUND_X));
-      if (now - started >= CALIBRATE_MS && rms > threshold) {
+      const quiet = rms < Math.max(threshold, peak * PEAK_SHARE);
+      if (now - started >= CALIBRATE_MS && !quiet) {
         lastLoud = now;
         spoke ||= now;
+        peak = Math.max(peak, rms);
       }
       const done = spoke
         ? now - lastLoud > END_SILENCE_MS || now - spoke > MAX_UTTERANCE_MS
@@ -231,11 +235,18 @@ function useHandsFree(send: (audio: Blob) => Promise<S.Call>, onReply: (call: S.
       }
     }, 50);
   };
+  const finish = () => {
+    const l = live.current;
+    if (l?.rec?.state !== "recording") return;
+    window.clearInterval(l.timer);
+    l.rec.stop();
+  };
   const start = async () => {
     setError(null);
-    // Created inside the click: an AudioContext made after an await can start suspended and read silence.
-    const ctx = new AudioContext();
+    let ctx: AudioContext | null = null;
     try {
+      // Created inside the click: an AudioContext made after an await can start suspended and read silence.
+      ctx = new AudioContext();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
@@ -247,12 +258,18 @@ function useHandsFree(send: (audio: Blob) => Promise<S.Call>, onReply: (call: S.
       live.current = l;
       setPhase("speaking");
       afterSpeech(() => listen(l)); // let the agent finish its line first
-    } catch {
-      void ctx.close();
-      setError("The microphone is blocked or missing: allow it from the icon left of the address bar, then try again.");
+    } catch (e) {
+      void ctx?.close();
+      const blocked = e instanceof DOMException && (e.name === "NotAllowedError" || e.name === "NotFoundError");
+      setError(
+        blocked
+          ? "The microphone is blocked or missing: allow it from the icon left of the address bar, then try again."
+          : `Could not start listening: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`,
+      );
     }
   };
-  return { phase, level, error, start, stop };
+
+  return { phase, level, error, start, stop, finish };
 }
 
 const PHASE: Record<Phase, string> = {
@@ -392,6 +409,7 @@ function CallView({ call, canAct, live: inDialog = false }: { call: S.Call; canA
               )}
             </span>
           )}
+          {hands.phase === "listening" && <Button onClick={hands.finish}>I'm done</Button>}
         </div>
       )}
       {hands.error && (
