@@ -67,10 +67,25 @@ export function CallMenu({ customerId }: { customerId: string }) {
     queryFn: () => api(`/calls/${callId}`, S.Call),
     enabled: callId !== null,
   });
+  // Consent is per customer and never assumed: without it the dialog asks the collector to confirm it first.
+  const plan = useQuery({
+    queryKey: ["channels", customerId],
+    queryFn: () => api(`/customers/${customerId}/channels`, S.ChannelPlan),
+  });
+  const [askConsent, setAskConsent] = useState<"phone" | "web" | null>(null);
+  const consent = useAction((p: S.ChannelPlan) =>
+    api(`/customers/${customerId}/contact-preferences`, S.ChannelPlan, {
+      method: "PUT",
+      body: { preferred_channel: p.preferred_channel ?? "email", consent: { ...p.consent, voice: true } },
+    }),
+  );
+  const dial = (via: "phone" | "web") => start.mutate(via, { onSuccess: (c) => setCallId(c.id) });
   const begin = (via: "phone" | "web") => {
     setCallId(null);
     setOpen(true);
-    start.mutate(via, { onSuccess: (c) => setCallId(c.id) });
+    if (plan.data && !plan.data.consent.voice) return setAskConsent(via);
+    setAskConsent(null);
+    dial(via);
   };
   return (
     <>
@@ -90,8 +105,28 @@ export function CallMenu({ customerId }: { customerId: string }) {
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog title="Voice call" open={open} onClose={() => setOpen(false)}>
+        {askConsent && plan.data && (
+          <div className="space-y-3">
+            <p>This customer has not agreed to voice calls yet. Only continue if they have agreed.</p>
+            <Button
+              variant="primary"
+              busy={consent.isPending}
+              onClick={() => {
+                const via = askConsent;
+                consent.mutate(plan.data, {
+                  onSuccess: () => {
+                    setAskConsent(null);
+                    dial(via);
+                  },
+                });
+              }}
+            >
+              The customer agreed: allow voice calls and call
+            </Button>
+          </div>
+        )}
         {start.isPending && <p role="status">Starting the call…</p>}
-        <ErrorLine error={start.error ?? call.error} />
+        <ErrorLine error={consent.error ?? start.error ?? call.error} />
         {call.data && <CallView call={call.data} canAct live />}
       </Dialog>
     </>
