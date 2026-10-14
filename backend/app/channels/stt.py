@@ -1,11 +1,14 @@
-"""Speech to text for web calls (ADR-0019): a local Whisper model, so no audio leaves the machine and no key is
-needed. The audio is transcribed in memory and never stored or logged. Whisper is the optional `voice` extra: where it
-is not installed (the Vercel function) a clip gets VOICE_PROVIDER and the collector types instead."""
+"""Speech to text for web calls (ADR-0019). Groq's hosted Whisper when GROQ_API_KEY is set (the Vercel function,
+which cannot carry a model); else a local Whisper model, the optional `voice` extra, so no audio leaves the machine;
+else VOICE_PROVIDER and the collector types instead. The audio is transcribed in memory, never stored or logged."""
 
 import io
 import re
 from functools import cache
 
+import httpx
+
+from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
 from app.core.money import format_inr
 
@@ -70,9 +73,40 @@ def _model(name: str) -> WhisperModel:
     return WhisperModel(name, device="cpu", compute_type="int8")
 
 
-def transcribe(audio: bytes, model: str) -> str:
-    """What was said, in English; "" when the clip holds no speech (the VAD filter drops silence and noise)."""
-    segments, _ = _model(model).transcribe(
+GROQ_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
+
+
+def _groq(audio: bytes, mime: str, s: Settings) -> str:
+    ext = (
+        "ogg" if "ogg" in mime else "mp4" if "mp4" in mime else "webm"
+    )  # Groq reads the format from the name
+    try:
+        r = httpx.post(
+            GROQ_URL,
+            headers={"Authorization": f"Bearer {s.groq_api_key}"},
+            files={"file": (f"speech.{ext}", audio, mime or "audio/webm")},
+            data={"model": s.groq_stt_model, "language": "en", "prompt": HINT, "response_format": "json"},
+            timeout=20,
+        )
+    except httpx.HTTPError:
+        raise AppError(
+            ErrorCode.VOICE_PROVIDER, "Speech service unreachable; type the reply instead."
+        ) from None
+    if r.status_code != 200:
+        raise AppError(
+            ErrorCode.VOICE_PROVIDER, f"Speech service refused the clip ({r.status_code}); type instead."
+        )
+    return str(r.json().get("text", ""))
+
+
+def _local(audio: bytes, s: Settings) -> str:
+    segments, _ = _model(s.whisper_model).transcribe(
         io.BytesIO(audio), language="en", vad_filter=True, beam_size=1, initial_prompt=HINT
     )
-    return words_to_digits(" ".join(str(s.text).strip() for s in segments).strip())
+    return " ".join(str(seg.text).strip() for seg in segments)
+
+
+def transcribe(audio: bytes, s: Settings, mime: str = "audio/webm") -> str:
+    """What was said, in English, numbers as digits; "" when the clip holds no speech."""
+    said = _groq(audio, mime, s) if s.groq_api_key else _local(audio, s)
+    return words_to_digits(said.strip())

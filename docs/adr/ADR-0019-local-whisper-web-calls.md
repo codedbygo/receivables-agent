@@ -36,6 +36,10 @@ For replies: keep fixed lines (safe, scripted) or let the model phrase them (cho
   invents a figure is refused. `verify()` then checks the line as before. Any failure returns the code-written line.
 - The opening line stays code-written; it carries the "automated assistant" disclosure.
 - `av` is pinned below 16: faster-whisper 1.2 passes an argument av 16 removed.
+- Amended 2026-10-14: the Vercel function cannot carry the model (250 MB limit), so Whisper became the optional
+  `voice` extra (installed by the Docker image only), and the hosted site uses Groq's hosted Whisper
+  (`whisper-large-v3-turbo`) over httpx when `GROQ_API_KEY` is set. With a key, Groq is used first everywhere; the
+  audio then leaves the machine for Groq. Without a key and without the extra, a clip gets VOICE_PROVIDER (503).
 
 ## Consequences
 

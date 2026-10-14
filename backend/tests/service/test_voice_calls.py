@@ -118,13 +118,15 @@ def test_a_web_call_uses_the_browser_and_a_phone_call_needs_twilio(api: TestClie
 
 def test_spoken_audio_on_a_web_call_is_transcribed_and_handled_like_a_typed_turn(api: TestClient) -> None:
     heard: list[bytes] = []
-    api.app.state.transcribe = lambda audio, model: heard.append(audio) or "We can pay ₹2 lakh this Friday."  # type: ignore[attr-defined]
+    api.app.state.transcribe = lambda audio, settings, mime: (
+        heard.append(audio) or "We can pay ₹2 lakh this Friday."
+    )  # type: ignore[attr-defined]
     call = api.post("/api/v1/calls", json={"customer_id": ABC, "via": "web"}, headers=COLLECTOR).json()
     r = api.post(f"/api/v1/calls/{call['id']}/audio", content=b"webm-bytes", headers=COLLECTOR)
     assert r.status_code == 200 and heard == [b"webm-bytes"]
     assert "recorded a payment promise of ₹2,00,000" in str(r.json()["turns"])
 
-    api.app.state.transcribe = lambda audio, model: ""  # type: ignore[attr-defined]
+    api.app.state.transcribe = lambda audio, settings, mime: ""  # type: ignore[attr-defined]
     quiet = api.post(f"/api/v1/calls/{call['id']}/audio", content=b"hiss", headers=COLLECTOR).json()
     assert "did not hear you" in quiet["turns"][-1]["text"]
     assert api.post(f"/api/v1/calls/{call['id']}/audio", content=b"", headers=COLLECTOR).status_code == 422

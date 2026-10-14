@@ -93,7 +93,8 @@ async def customer_speaks(request: Request, _: Collector, id: Id) -> voice.Call:
                 )
             if call.status != "in_progress":
                 return call
-            said: str = request.app.state.transcribe(audio, request.app.state.settings.whisper_model)
+            mime = request.headers.get("content-type", "audio/webm")
+            said: str = request.app.state.transcribe(audio, request.app.state.settings, mime)
             if not said:
                 return voice.silence(s, str(id))
             return voice.turn(s, str(id), said[:2000], request.app.state.orchestrator.gateway)

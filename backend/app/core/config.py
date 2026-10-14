@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     # Web calls: speech to text by a local Whisper model in the api container (ADR-0019). "small" hears Indian
     # English better at about twice the latency of "base".
     whisper_model: str = "base"
+    # Hosted speech to text (Groq Whisper). Set it where local Whisper cannot run (the Vercel function); when set it
+    # is used before the local model.
+    groq_api_key: str = ""
+    groq_stt_model: str = "whisper-large-v3-turbo"
     bank_webhook_secret: str = ""
     mcp_token: str = ""
     session_secret: str = ""

@@ -7,6 +7,7 @@ from app.core.paths import find_up
 
 SECRETS = (
     "OPENROUTER_API_KEY",
+    "GROQ_API_KEY",
     "ADMIN_TOKEN",
     "COLLECTOR_TOKEN",
     "VIEWER_TOKEN",
