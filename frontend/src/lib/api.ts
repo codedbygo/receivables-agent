@@ -65,14 +65,16 @@ type Init = { method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"; body?: unkno
 
 export async function api<T extends z.ZodTypeAny>(path: string, schema: T, init: Init = {}): Promise<z.infer<T>> {
   const role = storedRole();
+  const blob = init.body instanceof Blob ? init.body : null; // recorded audio goes as-is, everything else as JSON
   const res = await fetch(`/api/v1${path}`, {
     method: init.method ?? "GET",
     headers: {
       ...(init.anonymous ? {} : authHeaders(role, storedCode())),
-      ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(blob ? { "Content-Type": blob.type || "application/octet-stream" } : {}),
+      ...(init.body !== undefined && !blob ? { "Content-Type": "application/json" } : {}),
       ...init.headers,
     },
-    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+    body: blob ?? (init.body !== undefined ? JSON.stringify(init.body) : undefined),
   });
   const json: unknown = await res.json().catch(() => null);
   if (!res.ok) {

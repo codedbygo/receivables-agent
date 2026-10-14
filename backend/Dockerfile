@@ -15,6 +15,11 @@ COPY evals ./evals
 RUN uv sync --locked --no-dev
 ENV PATH="/srv/.venv/bin:$PATH"
 RUN useradd --uid 10001 app
+# Web calls (ADR-0019): the Whisper model ships in the image, so a call never waits on a download. Another size
+# (WHISPER_MODEL=small) downloads once on first use into the same app-owned cache.
+ENV HF_HOME=/srv/models
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')" \
+    && chown -R app /srv/models
 USER app
 EXPOSE 8000
 CMD ["uvicorn", "app.api.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--log-config", "app/core/uvicorn_log.json"]

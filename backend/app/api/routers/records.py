@@ -322,19 +322,19 @@ def match_payment(session: SessionDep, _: Collector, id: Id, body: PaymentMatch)
 MAX_WEBHOOK_BYTES = 64 * 1024
 
 
-async def read_capped(request: Request) -> bytes:
+async def read_capped(request: Request, limit: int = MAX_WEBHOOK_BYTES) -> bytes:
     """The request body, read chunk by chunk; stops as soon as it passes the cap (a chunked request has no
     Content-Length to check up front)."""
     try:
         declared = int(request.headers.get("content-length") or 0)
     except ValueError:
         raise AppError(ErrorCode.VALIDATION_ERROR, "Invalid Content-Length.") from None
-    if declared > MAX_WEBHOOK_BYTES:
+    if declared > limit:
         raise AppError(ErrorCode.VALIDATION_ERROR, "Body too large.")
     body = bytearray()
     async for chunk in request.stream():
         body += chunk
-        if len(body) > MAX_WEBHOOK_BYTES:
+        if len(body) > limit:
             raise AppError(ErrorCode.VALIDATION_ERROR, "Body too large.")
     return bytes(body)
 

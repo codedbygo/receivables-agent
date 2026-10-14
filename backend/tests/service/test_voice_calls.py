@@ -109,6 +109,28 @@ def test_calls_are_gated(api: TestClient) -> None:
     ] == ("FEATURE_DISABLED")
 
 
+def test_a_web_call_uses_the_browser_and_a_phone_call_needs_twilio(api: TestClient) -> None:
+    phone = api.post("/api/v1/calls", json={"customer_id": ABC, "via": "phone"}, headers=COLLECTOR)
+    assert phone.status_code == 503 and phone.json()["error"]["code"] == "VOICE_PROVIDER"
+    web = api.post("/api/v1/calls", json={"customer_id": ABC, "via": "web"}, headers=COLLECTOR)
+    assert web.status_code == 200 and web.json()["simulated"] is True
+
+
+def test_spoken_audio_on_a_web_call_is_transcribed_and_handled_like_a_typed_turn(api: TestClient) -> None:
+    heard: list[bytes] = []
+    api.app.state.transcribe = lambda audio, model: heard.append(audio) or "We can pay ₹2 lakh this Friday."  # type: ignore[attr-defined]
+    call = api.post("/api/v1/calls", json={"customer_id": ABC, "via": "web"}, headers=COLLECTOR).json()
+    r = api.post(f"/api/v1/calls/{call['id']}/audio", content=b"webm-bytes", headers=COLLECTOR)
+    assert r.status_code == 200 and heard == [b"webm-bytes"]
+    assert "recorded a payment promise of ₹2,00,000" in str(r.json()["turns"])
+
+    api.app.state.transcribe = lambda audio, model: ""  # type: ignore[attr-defined]
+    quiet = api.post(f"/api/v1/calls/{call['id']}/audio", content=b"hiss", headers=COLLECTOR).json()
+    assert "did not hear you" in quiet["turns"][-1]["text"]
+    assert api.post(f"/api/v1/calls/{call['id']}/audio", content=b"", headers=COLLECTOR).status_code == 422
+    assert api.post(f"/api/v1/calls/{call['id']}/audio", content=b"x", headers=VIEWER).status_code == 403
+
+
 def test_one_call_at_a_time_per_customer(api: TestClient) -> None:
     start(api)
     assert api.post("/api/v1/calls", json={"customer_id": ABC}, headers=COLLECTOR).status_code == 422

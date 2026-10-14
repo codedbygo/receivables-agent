@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     # Public https base URL Twilio calls back for voice webhooks (e.g. https://demo.example.in). Voice is real only
     # with this and the Twilio credentials and number; the signature on every webhook is checked against it.
     voice_public_base_url: str = ""
+    # Web calls: speech to text by a local Whisper model in the api container (ADR-0019). "small" hears Indian
+    # English better at about twice the latency of "base".
+    whisper_model: str = "base"
     bank_webhook_secret: str = ""
     mcp_token: str = ""
     session_secret: str = ""

@@ -32,9 +32,9 @@ def test_each_script_line_passes_with_ledger_figures() -> None:
         assert report.ok, (line, [c for c in report.checks if not c.ok])
 
 
-def test_the_opening_states_the_ledger_total_and_the_recording_disclosure() -> None:
+def test_the_opening_states_the_ledger_total_and_that_it_is_automated() -> None:
     line = opening_line(ABC)
-    assert "₹7,50,000" in line and "3 invoices" in line and "not recorded" in line and "automated" in line
+    assert "₹7,50,000" in line and "3 invoices" in line and "automated" in line and "recorded" not in line
 
 
 def test_a_line_with_a_figure_the_ledger_does_not_hold_is_refused() -> None:

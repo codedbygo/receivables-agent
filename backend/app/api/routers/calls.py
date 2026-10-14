@@ -2,7 +2,7 @@
 Twilio posts the customer's speech to the webhooks, which answer with TwiML. The signature is the credential."""
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Header, Path, Query, Request
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import Collector, Reader, SessionDep
 from app.api.routers.records import read_capped
-from app.channels.voice import signature_ok, twiml
+from app.channels.voice import SimulatedVoice, signature_ok, twiml
 from app.core.db import transaction
 from app.core.errors import AppError, ErrorCode
 from app.services import voice
@@ -26,6 +26,9 @@ Id = Annotated[uuid.UUID, Path()]
 class CallStart(BaseModel):
     model_config = ConfigDict(extra="forbid")
     customer_id: uuid.UUID
+    via: Literal["phone", "web"] | None = (
+        None  # web: the browser's own voice, no phone rings; unset: the configured provider
+    )
 
 
 class CustomerSays(BaseModel):
@@ -39,7 +42,12 @@ class CallsPage(BaseModel):
 
 @router.post("/calls", response_model=voice.Call)
 def start_call(request: Request, session: SessionDep, user: Collector, body: CallStart) -> voice.Call:
-    return voice.request(session, str(body.customer_id), user.id, request.app.state.voice)
+    provider = SimulatedVoice() if body.via == "web" else request.app.state.voice
+    if body.via == "phone" and provider.simulated:
+        raise AppError(
+            ErrorCode.VOICE_PROVIDER, "Phone calls need Twilio set up; call in the browser instead."
+        )
+    return voice.request(session, str(body.customer_id), user.id, provider)
 
 
 @router.get("/calls", response_model=CallsPage)
@@ -65,6 +73,34 @@ def customer_says(
     if not voice.get_call(session, str(id)).simulated:
         raise AppError(ErrorCode.FORBIDDEN, "A real call takes the customer's speech from the provider only.")
     return voice.turn(session, str(id), body.text, request.app.state.orchestrator.gateway)
+
+
+MAX_AUDIO_BYTES = 2 * 1024 * 1024  # about two minutes of browser Opus audio; one utterance is far less
+
+
+@router.post("/calls/{id}/audio", response_model=voice.Call)
+async def customer_speaks(request: Request, _: Collector, id: Id) -> voice.Call:
+    """Web calls only: one utterance recorded in the browser, turned into text by the local Whisper model and
+    handled exactly like a typed turn. The audio is never stored; no speech heard counts as silence."""
+    audio = await read_capped(request, MAX_AUDIO_BYTES)
+
+    def handle() -> voice.Call:
+        with transaction(request.app.state.sessions) as s:
+            call = voice.get_call(s, str(id))
+            if not call.simulated:
+                raise AppError(
+                    ErrorCode.FORBIDDEN, "A phone call takes the customer's speech from the provider."
+                )
+            if call.status != "in_progress":
+                return call
+            said: str = request.app.state.transcribe(audio, request.app.state.settings.whisper_model)
+            if not said:
+                return voice.silence(s, str(id))
+            return voice.turn(s, str(id), said[:2000], request.app.state.orchestrator.gateway)
+
+    if not audio:
+        raise AppError(ErrorCode.VALIDATION_ERROR, "No audio received.")
+    return await run_in_threadpool(handle)
 
 
 @router.post("/calls/{id}/end", response_model=voice.Call)

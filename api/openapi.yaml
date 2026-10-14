@@ -2748,6 +2748,11 @@ paths:
                 customer_id:
                   type: string
                   format: uuid
+                via:
+                  type: string
+                  enum: [phone, web]
+                  nullable: true
+                  description: web uses the browser's voice and rings no phone; phone needs Twilio; unset uses the configured provider
       responses:
         '200':
           description: OK
@@ -2868,6 +2873,51 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 2000
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /calls/{id}/audio:
+    post:
+      operationId: customerSpeaks
+      summary: 'Web calls only: one recorded utterance, transcribed by local Whisper and handled like a typed turn'
+      tags:
+      - calls
+      x-story-ids:
+      - HACK-012
+      x-roles: collector, admin
+      parameters:
+      - $ref: '#/components/parameters/ApiVersion'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          audio/webm:
+            schema:
+              type: string
+              format: binary
+              maxLength: 2097152
       responses:
         '200':
           description: OK

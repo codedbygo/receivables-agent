@@ -13,6 +13,7 @@ a line with no figures. Nothing here marks anything paid; a "we paid" claim is c
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from functools import partial
 from typing import Literal
 
 from pydantic import BaseModel
@@ -28,6 +29,7 @@ from app.core.errors import AppError, ErrorCode
 from app.core.money import format_inr
 from app.guardrails.verify import VerifyContext, verify
 from app.llm.gateway import Gateway
+from app.llm.prompts import load_prompt
 from app.services import collections, disputes, drafting, ledger
 from app.services.payments import verify_claim
 from app.services.timeline import record
@@ -82,6 +84,9 @@ YES = re.compile(r"^\s*(yes|yeah|yep|sure|ok(ay)?|please do|haan|ji)\b", re.I)
 NO = re.compile(r"^\s*(no|nope|not now|no thanks)\b", re.I)
 MAX_UNCLEAR = 2
 MAX_SEQ = 38
+# Every figure in a code-written line: rupee amounts, dates as format "%d %b %Y", invoice numbers.
+FIGURE = re.compile(r"₹[\d,]+(?:\.\d+)?|\b\d{2} [A-Z][a-z]{2} \d{4}\b|INV-\d+")
+TOKEN = re.compile(r"\[\[(\d+)\]\]")
 SAFE_LINE = "A colleague will follow up with the exact details. Thank you for your time."
 STATEMENT = (
     "Dear {name},\n\nAs discussed on our call, here are your open invoices:\n\n{{{{invoice_table}}}}\n\n"
@@ -199,8 +204,46 @@ def _chase(session: Session, customer_id: str) -> list[ledger.Invoice]:
     ]
 
 
-def _say(session: Session, call_id: str, customer_id: str, line: str) -> str:
-    """Store and return the AI line, or SAFE_LINE when the verifier does not pass every figure in it."""
+def phrase(line: str, history: str, gateway: Gateway) -> str:
+    """The code-written line said naturally by the model. The model never sees or writes a figure: each one is
+    masked as [[n]] and put back by code, and a reply that drops a token, repeats one or adds a digit of its own
+    is refused. Any failure (no key, replay miss, bad output) returns the code-written line unchanged."""
+    figures = FIGURE.findall(line)
+    masked = line
+    for i, f in enumerate(figures, 1):
+        masked = masked.replace(f, f"[[{i}]]", 1)
+    try:
+        prompt = load_prompt("voice_phrase", 1)
+        result = gateway.complete(
+            prompt.ref,
+            [{"role": "user", "content": prompt.render(line=masked, history=history[-3000:])}],
+            max_tokens=prompt.max_tokens,
+        )
+    except Exception:  # noqa: BLE001  the code-written line is always a correct answer
+        return line
+    out = " ".join((result.text or "").split())
+    used = sorted(int(n) for n in TOKEN.findall(out))
+    bare = TOKEN.sub("", out)
+    if not out or len(out) > 400 or used != list(range(1, len(figures) + 1)) or re.search(r"[\d₹]", bare):
+        return line
+    return TOKEN.sub(lambda m: figures[int(m.group(1)) - 1], out)
+
+
+def _history(session: Session, call_id: str) -> str:
+    rows = session.execute(
+        text(
+            """SELECT speaker, text FROM call_turns WHERE call_id = CAST(:k AS uuid) ORDER BY seq DESC LIMIT 6"""
+        ),
+        {"k": call_id},
+    ).all()
+    return "\n".join(f"{'Agent' if r.speaker == 'ai' else 'Customer'}: {r.text}" for r in reversed(rows))
+
+
+def _say(session: Session, call_id: str, customer_id: str, line: str, gateway: Gateway | None = None) -> str:
+    """Store and return the AI line, or SAFE_LINE when the verifier does not pass every figure in it. With a
+    gateway the line is phrased naturally first (phrase()); the verifier checks the phrased line all the same."""
+    if gateway is not None:
+        line = phrase(line, _history(session, call_id), gateway)
     facts, names = drafting._facts(session)
     disputed, promises = drafting.customer_state(session, customer_id)
     name = session.execute(
@@ -247,8 +290,8 @@ def opening_line(chase: list[tuple[str, int, date]]) -> str:
     oldest = min((d for _, _, d in chase), default=None)
     n = len(chase)
     return (
-        "Hello, this is the automated collections assistant calling from the accounts team. This call is not "
-        f"recorded. I am calling about your outstanding balance of {format_inr(total)} across {n} invoice"
+        "Hello, this is the automated collections assistant calling from the accounts team. "
+        f"I am calling about your outstanding balance of {format_inr(total)} across {n} invoice"
         f"{'s' if n != 1 else ''}"
         + (f"; the oldest was due on {oldest:%d %b %Y}" if oldest else "")
         + ". Could you let us know when we can expect payment?"
@@ -353,10 +396,11 @@ def turn(session: Session, call_id: str, said: str, gateway: Gateway | None) -> 
     if not said or len(said) > 2000:
         raise AppError(ErrorCode.VALIDATION_ERROR, "Say something under 2,000 characters.")
     cid, state, seq, promise_id = _lock(session, call_id)
+    say = partial(_say, session, call_id, cid, gateway=gateway)
     if not session.execute(text("SELECT sending_enabled FROM settings WHERE id = 1")).scalar():
         # The kill switch stops live calls too: one polite line, no action on what was said, then hang up.
         _turn(session, call_id, "customer", said, None)
-        _say(session, call_id, cid, "I am sorry, I have to end this call now. A colleague will contact you.")
+        say("I am sorry, I have to end this call now. A colleague will contact you.")
         return end(session, call_id, "completed", "promise" if promise_id else "no_commitment")
     chase = _chase(session, cid)
     it = intent(said, today(session), [i.number for i in chase], gateway)
@@ -365,7 +409,7 @@ def turn(session: Session, call_id: str, said: str, gateway: Gateway | None) -> 
     k = it.kind
 
     if k == "injection":
-        _say(session, call_id, cid, "Thank you. A member of our team will call you back.")
+        say("Thank you. A member of our team will call you back.")
         collections.escalate(session, cid, "injection_suspected", "Instruction-like speech on a call")
         session.execute(
             text("""INSERT INTO guardrail_events (check_name, code, customer_id, detail)
@@ -374,20 +418,20 @@ def turn(session: Session, call_id: str, said: str, gateway: Gateway | None) -> 
         )
         end_with = ("completed", "escalated")
     elif k == "wrong_number":
-        _say(session, call_id, cid, "Sorry for the trouble. We will update our records. Goodbye.")
+        say("Sorry for the trouble. We will update our records. Goodbye.")
         collections.escalate(
             session, cid, "low_confidence", "Wrong number on a call: check the contact details"
         )
         end_with = ("wrong_number", "wrong_number")
     elif k == "unavailable":
-        _say(session, call_id, cid, "No problem. We will call back another time. Goodbye.")
+        say("No problem. We will call back another time. Goodbye.")
         _follow_up(session, call_id, today(session) + timedelta(days=1))
         end_with = ("completed", "unavailable")
     elif k == "balance_question":
-        _say(session, call_id, cid, balance_line(_rows(chase)))
+        say(balance_line(_rows(chase)))
     elif k == "promise" and it.amount_paise and it.on:
         if it.amount_paise > sum(i.remaining_paise for i in chase):
-            _say(session, call_id, cid, "That is more than the open balance. Could you confirm the amount?")
+            say("That is more than the open balance. Could you confirm the amount?")
         else:
             p = collections.log_promise(session, cid, it.amount_paise, it.on, actor="customer")
             session.execute(
@@ -395,28 +439,22 @@ def turn(session: Session, call_id: str, said: str, gateway: Gateway | None) -> 
                 WHERE id = CAST(:k AS uuid)"""),
                 {"p": p.id, "d": it.on, "k": call_id},
             )
-            _say(session, call_id, cid, promise_line(it.amount_paise, it.on))
+            say(promise_line(it.amount_paise, it.on))
     elif k == "promise":
-        _unclear(session, call_id, cid, "Could you tell me the amount and the date you plan to pay?")
+        _unclear(session, call_id, cid, gateway, "Could you tell me the amount and the date you plan to pay?")
     elif k == "dispute":
         end_with = _dispute(session, call_id, cid, it, said, [i.number for i in chase])
     elif k == "invoice_request" or (k == "yes" and state == "offered_details"):
         _statement(session, call_id, cid)
-        _say(
-            session,
-            call_id,
-            cid,
+        say(
             "I will arrange for the invoice details to be sent to you. Thank you, goodbye.",
         )
         end_with = ("completed", "promise" if promise_id else "invoice_request")
     elif k == "no" and state == "offered_details":
-        _say(session, call_id, cid, "Thank you for your time. Goodbye.")
+        say("Thank you for your time. Goodbye.")
         end_with = ("completed", "promise")
     elif k == "payment_link":
-        _say(
-            session,
-            call_id,
-            cid,
+        say(
             "I will ask a colleague to send you a secure payment link. Thank you, goodbye.",
         )
         end_with = ("completed", "promise" if promise_id else "payment_link_request")
@@ -425,17 +463,17 @@ def turn(session: Session, call_id: str, said: str, gateway: Gateway | None) -> 
             collections.escalate(
                 session, cid, "claim_not_found", "Payment claimed on a call; not in the ledger"
             )
-        _say(
-            session, call_id, cid, "Thank you. We will check our bank records and confirm by email. Goodbye."
-        )
+        say("Thank you. We will check our bank records and confirm by email. Goodbye.")
         end_with = ("completed", "payment_claim")
     elif state == "offered_details":
-        _say(session, call_id, cid, "Thank you for your time. Goodbye.")
+        say("Thank you for your time. Goodbye.")
         end_with = ("completed", "promise")
-    elif not _unclear(session, call_id, cid, "Sorry, could you tell me when you can make the payment?"):
+    elif not _unclear(
+        session, call_id, cid, gateway, "Sorry, could you tell me when you can make the payment?"
+    ):
         end_with = ("completed", "promise" if promise_id else "no_commitment")
     if end_with is None and seq + 2 >= MAX_SEQ:
-        _say(session, call_id, cid, SAFE_LINE)
+        say(SAFE_LINE)
         end_with = ("completed", "promise" if promise_id else "no_commitment")
     if end_with:
         end(session, call_id, *end_with)
@@ -445,12 +483,12 @@ def turn(session: Session, call_id: str, said: str, gateway: Gateway | None) -> 
 def silence(session: Session, call_id: str) -> Call:
     """The provider heard nothing after the last line: ask again, up to MAX_UNCLEAR times, then close politely."""
     cid, _, _, promise_id = _lock(session, call_id)
-    if not _unclear(session, call_id, cid, "Sorry, I did not hear you. Could you say that again?"):
+    if not _unclear(session, call_id, cid, None, "Sorry, I did not hear you. Could you say that again?"):
         end(session, call_id, "completed", "promise" if promise_id else "no_commitment")
     return get_call(session, call_id)
 
 
-def _unclear(session: Session, call_id: str, cid: str, ask: str) -> bool:
+def _unclear(session: Session, call_id: str, cid: str, gateway: Gateway | None, ask: str) -> bool:
     """Ask again, up to MAX_UNCLEAR times. Returns False when the call should end instead."""
     n: int = session.execute(
         text(
@@ -461,7 +499,7 @@ def _unclear(session: Session, call_id: str, cid: str, ask: str) -> bool:
     if n > MAX_UNCLEAR:
         _say(session, call_id, cid, SAFE_LINE)
         return False
-    _say(session, call_id, cid, ask)
+    _say(session, call_id, cid, ask, gateway)
     return True
 
 
@@ -475,7 +513,7 @@ def _dispute(
     session: Session, call_id: str, cid: str, it: Intent, said: str, open_numbers: list[str]
 ) -> tuple[str, str] | None:
     if it.invoice is None or it.invoice not in open_numbers:  # another customer's or an unknown invoice: ask
-        _unclear(session, call_id, cid, "Which of your invoice numbers is this about?")
+        _unclear(session, call_id, cid, None, "Which of your invoice numbers is this about?")
         return None
     try:
         d = collections.log_dispute(session, cid, it.invoice, dispute_reason(said), actor="customer")

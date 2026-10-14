@@ -63,7 +63,7 @@ import { api } from "@/lib/api";
 import { day, inr, stamp } from "@/lib/format";
 import { useAction, useCustomer, useSettings } from "@/lib/hooks";
 import * as S from "@/lib/schemas";
-import { CallsPanel } from "./Calls";
+import { CallMenu, CallsPanel } from "./Calls";
 import { ContactPanel, MemoryPanel } from "./Contact";
 import { FollowUpCard } from "./FollowUps";
 import { RunDialog } from "./RunDialog";
@@ -141,6 +141,7 @@ export function CustomerPage({ id, role }: { id: string; role: S.Role }) {
       >
         {canAct && lastSent && <Button onClick={() => setReplyTo(lastSent)}>Record a reply</Button>}
         {canAct && flags?.feature_voice && <Button onClick={() => setCallPrep(true)}>Prepare call</Button>}
+        {canAct && flags?.feature_voice && <CallMenu customerId={id} />}
         {role === "admin" && (
           <Button
             variant="primary"

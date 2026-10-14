@@ -13,6 +13,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.agent.orchestrator import Orchestrator
 from app.api.deps import require
 from app.api.routers import admin, calls, cron, directory, google, ledger, messages, portal, records
+from app.channels import stt
 from app.channels.voice import voice_provider
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_sessionmaker, ping
@@ -50,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.check_db = lambda: ping(engine)
     gateway = Gateway(settings, engine)
     app.state.voice = voice_provider(settings)  # Twilio when configured, else the labelled simulator
+    app.state.transcribe = stt.transcribe  # web calls: local Whisper (ADR-0019); tests swap in a stub
     app.state.orchestrator = Orchestrator(engine, gateway, build_registry(engine, gateway))
 
     @app.middleware("http")

@@ -486,8 +486,8 @@ def _demo_extras(conn: Connection) -> None:
         [
             (
                 "ai",
-                "Hello, this is the automated collections assistant calling from the accounts team. This call "
-                "is not recorded. Could you let us know when we can expect payment?",
+                "Hello, this is the automated collections assistant calling from the accounts team. "
+                "Could you let us know when we can expect payment?",
                 None,
             ),
             ("customer", "He is not available, call later", "unavailable"),
