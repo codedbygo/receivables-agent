@@ -15,7 +15,13 @@ dependencies = [
   "pyyaml>=6.0",
   "mcp>=2.2,<3",
   "cryptography>=50",  # Fernet encryption of the stored Google refresh token (HACK-009, ADR-0018)
-  "faster-whisper>=1.1",  # local speech to text for web calls (ADR-0019)
+]
+
+[project.optional-dependencies]
+# Local speech to text for web calls (ADR-0019). An extra, not a dependency: the Docker image installs it
+# (uv sync --extra voice); the Vercel function cannot carry the model and runtime, so it ships without it.
+voice = [
+  "faster-whisper>=1.1",
   "av>=15,<16",  # faster-whisper 1.2 passes av.open(metadata_errors=...), which av 16+ no longer accepts
 ]
 

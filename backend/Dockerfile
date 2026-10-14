@@ -5,14 +5,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_COMPILE_BYTECODE=1 UV_LINK_M
 COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /usr/local/bin/uv
 WORKDIR /srv
 COPY backend/pyproject.toml backend/uv.lock ./
-RUN uv sync --locked --no-dev --no-install-project
+RUN uv sync --locked --no-dev --extra voice --no-install-project
 COPY backend/app ./app
 COPY backend/alembic.ini ./alembic.ini
 COPY backend/migrations ./migrations
 COPY prompts ./prompts
 COPY policy ./policy
 COPY evals ./evals
-RUN uv sync --locked --no-dev
+RUN uv sync --locked --no-dev --extra voice
 ENV PATH="/srv/.venv/bin:$PATH"
 RUN useradd --uid 10001 app
 # Web calls (ADR-0019): the Whisper model ships in the image, so a call never waits on a download. Another size

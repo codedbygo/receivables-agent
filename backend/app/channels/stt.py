@@ -1,13 +1,18 @@
 """Speech to text for web calls (ADR-0019): a local Whisper model, so no audio leaves the machine and no key is
-needed. The audio is transcribed in memory and never stored or logged."""
+needed. The audio is transcribed in memory and never stored or logged. Whisper is the optional `voice` extra: where it
+is not installed (the Vercel function) a clip gets VOICE_PROVIDER and the collector types instead."""
 
 import io
 import re
 from functools import cache
 
-from faster_whisper import WhisperModel  # type: ignore[import-untyped]  # the package ships no type hints
-
+from app.core.errors import AppError, ErrorCode
 from app.core.money import format_inr
+
+try:
+    from faster_whisper import WhisperModel  # type: ignore[import-untyped]  # the package ships no type hints
+except ImportError:  # installed without the voice extra
+    WhisperModel = None
 
 SMALL = {
     w: i
@@ -58,6 +63,10 @@ HINT = "Payment call in Indian English. Amounts in rupees, lakh and crore, e.g. 
 
 @cache
 def _model(name: str) -> WhisperModel:
+    if WhisperModel is None:
+        raise AppError(
+            ErrorCode.VOICE_PROVIDER, "Speech input is not installed on this server; type the reply instead."
+        )
     return WhisperModel(name, device="cpu", compute_type="int8")
 
 

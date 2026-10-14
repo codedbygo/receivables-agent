@@ -230,10 +230,8 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
-    { name = "av" },
     { name = "cryptography" },
     { name = "fastapi" },
-    { name = "faster-whisper" },
     { name = "httpx" },
     { name = "mcp" },
     { name = "psycopg", extra = ["binary"] },
@@ -242,6 +240,12 @@ dependencies = [
     { name = "pyyaml" },
     { name = "sqlalchemy" },
     { name = "uvicorn" },
+]
+
+[package.optional-dependencies]
+voice = [
+    { name = "av" },
+    { name = "faster-whisper" },
 ]
 
 [package.dev-dependencies]
@@ -257,10 +261,10 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
-    { name = "av", specifier = ">=15,<16" },
+    { name = "av", marker = "extra == 'voice'", specifier = ">=15,<16" },
     { name = "cryptography", specifier = ">=50" },
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "faster-whisper", specifier = ">=1.1" },
+    { name = "faster-whisper", marker = "extra == 'voice'", specifier = ">=1.1" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "mcp", specifier = ">=2.2,<3" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
@@ -270,6 +274,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
+provides-extras = ["voice"]
 
 [package.metadata.requires-dev]
 dev = [
